@@ -1,0 +1,9 @@
+# small square prefill cells (L_q = L_kv): Triton tutorial, fa2, sdpa_flash, sdpa_cudnn, sdpa_efficient
+phase: [prefill]
+B: [1]
+L: [1024, 4096]
+H_q: 32
+H_kv: 8
+d: 128
+dtype: float16
+causal: true

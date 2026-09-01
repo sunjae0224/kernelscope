@@ -1,0 +1,9 @@
+# Full decode grid (W2). 4 batch sizes x 6 context lengths = 24 cells per plugin.
+phase: [decode]
+B: [1, 4, 16, 64]
+L: [512, 2048, 8192, 16384, 32768, 65536]
+H_q: 32
+H_kv: 8
+d: 128
+dtype: float16
+causal: true

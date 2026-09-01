@@ -1,0 +1,45 @@
+GPGPU-Sim: Configuration options:
+-gpgpu_n_clusters 108
+... (banner omitted) ...
+GPGPU-Sim uArch: performance model initialization complete.
+launching kernel name: _Z6vecAddPKfS0_Pfi uid: 1
+GPGPU-Sim uArch: Shader 0 bind to kernel 1 '_Z6vecAddPKfS0_Pfi'
+GPGPU-Sim: Reconfigure L1 cache to 128 KB
+GPGPU-Sim uArch: cycles simulated: 500  inst.: 715296 (ipc=1430.6) sim_rate=715296 (inst/sec) elapsed = 0:0:01 (mm:ss:hh)
+GPGPU-Sim: ** kernel _Z6vecAddPKfS0_Pfi ends
+GPGPU-Sim: *** kernel finished ***
+kernel_name = _Z6vecAddPKfS0_Pfi
+kernel_launch_uid = 1
+gpu_sim_cycle = 11333
+gpu_sim_insn = 15728640
+gpu_ipc =    1387.8619
+gpu_tot_sim_cycle = 11333
+gpu_tot_sim_insn = 15728640
+gpu_tot_ipc =    1387.8619
+gpu_tot_issued_cta = 4096
+gpu_occupancy = 91.4766%
+gpu_tot_occupancy = 91.4766%
+max_total_param_size = 0
+gpu_stall_dramfull = 0
+gpu_stall_icnt2sh    = 0
+partiton_level_parallism =      34.6965
+partiton_level_parallism_total  =      34.6965
+partiton_level_parallism_util =      66.8167
+partiton_level_parallism_util_total  =      66.8167
+averagemflatency = 410
+total dram reads = 0
+total dram writes = 0
+L2_total_cache_accesses = 393216
+L2_total_cache_misses = 131072
+L2_total_cache_miss_rate = 0.3333
+L2_total_cache_reservation_fails = 0
+Reply_Network_out_buffer_avg_util =       0.3213
+----------------------------END-of-Interconnect-DETAILS-------------------------
+
+
+gpgpu_simulation_time = 0 days, 0 hrs, 0 min, 29 sec (29 sec)
+gpgpu_simulation_rate = 542366 (inst/sec)
+gpgpu_simulation_rate = 390 (cycle/sec)
+gpgpu_silicon_slowdown = 3615384x
+GPGPU-Sim: *** simulation thread exiting ***
+GPGPU-Sim: *** exit detected ***

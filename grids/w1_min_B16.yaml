@@ -1,0 +1,9 @@
+# w1_min, batch-16 half (used to split simulation work across processes)
+phase: [decode]
+B: [16]
+L: [1024, 8192, 32768]
+H_q: 32
+H_kv: 8
+d: 128
+dtype: float16
+causal: true

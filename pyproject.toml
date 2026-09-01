@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kernelscope"
+version = "0.1.0"
+description = "Dual-track (real-HW ncu + Accel-Sim what-if) evaluation harness for GPU inference kernels"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+gpu = ["torch", "flash-attn"]
+viz = ["streamlit", "plotly", "matplotlib"]
+dev = ["pytest"]
+
+[project.scripts]
+kernelscope = "kernelscope.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["kernelscope*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "gpu: needs a CUDA device (deselect with -m 'not gpu')",
+    "ncu: needs Nsight Compute on PATH and counter permission",
+    "accelsim: needs a built Accel-Sim + NVBit tracer",
+]

@@ -1,0 +1,9 @@
+# Simulation smoke: one tiny decode cell (~1M warp-insts -> about a minute of simulation)
+phase: [decode]
+B: [1]
+L: [1024]
+H_q: 32
+H_kv: 8
+d: 128
+dtype: float16
+causal: true

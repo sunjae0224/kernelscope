@@ -1,0 +1,9 @@
+# Prefill grid (W2, real-HW track). L_q = L_kv = L. Simulation track: L <= 4096 only (budget).
+phase: [prefill]
+B: [1, 4]
+L: [512, 2048, 4096, 8192, 16384, 32768]
+H_q: 32
+H_kv: 8
+d: 128
+dtype: float16
+causal: true

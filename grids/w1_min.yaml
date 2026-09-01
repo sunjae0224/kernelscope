@@ -1,0 +1,9 @@
+# W1 minimum grid: decode only, Llama-3-8B head geometry (32 q heads, 8 kv heads, d=128)
+phase: [decode]
+B: [1, 16]
+L: [1024, 8192, 32768]
+H_q: 32
+H_kv: 8
+d: 128
+dtype: float16
+causal: true

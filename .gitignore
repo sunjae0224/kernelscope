@@ -1,0 +1,31 @@
+# experiment artifacts
+results/
+traces/
+*.tracez
+*.traceg
+*.ncu-rep
+*.nsys-rep
+*.parquet
+*.csv
+!tests/fixtures/*.csv
+
+# build / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.streamlit/
+samples/naive_attn/naive_attn
+
+# environments / models
+.venv/
+*.safetensors
+*.bin
+hf_cache/
+
+# editor
+.vscode/
+.idea/
+*.swp

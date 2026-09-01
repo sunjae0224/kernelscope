@@ -1,0 +1,9 @@
+# fp32 decode cells for the sample CUDA binary (naive_exec) and any fp32-capable kernel
+phase: [decode]
+B: [1, 16]
+L: [1024, 8192]
+H_q: 32
+H_kv: 8
+d: 128
+dtype: float32
+causal: true
