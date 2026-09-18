@@ -9,8 +9,11 @@ FRAMEWORK=${ACCELSIM_ROOT:-$WORK/accel-sim-framework}
 mkdir -p "$WORK/logs"
 step() {
     local name=$1; shift
+    local rc=0
     /usr/bin/time -f "$name wall_s=%e exit=%x" -a -o "$WORK/logs/timings.txt" \
-        "$@" > "$WORK/logs/$name.log" 2>&1
+        "$@" > "$WORK/logs/$name.log" 2>&1 || rc=$?
+    if [[ -n "${STEP_ARCHIVE:-}" ]]; then cp "$WORK/logs/$name.log" "$STEP_ARCHIVE/$name.log"; fi
+    return "$rc"
 }
 build_env() {
     export PATH="$BUILD_PREFIX/bin:$PATH"
@@ -49,6 +52,13 @@ build)
             "$FRAMEWORK/gpu-simulator/gpgpu-sim"
         git -C "$FRAMEWORK/gpu-simulator/gpgpu-sim" checkout 91880c53383d5a6a6742bfb1be2c5f34e39c7871
     fi
+    test "$(git -C "$FRAMEWORK/gpu-simulator/gpgpu-sim" rev-parse HEAD)" = 91880c53383d5a6a6742bfb1be2c5f34e39c7871
+    if [[ ! -e "$FRAMEWORK/gpu-simulator/extern/pybind11/.git" ]]; then
+        step clone-pybind git clone https://github.com/pybind/pybind11.git \
+            "$FRAMEWORK/gpu-simulator/extern/pybind11"
+        git -C "$FRAMEWORK/gpu-simulator/extern/pybind11" checkout 296d5d1d3664dd0e0616e81920342e56b7249171
+    fi
+    test "$(git -C "$FRAMEWORK/gpu-simulator/extern/pybind11" rev-parse HEAD)" = 296d5d1d3664dd0e0616e81920342e56b7249171
     source "$FRAMEWORK/gpu-simulator/setup_environment.sh" release
     step configure "$BUILD_PREFIX/bin/cmake" -S "$FRAMEWORK/gpu-simulator" \
         -B "$FRAMEWORK/gpu-simulator/build" -DCMAKE_PREFIX_PATH="$BUILD_PREFIX" \
@@ -79,6 +89,7 @@ gate)
     build_env
     GATE="$WORK/gate-$(date +%Y%m%d-%H%M%S)"
     mkdir -p "$GATE"
+    STEP_ARCHIVE="$GATE"
     # v2.0.0 accepts binary versions 80/86 but not 89. Ampere SASS runs on Ada.
     step vecadd-build "$BUILD_PREFIX/bin/nvcc" -ccbin "$CXX" -arch="${VECADD_ARCH:-sm_86}" \
         -O3 "$REPO/docs/setup/vecadd_4090.cu" -o "$GATE/vecadd"
