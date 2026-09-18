@@ -5,11 +5,15 @@ Artifacts: `/home/skkai/accelsim/`; no system compiler or driver changes.
 
 ## 1. Gate result
 
-**D1 PASS; D2 functional replay PASS; D3 PARTIAL / BLOCKED; D4 deferred.**
+**D1 PASS; D2 functional replay PASS; D3 execution complete (accuracy target NOT met); D4 PASS.**
 
-The toolchain is usable. FA2 B1 ratios meet the 0.7–1.4 target; FlashDecoding
-B1 ratios do not. B16 and naive validation need an idle GPU window, and the
-attention timing model must not yet be described as calibrated.
+All requested hardware cells passed correctness checks; all **42 attention
+variant replays plus one naive base replay** completed cleanly. FA2 B1 ratios
+meet the 0.7–1.4 target. FA2 B16 and all FlashDecoding baseline ratios do not.
+The trace/replay infrastructure and RTX 4090 defaults are ready, while the
+resource/timing model remains **uncalibrated**. The separate warm-cache probes
+and measured partition imbalance below explain why functional success must
+not be presented as timing validation.
 
 The host's driver 580.95.05 successfully ran NVBit 1.8. The unmodified v2.0.0
 simulator replayed a vector-add trace from this RTX 4090 using SM86_RTX3070:
@@ -179,11 +183,27 @@ trace, not just config parsing. These are **vector-add**, not attention, results
 Evidence: `/home/skkai/accelsim/vecadd-variants/summaries.jsonl` and each
 variant's `sim.log` and generated config in that directory.
 
-Attention validation run: `20260918-validation2`. Hardware rows are in
-`results/hw_4090_simtrack/20260918-validation2`; simulator rows are in
-`results/sim_4090/20260918-validation2`. The nested `smoke/` directory is kept
-separate so smoke measurements cannot affect medians in the full table.
-Execution log: `/home/skkai/accelsim/logs/validation-4090-v2.log`.
+Attention validation used the initial `20260918-validation2` run and the
+resumed `20260918-resume` run. Hardware results are under
+`results/hw_4090_simtrack/{20260918-validation2,20260918-resume}`. Simulation
+results are under `results/sim_4090/{20260918-validation2,20260918-resume,20260918-resume-naive}`.
+The nested initial `smoke/` directory is kept separate so it cannot affect
+full-table medians. The final seven-row table and exact count/status audit are
+`results/sim_4090/20260918-complete/{validation.csv,audit.json}`.
+
+Initial execution log: `/home/skkai/accelsim/logs/validation-4090-v2.log`.
+Resumed trace provenance: `/home/skkai/accelsim/kernelscope_sim/20260918-191746-97cb6d/`;
+FA2 and FD replay directories: `20260918-192056-538ae8` and
+`20260918-193150-94a2c5` under the same work root. The trace-preparation-only
+result directory `20260918-resume-traces` deliberately used a zero CPU budget
+(`skipped_budget`) before successful CPU replays; it is not a failed replay
+and is excluded from the final report inputs.
+
+B16 trace windows contained exactly one instrumented FA2 launch out of five,
+two FD launches out of nine, and one naive launch out of four. Other launches
+recorded zero instructions. B16 FA2/FD contained 9473152/4749824 warp instructions;
+naive contained 5577344. Resumed seven-variant cell wall times were 653.72 s
+for FA2 and 1334.03 s for FD (seven CPU workers); naive base took 313.13 s.
 
 | kernel | cell | real kernel_time_us | sim gpu_tot_sim_cycle | sim_us | sim/real |
 |---|---|---:|---:|---:|---:|
@@ -191,14 +211,16 @@ Execution log: `/home/skkai/accelsim/logs/validation-4090-v2.log`.
 | flashdecoding | B1 L1K | 10.016 | 39077 | 15.507 | **1.548 — outside target** |
 | fa2 | B1 L8K | 494.336 | 1300168 | 515.940 | **1.044** |
 | flashdecoding | B1 L8K | 27.456 | 185450 | 73.591 | **2.680 — outside target** |
-| fa2 | B16 L1K | blocked | — | — | — |
-| flashdecoding | B16 L1K | blocked | — | — | — |
-| naive_exec | B1 L1K, fp32 | blocked | — | — | — |
+| fa2 | B16 L1K | 64.303 | 276533 | 109.735 | **1.707 — outside target** |
+| flashdecoding | B16 L1K | 38.2235 | 294358 | 116.809 | **3.056 — outside target** |
+| naive_exec | B1 L1K, fp32 | 465.920 | 837308 | 332.265 | 0.713 |
 
 Clock convention: **sim_us = gpu_tot_sim_cycle / 2520**. The profiler's kernel
 time is compared with simulated cycles; CUDA-event latency is a different
 stored metric and is not used for these ratios. Correctness checks passed for
-all four measured attention cells. Native naive fp32 was built but not measured.
+all six measured attention cells and native naive fp32. For naive, the plugin
+reports CUDA-event timing from its executable rather than torch.profiler;
+that provenance is recorded as `profile="self-reported"` in its summary.
 
 GPU hygiene: a foreign dataset job PID 895484 delayed attention work until
 16:40 KST. The four hardware cells were measured at 0% reported utilization,
@@ -207,7 +229,10 @@ present. The real-HW runner records this PID as a contention warning; those
 warnings are preserved rather than suppressed. A second foreign Python job,
 PID 998528, subsequently occupied about 9 GiB at 67–70% utilization. At the next idle gate a replacement job PID 1017901 was active at 71%;
 the script stopped with `BLOCKED: require idle GPU`. Further hardware
-measurements are blocked until these jobs finish. Neither job was stopped.
+measurements were blocked until these jobs finished. At 19:17 KST the resumed
+check reported 0% utilization with only the desktop viewer present. B16 and
+naive real-HW measurements and all three scoped traces then completed without
+foreign compute jobs. No foreign job was stopped.
 The read-only clock log is `/home/skkai/accelsim/logs/validation-clocks.csv`;
 observed clocks varied, so 2520 MHz is a documented nominal convention, not a
 claim that the GPU was locked to that frequency.
@@ -217,14 +242,23 @@ sensitivities are below 0.2%, giving the same **starved** verdict as A100.
 FlashDecoding B1 L1K is **bandwidth-bound** in this model: halving bandwidth adds
 40.63% cycles and doubling it removes 13.84%. These are simulator sensitivities,
 not validated hardware predictions while its timing ratio is outside target.
-All seven variants completed on each of the four measured attention cells
-(**28/28 clean replays**). FD B1 L8K is bandwidth-bound (+88.71% for half BW,
+All seven variants completed on all six attention cells
+(**42/42 clean replays**); naive base also passed. FD B1 L8K is bandwidth-bound (+88.71% for half BW,
 −37.24% for double BW), unlike the prior A100 parallelism verdict. Its 256-CTA
 main launch fills this GPU; a lower nominal memory bandwidth and different
 cache state are plausible contributors. Doubling SMs actually increases
 cycles 36.09%, while halving them reduces cycles 11.26%, suggesting model
 memory contention; do not interpret these as hardware scaling predictions.
-B16's expected bandwidth/parallelism verdict is still untested.
+FA2 B16 also completed all seven variants: base 276533 cycles, half BW 544812,
+double BW 173224, half SMs 316580, double SMs 278434, half L2 276555,
+double L2 268508. Its cold-cache model is bandwidth-bound (+97.0% for half BW),
+whereas the earlier A100 model was parallelism-bound. FD B16 is also
+bandwidth-bound: base 294358 cycles; half/double BW 594141/185281;
+half/double SMs 284828/468073; half/double L2 300866/293939. Halving bandwidth
+costs 101.8%, qualitatively matching the A100 B16 FD verdict. Its SMx2 slowdown
+(+59.0%) and absolute ratio remain model limitations, not hardware predictions. This difference is
+consistent with the lower external memory bandwidth and the much larger L2
+on the 4090, but the baseline timing ratio is outside target.
 
 Calibration experiments used isolated config copies and the exact same source
 trace. **None of these probes changed the canonical D2 configuration.**
@@ -237,6 +271,8 @@ trace. **None of these probes changed the canonical D2 configuration.**
 | FD B1 L8K; launch latency 5000 → 0 | 185450 | 174091 | 2.516 | launch latency alone does not fix L8K |
 | FD B1 L1K; zero launch delay + one scoped warm-up pair | 39077 | 20982 (second pair only) | **0.831** | exploratory warm-cache convention meets target |
 | FD B1 L8K; zero launch delay + one scoped warm-up pair | 185450 | 72924 (second pair only) | **1.054** | exploratory warm-cache convention meets target |
+| FA2 B16 L1K; zero launch delay + one scoped warm-up | 276533 | 238239 (second pass only) | **1.470 — outside** | improves the ratio but does not meet target |
+| FD B16 L1K; zero launch delay + one scoped warm-up pair | 294358 | 292699 (second pair only) | **3.039 — outside** | warm-up alone does not fix B16 |
 
 Logs and configs: `/home/skkai/accelsim/calibration/{launch0,clock2685,dram_latency190,launch0_L8K}/`.
 Smoke and full runs have distinct trace addresses; the 39074/39077 difference
@@ -250,7 +286,8 @@ within the 4090's 72 MiB L2. Real-HW measurement follows warm-up. In contrast,
 the observed attention `kernelslist.g` files contain only the scoped kernels,
 **no `MemcpyHtoD` prefill entries**, and the B1 L1K FD base replay reports a
 0.9437 L2 miss fraction. Upstream `tracer_tool.cu` records only synchronous
-`API_CUDA_cuMemcpyHtoD_v2`, not the async copy callbacks. A CPU-only experiment repeated exactly the two saved target launches once,
+`API_CUDA_cuMemcpyHtoD_v2`, not the async copy callbacks. A CPU-only experiment repeated exactly the two
+saved target launches once,
 with launch latency set to zero, then measured the second pair by subtracting
 cumulative cycles after the first pair. L8K cumulative cycles were
 `162796, 174091, 235719, 247015`: the measured pair is 72924 cycles (28.938 us).
@@ -259,14 +296,38 @@ L1K cumulative cycles were `24425, 29420, 45408, 50402`: the measured pair is
 L2 miss fraction drops from 0.9699 after the first pair to 0.4850 after both,
 consistent with a mostly warm second pair. These are explicitly **exploratory
 warm-cache results**, not replacements for the baseline table or the stored
-28-variant sweep. No invented prefill records or unfiltered PyTorch traces
-were used. Matching this state across B16 and all what-if variants, and choosing
-an explicit warm-up accounting convention, remains required before promotion.
+42-variant sweep. No invented prefill records or unfiltered PyTorch traces
+were used. The resumed B16 probes did not meet target. FA2 cumulative cycles were
+`272885, 511124` (238239 measured cycles, 992.58 s replay wall time). FD cycles
+were `279481, 283172, 572015, 575871` (292699 measured cycles, 1162.22 s).
+Thus the B1 improvement does not generalize to B16, and these experiments
+must not be promoted as a calibrated warm-cache model. All what-if variants
+would also need validation under any new measurement convention.
 Reproduction scripts, logs, generated configs and JSON summaries are under
 `/home/skkai/accelsim/calibration/warm_launch0_{L1K,L8K}/`; each `replay.py` uses
-only the already saved scoped trace. L1K took 19.06 s; L8K took 200.34 s. The L8K hardware analytic byte rate (1223 GB/s) also
+only the already saved scoped trace. L1K took 19.06 s; L8K took 200.34 s. The L8K hardware analytic byte rate
+(1223 GB/s) also
 exceeds the 1008 GB/s theoretical DRAM rate, consistent with cache reuse, but
 this is not a hardware-counter measurement. ncu remained disabled.
+
+B16 probes live under `/home/skkai/accelsim/calibration/warm_launch0_B16_{fa2,flashdecoding}/`.
+A concrete mapping limitation emerged: `addrdec.cc`'s inherited indexing mode 2
+hashes into 64 slots and then applies `% 48` for this model's 48 subpartitions.
+That operation maps twice as many hash outputs to slices 0–15 as to slices
+16–47. The last sampled FD B16 warm-replay counters confirm the imbalance:
+132738 mean global-read events per slice in 0–15 versus 66271 in 16–47
+(**2.003x**, summing HIT/HIT_RESERVED/MISS/SECTOR_MISS). Evidence and exact
+reproduction: `warm_launch0_B16_flashdecoding/slice_balance.{json,py}`.
+
+The second FA2 pass still misses on about 43.3% of L2 accesses; FD's cumulative
+miss fraction after both passes is 0.7360. Aggregate 72 MiB capacity therefore
+does not imply that the 64 MiB workload remains resident under this mapping.
+This supports mapping/conflict behavior as a remaining model limitation, not a
+measured property of the physical RTX 4090. The pinned source offers mode 6
+(`IPOLY_MODULO`) specifically for non-power-of-two partition counts. It is a
+candidate for a separately validated model revision; it was not silently
+substituted into this baseline's completed what-if sweeps. The cold-cache
+configuration and inherited timing remain explicitly **uncalibrated**.
 
 CPU throughput from vector-add is 524288 / 33.07 = **15,854 warp-inst/s**
 (sm_86 input), or 10,717 warp-inst/s during concurrent source compilation.
@@ -274,10 +335,13 @@ Measured attention base replay rates with four CPU workers are about
 **41,984 warp-inst/s** for FA2 B1 L1K (592072 / 14.102 s), **42,206** for FA2
 B1 L8K (4570312 / 108.287 s), and **29,794** for FD B1 L1K (446040 / 14.971 s).
 FD B1 L8K was slower: **11,638 warp-inst/s** at base (2657824 / 228.371 s)
-and **4,493** with `sm_x2` (591.566 s). The final estimator therefore uses
-**10,000 warp-inst/s** for base planning, replacing the preliminary vector-add
-15,000 estimate. This is not an upper bound on wall time. Use `--sim-rate 4000`
-for a conservative estimate across these seven variants. Each budget estimate
+and **4,493** with `sm_x2` (591.566 s). Resumed FA2 B16 base measured
+**15962 warp-inst/s** (9473152 / 593.484 s).
+FD B16 base measured **7839** (4749824 / 605.914 s), and FD B16 SMx2 measured
+**3591** (1322.586 s). The final estimator therefore uses **5000 warp-inst/s**
+for base planning, replacing the preliminary 15000 then 10000 estimates.
+This is not a wall-time upper bound. Use `--sim-rate 3000` for a conservative
+estimate across the measured seven-variant cases. Each budget estimate
 is per variant; seven variants consume seven replay jobs. These workloads do
 not support one universally accurate instructions/second constant.
 
@@ -327,24 +391,39 @@ capacity-equivalent approximation, not a measurement of physical associativity.
 
 ## 8. Replay and hand-off
 
-The task requires sequential deliverable gates. While D3 is blocked, **D4's
-default-root/default-architecture and README quick-start switch are deferred**.
-The validation script supplies this host's paths and SM89_RTX4090 explicitly,
-so it does not rely on the old A100 defaults. After calibration, set
-`paths.DEFAULT_ROOT` to `/home/skkai/accelsim/accel-sim-framework`, the simsweep
-work directory to `/home/skkai/accelsim/kernelscope_sim`, and architecture to
-`SM89_RTX4090`; device index is already 0. Then update only README quick-start
-paths/environment and finish the outstanding validation cells.
+After all requested D3 executions completed, D4 switched the host defaults:
 
-Once the GPU is idle:
+- `paths.DEFAULT_ROOT`: `/home/skkai/accelsim/accel-sim-framework`;
+  `ACCELSIM_ROOT` continues to override it.
+- `simsweep --work-dir`: `/home/skkai/accelsim/kernelscope_sim`.
+- `simsweep --arch`: `SM89_RTX4090`; device index remains 0.
+- README quick-start environment, device/path arguments and report link now
+  reference this host. Other README sections and the shared report default
+  were outside the requested edit scope and remain unchanged.
+
+Functional completion of D3 allowed these host-path defaults to be enabled;
+the recorded accuracy failures remain open. A candidate replacement for the
+partition hash and a warm-up accounting convention require a new controlled
+calibration run, not relabeling the current results.
+
+Full fresh validation (requires an idle GPU):
 
 ```bash
 cd /home/skkai/AI_Accelerator/kernelscope
 bash docs/setup/validate_4090.sh
-# The script prints its separate HW and simulation result directories.
+```
+
+Reproduce the completed seven-row table from the saved results:
+
+```bash
+cd /home/skkai/AI_Accelerator/kernelscope
 /home/skkai/miniforge3/envs/gradkernel/bin/python -m kernelscope.cli report \
-  --results results/hw_4090_simtrack/20260918-validation2 results/sim_4090/20260918-validation2 \
-  --clock-mhz 2520 --out results/sim_4090/20260918-validation2/validation.csv
+  --results results/hw_4090_simtrack/20260918-validation2 \
+    results/hw_4090_simtrack/20260918-resume \
+    results/sim_4090/20260918-validation2 \
+    results/sim_4090/20260918-resume \
+    results/sim_4090/20260918-resume-naive \
+  --clock-mhz 2520 --out results/sim_4090/20260918-complete/validation.csv
 ```
 
 The validation script refuses a busy GPU, traces only scoped launches, runs
@@ -366,11 +445,18 @@ CPU-only replay after a deliberate config revision (uses a fresh result director
   --results results/sim_4090/revised-model
 ```
 
-The replay helper was exercised on both saved smoke traces with `--variants base`;
-both completed successfully without GPU tracing. Results are in
+The replay helper was exercised on both saved smoke traces with `--variants base`,
+and on the resumed B16/naive traces. `--plugins fa2,flashdecoding` selects a
+subset for a resumed attention replay; `--plugins naive_exec` selects the executable.
+Both original smoke checks completed successfully without GPU tracing. Results are in
 `results/sim_4090/20260918-replay-check`; each copied trace has provenance metadata.
 CPU checks (**69 passed**):
 
 ```bash
 /home/skkai/miniforge3/envs/gradkernel/bin/python -m pytest tests/test_accelsim_*.py tests/test_store.py -q
 ```
+
+Post-D4 CPU verification also checked parsed CLI defaults, all installed tool/config
+paths, and the `ACCELSIM_ROOT` override. All passed. The final audit confirmed
+exactly 43 unique successful variant results and seven successful hardware
+correctness summaries, with no missing or duplicate kernel/workload/variant keys.

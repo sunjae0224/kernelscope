@@ -141,3 +141,56 @@ table: `results/sim_4090/20260918-validation2/validation.csv`. The result direct
 is ignored by git; trace/log provenance lives under `/home/skkai/accelsim/`.
 Reproduce with `bash docs/setup/validate_4090.sh` once the GPU is idle; replay
 saved scoped traces without the GPU using `python -m docs.setup.replay_4090`.
+
+
+## 2026-09-18 — sim track (RTX 4090), resumed validation
+
+**All requested executions completed; D4 host defaults enabled. Timing accuracy
+remains outside target for FA2 B16 and FlashDecoding.** This supersedes the GPU
+block and deferred-default status in the earlier entry without rewriting it.
+
+The GPU was idle at 19:17 KST with only the desktop rerun viewer present.
+B16 FA2/FlashDecoding and naive fp32 passed hardware correctness checks; their
+scoped traces were saved before CPU replay. All **42 attention variants plus
+one naive base replay** finished cleanly. An exact-key audit verified 43 unique
+successful simulator results and seven hardware cells with no missing or
+duplicate results. Final table: `results/sim_4090/20260918-complete/validation.csv`;
+audit/provenance: `audit.json` and `audit.py` in the same directory.
+
+| kernel | resumed cell | real kernel us | sim cycles | sim/real at 2520 MHz |
+|---|---|---:|---:|---:|
+| fa2 | B16 L1K | 64.303 | 276533 | **1.707, outside target** |
+| flashdecoding | B16 L1K | 38.2235 | 294358 | **3.056, outside target** |
+| naive_exec | B1 L1K, fp32 | 465.920 | 837308 | 0.713 |
+
+Both B16 baseline models are bandwidth-bound (+97%/+102% for half BW).
+FlashDecoding agrees qualitatively with the prior A100 verdict; FA2 differs
+from A100's parallelism-bound result. Naive's reference time is self-reported
+CUDA-event timing from the executable; attention uses torch.profiler.
+
+Separate B16 zero-launch-delay plus scoped warm-up probes yielded ratios
+1.470 (FA2) and 3.039 (FD), still outside target. Mode 2's 64-to-48 partition
+hash reduction was found to bias 16 L2 slices: actual FD counters measured
+2.003x more read events per slice there than in the other 32 slices. Thus a
+nominal 72 MiB capacity does not establish correct cache residency. Mode 6
+(IPoly-Modulo) is a candidate for a new controlled calibration revision, not
+a validated replacement. The canonical config was kept fixed for this sweep;
+no exploratory warm-probe numbers were substituted for baseline parquet rows.
+See the [updated gate report](setup/accelsim_4090_gate_report.md) for all seven
+validation rows, knob probes, raw evidence, remaining limitations and commands.
+
+D4 now defaults to `/home/skkai/accelsim/accel-sim-framework`, work directory
+`/home/skkai/accelsim/kernelscope_sim`, architecture `SM89_RTX4090`, device 0.
+`ACCELSIM_ROOT` still overrides the root. README quick-start changes are limited
+to host environment/device/path references. The shared report default remains
+1410 MHz; **always pass `--clock-mhz 2520` for this model**. Analysis, real-HW,
+plugins, run_kernel and the result contract remain untouched.
+
+Resumed FD B16 base throughput was 7839 warp-inst/s and SMx2 was 3591;
+planning now uses **5000**, with `--sim-rate 3000` for conservative planning
+across the measured variants. CLI help reads the live planning constant.
+The replay helper now supports `--plugins` to select saved traces and rejects
+missing requested kernels. **69 simulation/store tests pass** after the D4
+changes; CLI defaults, installed tool/config paths and the root override were
+also checked successfully. The model is usable for explicit experimental
+replay and is not yet a calibrated RTX 4090 performance predictor.

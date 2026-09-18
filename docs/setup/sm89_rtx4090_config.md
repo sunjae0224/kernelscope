@@ -29,7 +29,7 @@ Sources:
 | `gpgpu_dram_burst_length` | 16 | 16 | inherited GDDR model | low |
 | `gpgpu_cache:dl2` geometry | 64 sets x 128 B x 16 ways | 1024 sets x 128 B x 12 ways | 48 slices x 1024 x 128 x 12 = 75,497,472 B; sets/ways chosen for representable capacity, not measured associativity | high capacity / low geometry |
 | `gpgpu_cache:dl2` set index | P | X | IPoly supports only 16/32/64 sets and aborts for 1024; XOR supports this model and all L2 variants | low hardware fidelity |
-| `gpgpu_memory_partition_indexing` | 2 | 2 | inherited IPoly with modulo for non-power-of-two channel count; code supports 24 channels | low hardware fidelity |
+| `gpgpu_memory_partition_indexing` | 2 | 2 | inherited IPoly; 64 hash slots reduced modulo 48; measured 2:1 slice imbalance in B16 (see below) | low hardware fidelity |
 | `gpgpu_shader_registers` / `gpgpu_registers_per_block` | 65536 / 65536 | same | host/Ada | high |
 | `gpgpu_shader_core_pipeline` | 1536:32 | same | host/Ada, 48 resident warps | high |
 | `gpgpu_shader_cta` | 32 | 24 | Ada limit; parent file says 32 even though GA10x hardware allows 16 | high |
@@ -70,3 +70,12 @@ Logs: `/home/skkai/accelsim/logs/vecadd-sm89-{ipoly-failed,model}.log`.
 All seven variants subsequently replayed the native sm_89 vector-add trace
 successfully; see the [gate report](accelsim_4090_gate_report.md#5-simulator-and-validation)
 for measured cycles. Attention calibration is a separate gate.
+
+The resumed B16 calibration exposed a limitation of indexing mode 2: the
+64-to-48 modulo reduction biases slices 0–15. Actual FD replay counters show
+2.003x as many reads per slice there as in slices 16–47. One scoped warm-up
+still leaves FA2/FD B16 sim/real ratios at 1.470/3.039. Mode 6 (IPoly-Modulo)
+is available in the pinned source for non-power-of-two partition counts, but
+has not been validated as a replacement. The current mapping remains a
+low-confidence model assumption; see the gate report for raw evidence and
+avoid treating this resource model as calibrated hardware timing.
