@@ -1,5 +1,6 @@
 # experiment artifacts
 results/
+!kernelscope/results/
 traces/
 *.tracez
 *.traceg
