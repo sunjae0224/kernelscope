@@ -73,3 +73,71 @@ throttles at its 400 W cap on long GEMMs.
 Repo skeleton (separate git, nothing committed); plugins sdpa_*/fa2/flashdecoding; **Accel-Sim W1 gate
 PASSED** (NVBit 1.8 works under driver 595; tracer regex is `std::regex_match` on the mangled name →
 wrapped as `.*(?:re).*`); ncu blocked by DCGM.
+
+
+## 2026-09-18 — sim track (RTX 4090)
+
+**D1 PASS, D2 functional PASS, D3 PARTIAL / BLOCKED; D4 defaults deferred.**
+Work is on `sim-track-4090`. Full evidence, versions, commands, calibration
+probes and remaining limits: [RTX 4090 gate report](setup/accelsim_4090_gate_report.md).
+
+- Built pinned Accel-Sim v2.0.0, NVBit 1.8 and GCC 11 / CMake 3.31 / CUDA 12.9
+  under `/home/skkai/accelsim/` and conda `accelsim-build`; system tools untouched.
+  Driver 580.95.05 tracing passed. Unmodified SM86 gate: 524288 warp instructions,
+  36589 cycles, clean exit. Native binary version 89 needed the documented Ampere
+  opcode-map compatibility patch; this is not complete Ada ISA support.
+- Installed SM89_RTX4090 resource config: 128 SMs, 72 MiB L2, 384-bit bus,
+  2520 MHz core / 5250 MHz DRAM, 24 CTAs/SM. Native-sm89 vector-add and all seven
+  variants passed. Parent HMMA/tensor-core settings were retained. The parent
+  actually uses 16 x 16-bit controllers and CTA limit 32; derivation follows
+  the pinned file rather than the anticipated parent values in the task.
+- Created shared `gradkernel` with torch 2.8.0+cu128 / flash-attn 2.8.3.post1.
+  The requested wheel required glibc 2.32; this host has 2.31, so the exact same
+  version was rebuilt locally (1518.55 s, CUDA 12.9/GCC 11, sm80 SASS). Imports
+  and four real-HW attention correctness checks passed.
+- Completed smoke plus **28/28 attention variant replays** for FA2 and
+  FlashDecoding B1 L1K/L8K. Real profiler / base simulator comparison:
+
+| kernel | cell | real kernel us | sim cycles | sim/real at 2520 MHz |
+|---|---|---:|---:|---:|
+| fa2 | B1 L1K | 63.584 | 170012 | 1.061 |
+| fa2 | B1 L8K | 494.336 | 1300168 | 1.044 |
+| flashdecoding | B1 L1K | 10.016 | 39077 | **1.548, outside target** |
+| flashdecoding | B1 L8K | 27.456 | 185450 | **2.680, outside target** |
+
+FA2's 8-CTA B1 grid covers 6.25% of this GPU; both cells remain starved.
+FlashDecoding is bandwidth-bound in the model (+41%/+89% for half bandwidth),
+but its absolute timing is not calibrated. Isolated clock, DRAM latency and
+zero-launch-delay probes are recorded in the report; no fit-only change was
+promoted to the canonical config. Scoped warm-up experiments support cache-state mismatch: repeating just the
+two captured FD launches with zero launch delay gives second-pair sim/real
+ratios **0.831 (L1K), 1.054 (L8K)**. These exploratory results are separate from
+the baseline parquet table. B16 and all variants still need validation under
+an explicit warm-up accounting convention before adopting it.
+
+B16 L1K and naive fp32 B1 L1K are **not yet measured/replayed**. After idle B1
+measurements, foreign Python jobs resumed (PID 998528, then 1017901); the next
+idle gate stopped at 71% utilization. The desktop rerun viewer remained present
+during idle measurements and its warning is retained in the result records.
+No foreign job was stopped. Naive's Makefile only gained the allowed sm89 gencode;
+its binary built successfully. Per the requested deliverable ordering, old A100
+backend/README defaults remain until D3 is completed. Validation scripts pass
+this host's root, work directory, architecture and device explicitly.
+
+Backend changes: preserve fractional DRAM clocks, detect unsupported binary 89
+and subprocess errors/timeouts, select CUDA 12.9 cuobjdump instead of system 10.1,
+isolate concurrent CPU variant artifacts (`--sim-jobs`, default 1), and expose
+`--sim-rate`. Base FD L8K measured 11638 warp-inst/s; planning now uses 10000.
+SMx2 measured 4493; use `--sim-rate 4000` for conservative seven-variant planning.
+**69 simulation/store CPU tests pass.** Real SM89 stats/stdout fixtures are checked
+in. The previously missing ResultStore was restored as explicitly authorized.
+
+Result contract and `backend="sim:<variant>"` are unchanged. Analysis, real-HW,
+plugins, run_kernel and pyproject were not edited. Always pass `--clock-mhz 2520`
+to the shared report command; its default is still 1410 for A100.
+
+Artifacts: `results/{hw_4090_simtrack,sim_4090}/20260918-validation2`; generated
+table: `results/sim_4090/20260918-validation2/validation.csv`. The result directory
+is ignored by git; trace/log provenance lives under `/home/skkai/accelsim/`.
+Reproduce with `bash docs/setup/validate_4090.sh` once the GPU is idle; replay
+saved scoped traces without the GPU using `python -m docs.setup.replay_4090`.

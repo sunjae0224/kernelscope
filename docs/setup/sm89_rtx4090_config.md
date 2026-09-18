@@ -44,6 +44,7 @@ Sources:
 | `gpgpu_num_sched_per_core` / subcore model | 4 / 1 | same | parent/Ada | high |
 | `gpgpu_tensor_core_avail` | 1 | **1, unchanged** | required; [issue 451](https://github.com/accel-sim/accel-sim-framework/issues/451) | med for common HMMA subset |
 | trace HMMA latency/initiation | 32/32 | same | parent `trace.config`, not Ada-calibrated | low |
+| `gpgpu_kernel_launch_latency` | 5000 | 5000 | inherited; isolated zero-delay calibration probe did not fix FD L8K | low |
 | `gpgpu_l2_rop_latency` / `dram_latency` | 187 / 254 | same | inherited, not measured on Ada | low |
 | DRAM timing string | parent timing string | unchanged | inherited GDDR6 approximation to GDDR6X | low |
 | all other options | parent values | unchanged | no measured basis for changing them | low timing / med structure |
@@ -66,3 +67,6 @@ All seven what-if variants have CPU checks for exactly one changed option.
 The initial L2 IPoly configuration failed before replay; the final XOR version
 replayed vector-add to a clean exit at **18,939 cycles** (sm_86 trace).
 Logs: `/home/skkai/accelsim/logs/vecadd-sm89-{ipoly-failed,model}.log`.
+All seven variants subsequently replayed the native sm_89 vector-add trace
+successfully; see the [gate report](accelsim_4090_gate_report.md#5-simulator-and-validation)
+for measured cycles. Attention calibration is a separate gate.
