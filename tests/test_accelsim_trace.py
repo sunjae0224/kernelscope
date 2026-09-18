@@ -78,9 +78,16 @@ def test_read_trace_stats_gives_warp_instruction_count_per_kernel():
     assert k["warp_insts"] == 524288
 
 
-def test_estimate_uses_planning_rate_of_27500_warp_insts_per_second():
-    assert estimate_sim_seconds(524288) == pytest.approx(524288 / 27_500)
+def test_estimate_uses_host_planning_rate_and_accepts_calibration():
+    assert estimate_sim_seconds(524288) == pytest.approx(524288 / 15_000)
+    assert estimate_sim_seconds(524288, rate=524288 / 33.07) == pytest.approx(33.07)
     assert estimate_sim_seconds(0) == 0
+
+
+@pytest.mark.parametrize("rate", [0, -1, float("nan"), float("inf")])
+def test_invalid_simulation_rates_fail_before_budgeting(rate):
+    with pytest.raises(ValueError, match="finite and positive"):
+        estimate_sim_seconds(100, rate)
 
 
 def test_find_kernelslist_locates_post_processed_list(tmp_path):

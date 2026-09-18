@@ -1,12 +1,15 @@
 """NVBit tracer plumbing: environment, trace-side stats, simulation-time estimate."""
+import math
 import os
 from pathlib import Path
 
 from kernelscope.backends.accelsim.paths import AccelSimPaths
 
-# Accel-Sim 2.0 paper figure (~27.5K warp-instructions/s); the trace-side
-# `total_insts` is warp-level, so est = insts / rate. Planning number, not a promise.
-PLANNING_RATE = 27_500
+# RTX4090 model on this host: 524288 warp inst / 33.07 s = 15.85K/s
+# (vecadd, 2026-09-18); rounded down for planning. Workload and CPU load matter:
+# concurrent compilation reduced the native-sm89 replay to 10.72K/s.
+# See docs/setup/accelsim_4090_gate_report.md; override via simsweep --sim-rate.
+PLANNING_RATE = 15_000
 
 
 def tracer_env(paths: AccelSimPaths, out_dir, kernel_regex: str, device_index: int = 0,
@@ -81,4 +84,6 @@ def find_kernelslist(cell_dir) -> Path | None:
 
 
 def estimate_sim_seconds(warp_insts: int, rate: float = PLANNING_RATE) -> float:
+    if not math.isfinite(rate) or rate <= 0:
+        raise ValueError("simulation rate must be finite and positive (warp instructions/s)")
     return warp_insts / rate

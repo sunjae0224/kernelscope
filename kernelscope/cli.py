@@ -98,12 +98,14 @@ def _cmd_ceilings(args):
 
 
 def _cmd_simsweep(args):
+    from kernelscope.backends.accelsim.trace import PLANNING_RATE
     workloads = _workloads(args)
     sweep = AccelSimSweep(
         store=ResultStore(args.results), paths=AccelSimPaths(args.accelsim_root),
         work_dir=Path(args.work_dir), python_exe=args.python, registry=args.registry,
         device=args.device, device_index=args.device_index, arch=args.arch,
         variants=args.variants.split(","), max_sim_s=args.max_sim_s,
+        sim_rate=PLANNING_RATE if args.sim_rate is None else args.sim_rate,
         sim_timeout_s=args.sim_timeout,
     )
     _run_with_log(sweep, args, workloads)
@@ -147,6 +149,7 @@ def main(argv=None):
     p_sim.add_argument("--arch", default="SM80_A100")
     p_sim.add_argument("--variants", default="base", help="comma-separated: base,l2_x2,l2_half,bw_x2,bw_half,sm_x2,sm_half")
     p_sim.add_argument("--max-sim-s", type=float, default=None, help="skip cells whose estimated sim time exceeds this")
+    p_sim.add_argument("--sim-rate", type=float, default=None, help="measured warp instructions/s for the simulation budget (default: 15000 on this host)")
     p_sim.add_argument("--sim-timeout", type=int, default=24 * 3600)
     p_sim.add_argument("--python", default=sys.executable)
     p_sim.set_defaults(func=_cmd_simsweep)

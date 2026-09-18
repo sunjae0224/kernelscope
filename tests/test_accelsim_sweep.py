@@ -168,7 +168,7 @@ def test_kernelslist_is_filtered_to_regex_matching_kernels_before_simulating(tmp
 
 
 def test_budget_skips_simulation_but_keeps_trace_stats(tmp_path):
-    sweep, calls = _sweep(tmp_path, max_sim_s=1.0)   # est = 524288/27500 ≈ 19 s > 1
+    sweep, calls = _sweep(tmp_path, max_sim_s=1.0)   # 524288 / host planning rate > 1 s
     s = sweep.run_cell("faithful_cpu", W)
     assert s["status"] == "skipped_budget"
     assert s["est_sim_s"] > 1.0

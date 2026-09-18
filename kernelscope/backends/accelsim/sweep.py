@@ -61,6 +61,7 @@ class AccelSimSweep:
         self.arch = arch
         self.variants = list(variants)
         self.max_sim_s = max_sim_s
+        estimate_sim_seconds(0, sim_rate)  # reject invalid budget settings before tracing
         self.sim_rate = sim_rate
         self.trace_timeout_s = trace_timeout_s
         self.sim_timeout_s = sim_timeout_s
