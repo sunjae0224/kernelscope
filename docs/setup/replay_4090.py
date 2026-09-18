@@ -22,10 +22,17 @@ def main():
     ap.add_argument("--work-dir", default="/home/skkai/accelsim/kernelscope_sim")
     ap.add_argument("--accelsim-root", default="/home/skkai/accelsim/accel-sim-framework")
     ap.add_argument("--sim-jobs", type=int, default=4)
+    ap.add_argument("--plugins", help="optional comma-separated subset of source kernels")
     ap.add_argument("--variants", default="base,l2_x2,l2_half,bw_x2,bw_half,sm_x2,sm_half")
     args = ap.parse_args()
     source = ResultStore(args.source_results).load()
     cells = source[(source.backend == "trace") & (source.metric == "warp_insts")]
+    if args.plugins:
+        selected = set(args.plugins.split(","))
+        missing = selected - set(cells.kernel)
+        if missing:
+            raise SystemExit(f"No source traces for: {sorted(missing)}")
+        cells = cells[cells.kernel.isin(selected)]
     if cells.empty or cells.duplicated(["kernel", "workload_key"]).any():
         raise SystemExit("Need exactly one source trace per kernel/workload")
     out = Path(args.results)
