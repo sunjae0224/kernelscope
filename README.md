@@ -30,15 +30,15 @@ confounding) and *what would change it* (counterfactual hardware). See
 ## Quick start
 
 ```bash
-PY=/scratch/uceeeee/conda_envs/gradkernel/bin/python      # always absolute paths on this box
+PY=/home/skkai/miniforge3/envs/gradkernel/bin/python      # always absolute paths on this box
 $PY -m kernelscope.cli list                                # registered plugins
 $PY -m kernelscope.cli ceilings --out results/machine_ceilings.json           # HBM / fp16-GEMM peaks
-CUDA_VISIBLE_DEVICES=1 $PY -m kernelscope.cli sweep --grid grids/w1_min.yaml \
+CUDA_VISIBLE_DEVICES=0 $PY -m kernelscope.cli sweep --grid grids/w1_min.yaml \
     --plugins fa2,flashdecoding,sdpa_flash,sdpa_efficient --results results/hw \
     --ceilings results/machine_ceilings.json --python $PY
-CUDA_VISIBLE_DEVICES=2 $PY -m kernelscope.cli simsweep --grid grids/sim_smoke.yaml \
+CUDA_VISIBLE_DEVICES=0 $PY -m kernelscope.cli simsweep --grid grids/sim_smoke.yaml \
     --plugins fa2,flashdecoding --results results/sim --variants base,bw_x2,bw_half,l2_x2,l2_half,sm_x2,sm_half \
-    --work-dir /var/tmp/uceeeee/kernelscope_sim --device-index 2 --python $PY
+    --work-dir /home/skkai/accelsim/kernelscope_sim --device-index 0 --python $PY
 $PY -m kernelscope.cli report --results results/hw results/sim --out results/summary.csv
 $PY -m kernelscope.cli plot --results results/hw --ceilings results/machine_ceilings.json --out results/roofline.png
 ```
@@ -47,8 +47,8 @@ Measure on an **idle** GPU: check `nvidia-smi` first (the sweep records utilisat
 foreign processes on the target GPU at start and warns). Long-running jobs of your own on
 another GPU are fine; on the same GPU they inflate kernel times several-fold.
 
-`simsweep` needs the built Accel-Sim tree (default `/var/tmp/uceeeee/accelsim/accel-sim-framework`,
-override with `--accelsim-root` or `ACCELSIM_ROOT`); see [docs/setup/accelsim_gate_report.md](docs/setup/accelsim_gate_report.md).
+`simsweep` needs the built Accel-Sim tree (default `/home/skkai/accelsim/accel-sim-framework`,
+override with `--accelsim-root` or `ACCELSIM_ROOT`); see [docs/setup/accelsim_4090_gate_report.md](docs/setup/accelsim_4090_gate_report.md).
 
 ## Layout
 

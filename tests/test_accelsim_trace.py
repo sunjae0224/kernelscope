@@ -88,7 +88,7 @@ def test_read_trace_stats_gives_warp_instruction_count_per_kernel():
 
 
 def test_estimate_uses_host_planning_rate_and_accepts_calibration():
-    assert estimate_sim_seconds(524288) == pytest.approx(524288 / 10_000)
+    assert estimate_sim_seconds(524288) == pytest.approx(524288 / 5_000)
     assert estimate_sim_seconds(524288, rate=524288 / 33.07) == pytest.approx(33.07)
     assert estimate_sim_seconds(0) == 0
 

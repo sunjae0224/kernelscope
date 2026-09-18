@@ -5,12 +5,12 @@ from pathlib import Path
 
 from kernelscope.backends.accelsim.paths import AccelSimPaths
 
-# RTX4090 model on this host (2026-09-18): base FD B1 L8K measured
-# 2657824 warp inst / 228.371 s = 11.64K/s; round down for base planning.
-# Not a wall-time bound: sm_x2 reached only 4.49K/s. For a conservative
-# seven-variant budget use --sim-rate 4000; workload and CPU contention matter.
+# RTX4090 model on this host (2026-09-18): base FD B16 L1K measured
+# 4749824 warp inst / 605.914 s = 7.84K/s; round down for base planning.
+# Not a wall-time bound: sm_x2 reached only 3.59K/s. For a conservative
+# seven-variant budget use --sim-rate 3000; workload and CPU contention matter.
 # See docs/setup/accelsim_4090_gate_report.md.
-PLANNING_RATE = 10_000
+PLANNING_RATE = 5_000
 
 
 def tracer_env(paths: AccelSimPaths, out_dir, kernel_regex: str, device_index: int = 0,
