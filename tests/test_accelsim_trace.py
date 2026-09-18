@@ -89,3 +89,10 @@ def test_find_kernelslist_locates_post_processed_list(tmp_path):
     assert find_kernelslist(tmp_path) is None
     (tmp_path / "traces" / "kernelslist.g").write_text("processed")
     assert find_kernelslist(tmp_path) == tmp_path / "traces" / "kernelslist.g"
+
+
+def test_real_rtx4090_trace_has_nonzero_instructions():
+    stats = read_trace_stats(FIX / "SM89_RTX4090_stats_ctx_vecadd")
+    assert len(stats) == 1
+    assert stats[0]["warp_insts"] == 524288
+    assert stats[0]["grid"] == (4096, 1, 1)

@@ -59,3 +59,22 @@ def test_empty_output_is_incomplete_with_no_totals():
     assert s["status"] == "incomplete"
     assert s["totals"] == {}
     assert s["kernels"] == []
+
+
+def test_native_ada_binary_rejection_is_explicit_even_when_upstream_exits_zero():
+    s = parse_sim_stdout("-binary version = 89\nunsupported binary version: 89\n")
+    assert s["status"] == "unsupported_binary:89"
+
+
+def test_failed_process_or_timeout_cannot_report_success_from_partial_stdout():
+    assert parse_sim_stdout(LOG + "\nKERNELSCOPE_SIM_PROCESS_FAILED returncode=1\n")["status"] == "process_error"
+    assert parse_sim_stdout(LOG + "\nKERNELSCOPE_SIM_TIMEOUT after 30s\n")["status"] == "timeout"
+
+
+def test_real_rtx4090_sm89_trace_replay_fixture():
+    fixture = Path(__file__).parent / "fixtures/SM89_RTX4090_sim_stdout_vecadd.log"
+    parsed = parse_sim_stdout(fixture.read_text())
+    assert parsed["status"] == "ok"
+    assert parsed["totals"]["gpu_tot_sim_cycle"] == 18803
+    assert parsed["totals"]["gpu_tot_sim_insn"] == 15728640
+    assert len(parsed["kernels"]) == 1

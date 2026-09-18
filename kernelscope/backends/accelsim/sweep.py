@@ -1,7 +1,7 @@
 """Simulation track orchestrator: trace once per cell, simulate once per what-if variant.
 
 Pipeline per (plugin, workload):
-  1. trace   — run_kernel --mode ncu --warmup 0 under the NVBit tracer, regex-filtered
+  1. trace   — run_kernel --mode trace with untraced warm-up and one instrumented run
   2. budget  — warp-instruction count from stats_ctx_* -> estimated sim seconds; skip if over
   3. post    — post-traces-processing -> traces/kernelslist.g
   4. sim     — accel-sim.out per variant config, stdout parsed into rows
@@ -91,11 +91,14 @@ class AccelSimSweep:
             proc = subprocess.run(argv, cwd=log_path.parent, capture_output=True, text=True,
                                   timeout=self.sim_timeout_s)
             out, err = proc.stdout, proc.stderr
+            if proc.returncode != 0:
+                err += f"\nKERNELSCOPE_SIM_PROCESS_FAILED returncode={proc.returncode}\n"
         except subprocess.TimeoutExpired as e:
             out = (e.stdout or b"").decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
-            err = f"TIMEOUT after {self.sim_timeout_s}s"
-        log_path.write_text(out + "\n--- stderr ---\n" + err)
-        return out, time.time() - t0
+            err = f"KERNELSCOPE_SIM_TIMEOUT after {self.sim_timeout_s}s"
+        combined = out + "\n--- stderr ---\n" + err
+        log_path.write_text(combined)
+        return combined, time.time() - t0
 
     # ---- one cell ------------------------------------------------------------
 

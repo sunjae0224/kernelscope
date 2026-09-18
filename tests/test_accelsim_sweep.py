@@ -74,6 +74,16 @@ def test_trace_command_warms_up_then_traces_one_run_in_the_profiler_window():
     assert argv[argv.index("--plugin") + 1] == "fa2"
 
 
+def test_real_subprocess_failure_and_stderr_reach_the_parser(tmp_path):
+    from kernelscope.backends.accelsim.stats import parse_sim_stdout
+    sweep, _ = _sweep(tmp_path)
+    argv = [sys.executable, "-c", "import sys; print('ERROR: undefined instruction : ADA_NEW', file=sys.stderr); sys.exit(2)"]
+    stdout, wall = sweep._run_simulate(argv, tmp_path / "failure.log")
+    assert wall >= 0
+    assert "KERNELSCOPE_SIM_PROCESS_FAILED returncode=2" in stdout
+    assert parse_sim_stdout(stdout)["unsupported_opcode"] == "ADA_NEW"
+
+
 def test_postprocess_and_simulate_commands_follow_the_gate_report(tmp_path):
     p = AccelSimPaths(tmp_path)
     assert postprocess_command(p, tmp_path / "cell" / "traces", jobs=8) == [
