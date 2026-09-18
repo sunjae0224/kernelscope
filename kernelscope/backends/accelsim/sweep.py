@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from kernelscope.analysis.trace_mix import instruction_mix
@@ -50,7 +51,7 @@ class AccelSimSweep:
                  registry=DEFAULT_REGISTRY, device="cuda", device_index=0, arch="SM80_A100",
                  variants=("base",), max_sim_s=None, sim_rate=PLANNING_RATE,
                  trace_timeout_s=3600, sim_timeout_s=24 * 3600, run_id=None, trace_warmup=3,
-                 trace_fn=None, postprocess_fn=None, simulate_fn=None):
+                 trace_fn=None, postprocess_fn=None, simulate_fn=None, sim_jobs=1):
         self.store = store
         self.paths = paths
         self.work_dir = Path(work_dir)
@@ -60,9 +61,14 @@ class AccelSimSweep:
         self.device_index = device_index
         self.arch = arch
         self.variants = list(variants)
+        if len(set(self.variants)) != len(self.variants):
+            raise ValueError("variants must be unique to isolate replay artifacts")
         self.max_sim_s = max_sim_s
         estimate_sim_seconds(0, sim_rate)  # reject invalid budget settings before tracing
         self.sim_rate = sim_rate
+        if not isinstance(sim_jobs, int) or sim_jobs < 1:
+            raise ValueError("sim_jobs must be a positive integer")
+        self.sim_jobs = sim_jobs
         self.trace_timeout_s = trace_timeout_s
         self.sim_timeout_s = sim_timeout_s
         self.trace_warmup = trace_warmup
@@ -162,8 +168,16 @@ class AccelSimSweep:
                 if kl is None:
                     raise RuntimeError("post-processing produced no kernelslist.g")
                 filter_kernelslist(kl, [k["trace_file"] for k in stats])
-                for v in self.variants:
-                    rows += self._simulate_variant(plugin, w, v, cell_dir, kl, summary)
+                def simulate_one(variant):
+                    local = {"sim": {}}
+                    result = self._simulate_variant(plugin, w, variant, cell_dir, kl, local)
+                    return result, local["sim"]
+
+                # Only CPU replay is concurrent. GPU tracing stays once per cell.
+                with ThreadPoolExecutor(max_workers=self.sim_jobs) as pool:
+                    for result, statuses in pool.map(simulate_one, self.variants):
+                        rows += result
+                        summary["sim"].update(statuses)
         except (RuntimeError, subprocess.TimeoutExpired, OSError) as e:
             summary["status"] = "error"
             summary["error"] = str(e)
@@ -190,7 +204,8 @@ class AccelSimSweep:
 
     def _simulate_variant(self, plugin, w, variant, cell_dir, kernelslist, summary) -> list[dict]:
         cfg = write_variant_config(self.paths.gpgpusim_config(self.arch), cell_dir / "configs", variant)
-        log_path = cell_dir / f"sim_{variant}.log"
+        # The simulator also writes auxiliary stats in cwd; isolate each variant.
+        log_path = cfg.parent / f"sim_{variant}.log"
         stdout, wall = self._simulate(
             simulate_command(self.paths, kernelslist, cfg, self.paths.trace_config(self.arch)), log_path)
         parsed = parse_sim_stdout(stdout)

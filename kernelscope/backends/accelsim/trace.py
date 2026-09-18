@@ -27,6 +27,11 @@ def tracer_env(paths: AccelSimPaths, out_dir, kernel_regex: str, device_index: i
     Accel-Sim's torch_hook. The regex filter stays active in both modes. (cudaProfilerStart
     from torch does not reach the tracer's ACTIVE_FROM_START=0 path; verified 2026-09-01.)"""
     env = dict(os.environ if base_env is None else base_env)
+    # NVBit invokes cuobjdump/nvdisasm at runtime; the system CUDA 10.1 tools
+    # cannot inspect Ada binaries even when tracer_tool.so was built with 12.9.
+    cuda_root = Path(env.get("ACCELSIM_CUDA_ROOT", "/home/skkai/miniforge3/envs/accelsim-build"))
+    if (cuda_root / "bin" / "cuobjdump").is_file():
+        env["PATH"] = str(cuda_root / "bin") + os.pathsep + env.get("PATH", os.defpath)
     env.update({
         "CUDA_INJECTION64_PATH": str(paths.tracer_so),
         "DYNAMIC_KERNEL_RANGE": f"1-@.*(?:{kernel_regex}).*",

@@ -47,6 +47,15 @@ def test_tracer_env_range_mode_starts_instrumenting_immediately(tmp_path):
     assert env["NVBIT_INSTRUMENTATION_ENABLED"] == "1"
 
 
+def test_tracer_uses_matching_cuda_disassembler_instead_of_system_tool(tmp_path):
+    cuda = tmp_path / "cuda"
+    (cuda / "bin").mkdir(parents=True)
+    (cuda / "bin/cuobjdump").touch()
+    env = tracer_env(AccelSimPaths(tmp_path), tmp_path / "trace", "flash_fwd",
+                     base_env={"ACCELSIM_CUDA_ROOT": str(cuda), "PATH": "/usr/bin"})
+    assert env["PATH"] == str(cuda / "bin") + ":/usr/bin"
+
+
 def test_filter_kernelslist_keeps_only_matching_kernels_and_all_memcpys(tmp_path):
     from kernelscope.backends.accelsim.trace import filter_kernelslist
     kl = tmp_path / "kernelslist.g"
