@@ -27,6 +27,8 @@ class _SDPA(KernelPlugin):
     supports_mask = True      # False -> chunked prefill is not expressible for this backend
 
     def supports(self, w: Workload) -> bool:
+        if w.is_ragged:
+            return False
         if w.phase not in self.phases:
             return False
         return self.supports_mask or not _needs_mask(w)

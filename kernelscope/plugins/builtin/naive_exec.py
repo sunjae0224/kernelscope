@@ -34,6 +34,8 @@ class NaiveDecodeExec(ExecutablePlugin):
         self.binary = Path(binary or os.environ.get("KERNELSCOPE_NAIVE_BIN", DEFAULT_BIN))
 
     def supports(self, w: Workload) -> bool:
+        if w.is_ragged:
+            return False
         return w.phase == "decode" and w.L_q == 1 and w.dtype == "float32" and w.d <= 256
 
     def command(self, w: Workload, iters: int = 1, out_path: str | None = None) -> list[str]:

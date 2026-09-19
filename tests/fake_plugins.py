@@ -13,6 +13,7 @@ class FaithfulCPU(KernelPlugin):
     name = "faithful_cpu"
     phases = frozenset({"decode", "prefill"})
     kernel_regex = "faithful"
+    supports_ragged = True
 
     def build_inputs(self, w):
         g = torch.Generator().manual_seed(0)
@@ -22,10 +23,12 @@ class FaithfulCPU(KernelPlugin):
             "k": torch.randn(w.B, w.L_kv, w.H_kv, w.d, generator=g).to(dt),
             "v": torch.randn(w.B, w.L_kv, w.H_kv, w.d, generator=g).to(dt),
             "causal": w.causal,
+            "kv_lens": w.kv_lens,
         }
 
     def run(self, inputs):
-        return reference_attention(inputs["q"], inputs["k"], inputs["v"], inputs["causal"])
+        return reference_attention(inputs["q"], inputs["k"], inputs["v"], inputs["causal"],
+                                    kv_lens=inputs.get("kv_lens"))
 
     def to_dense_inputs(self, inputs):
         return inputs["q"], inputs["k"], inputs["v"]

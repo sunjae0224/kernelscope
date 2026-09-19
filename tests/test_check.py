@@ -1,9 +1,10 @@
 import torch
 
-from kernelscope.check import check_plugin
+from kernelscope.check import check_outputs, check_plugin
 from kernelscope.plugins.base import KernelPlugin
 from kernelscope.reference import reference_attention
 from kernelscope.workload import Workload
+from tests.fake_plugins import FaithfulCPU
 
 W = Workload(phase="decode", B=2, L_q=1, L_kv=64, H_q=8, H_kv=2, d=16)
 
@@ -65,3 +66,32 @@ def test_shape_mismatch_is_reported_not_raised():
     r = check_plugin(WrongShape(), W, atol=1e-2)
     assert r["ok"] is False
     assert "shape" in r["error"]
+
+
+RAGGED_W = Workload(phase="decode", B=3, L_q=1, L_kv=64, H_q=8, H_kv=2, d=16, dtype="float32",
+                    kv_lens=[64, 5, 30])
+
+
+class IgnoresLengths(FaithfulCPU):
+    """Attends to the whole cache: wrong for a ragged batch."""
+    name = "ignores_lengths"
+
+    def run(self, inputs):
+        return reference_attention(inputs["q"], inputs["k"], inputs["v"], inputs["causal"])
+
+
+def test_check_passes_a_plugin_that_honours_ragged_lengths():
+    r = check_plugin(FaithfulCPU(device="cpu"), RAGGED_W)
+    assert r["ok"] is True, r
+
+
+def test_check_fails_a_plugin_that_ignores_ragged_lengths():
+    r = check_plugin(IgnoresLengths(device="cpu"), RAGGED_W)
+    assert r["ok"] is False
+    assert r["max_abs_diff"] > 1e-2
+
+
+def test_check_outputs_uses_the_given_inputs():
+    p = FaithfulCPU(device="cpu")
+    inputs = p.build_inputs(RAGGED_W)
+    assert check_outputs(p, RAGGED_W, inputs)["ok"] is True

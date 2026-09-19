@@ -16,12 +16,13 @@ class _PluginBase(ABC):
     phases: frozenset
     kernel_regex: str | None      # None = not profilable as a single kernel (reference-only plugins)
     num_launches: int = 1         # hint only; the sweep counts real launches via `run_kernel --mode kernels`
+    supports_ragged = False       # True only if build_inputs/run honour Workload.kv_lens
 
     def __init__(self, device: str = "cuda", **_):
         self.device = device
 
     def supports(self, w: Workload) -> bool:
-        return w.phase in self.phases
+        return w.phase in self.phases and (self.supports_ragged or not w.is_ragged)
 
     def kv_heads_read(self, w: Workload) -> int:
         """How many KV heads the kernel actually streams — feeds the analytic traffic model.
