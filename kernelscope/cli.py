@@ -93,6 +93,19 @@ def _cmd_report(args):
         s.reset_index().to_csv(args.out, index=False)
 
 
+def _cmd_dispatch_table(args):
+    import pandas as pd
+    from kernelscope.analysis.dispatch import dispatch_table, regret_summary
+    df = pd.concat([ResultStore(r).load() for r in args.results], ignore_index=True)
+    t = dispatch_table(df, family=args.family, cache_state=args.cache_state)
+    print(json.dumps(regret_summary(t), indent=2))
+    with pd.option_context("display.width", 250, "display.max_columns", 20, "display.float_format", "{:.4g}".format):
+        print(t.head(10).to_string(index=False))
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        t.to_csv(args.out, index=False)
+
+
 def _cmd_plot(args):
     import pandas as pd
     from kernelscope.analysis.roofline import plot_roofline, roofline_points
@@ -202,6 +215,13 @@ def main(argv=None):
     p_rep.add_argument("--assume-cache-state", choices=["warm", "cold"], default="warm",
                         help="cache state for hardware rows recorded before --cache-state existed")
     p_rep.set_defaults(func=_cmd_report)
+
+    p_disp = sub.add_parser("dispatch-table", help="best interchangeable variant per workload and the library heuristic's regret")
+    p_disp.add_argument("--results", nargs="+", required=True)
+    p_disp.add_argument("--family", choices=["dense", "paged"], default="dense")
+    p_disp.add_argument("--cache-state", choices=["cold", "warm"], default="cold")
+    p_disp.add_argument("--out")
+    p_disp.set_defaults(func=_cmd_dispatch_table)
 
     p_plot = sub.add_parser("plot", help="roofline PNG from the analytic track (+ ceilings)")
     p_plot.add_argument("--results", nargs="+", required=True)
