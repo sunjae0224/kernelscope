@@ -19,8 +19,8 @@ kernelscope는 지금 "커널 하나를 여러 방식으로 재는 하네스"다
 | F2 | flash-attn의 num_splits 휴리스틱은 `num_sm * 2` 슬롯(= SM당 2 CTA)을 가정하고, 시퀀스 길이로 **캐시 용량** `k_cache.size(1)`을 쓴다 | 4090에선 wave 계산이 2배 어긋남 | `flash_api.cpp:316-317`, 검증 |
 | F3 | decode GQA는 q를 재배치해 grid = B × H_kv × splits | fa2 B=1 → 8 CTA / 128 SM | `flash_api.cpp:408`, 검증 |
 | F4 | fa2 decode는 CTA당 순차 루프 지연에 묶인다: ≈ 4 µs + 56.5 ns/key | CTA당 ≈ 9 GB/s (스트리밍 커널의 1/3) | probe1 CSV, 검증 |
-| F5 | DRAM 스트리밍 피크 958 GB/s (G ≥ 96–128에서 포화), CTA 1개는 DRAM 26–28 GB/s, L2 46–52 GB/s | L2 평탄부 ≈ 4.8 TB/s | probe2a |
-| F6 | L2는 72 MiB에서 계단처럼 끊기지 않는다(LRU 아님) | 96 MiB 4.1 TB/s, 128 MiB 1.39 TB/s(역산 적중률 ≈ 39%), 512 MiB 이상 0.96 TB/s | probe2b, 해석은 리뷰어 |
+| F5 | DRAM 스트리밍 피크 953 GB/s (G ≥ 96–128에서 포화), CTA 1개는 DRAM 26 GB/s, L2 46 GB/s | L2 평탄부 ≈ 4.85 TB/s (G = 256) | `kernelscope machine`(Task 10, 반복마다 열을 회전시키는 커널), 프로브와 일치 |
+| F6 | L2 곡선(대역폭 포화 스트리밍): 72 MiB까지 4.85 TB/s 평탄, 80 MiB 4.24, 96 MiB 3.87 TB/s, **128 MiB 이상은 DRAM과 같은 953 GB/s**. 적중과 미스가 동시에 처리되는 모델 bw = min(L2, DRAM/(1−h))로 역산하면 h(96 MiB) = 0.75 = 72/96이고, 128 MiB에서는 0 — 용량을 약간 넘으면 일부를 유지하다가 약 1.7배부터 전부 잃는 절벽 | 직렬 모델(시간 합)은 h(96 MiB) = 0.95로 물리적으로 불가능 | `kernelscope machine`; 해석은 리뷰어. 초기 프로브의 1–32 MiB 이상치는 load 끌어올림과 L1 재사용의 산물 |
 | F7 | 기존 실측은 전부 warm 캐시(L2 flush 없음) → "achieved_gbps"가 DRAM 피크를 넘는다 | FD B16 L1K 1762 GB/s | 인벤토리, 검증 |
 | F8 | **서빙에서 attention은 cold다.** 레이어 l의 attention 사이에 나머지 레이어 가중치 ~15 GB가 L2를 지나간다 | — | 추론(리뷰어). §2의 측정 규약을 결정 |
 | F9 | 균일 배치에서 휴리스틱 손실(최적 고정 split 대비): **cold 중앙값 1.0%, 최대 15.7%** (98셀 중 1셀 > 10%); warm 중앙값 3.2%, 최대 40.4% (36셀 > 10%) | 잡음: p90/중앙값 −1 의 중앙값 0.3% | probe1, 검증 |
@@ -73,7 +73,7 @@ Codex에게 넘길 조정 사항 두 가지(Codex 영역이라 요청만 한다)
 2. **캐시 수준별 바이트 분할**: cold는 전부 DRAM. warm은 작업 집합 W에 대해 적중률 `h(W)`(측정 곡선, F6)로 L2/DRAM을 나눈다.
 3. **CTA 하나의 작업 시간**(SM을 혼자 쓸 때): `t_cta = t0 + bytes_cta · (h / r_l2 + (1−h) / r_dram)`. 여기서 `r_l2, r_dram`은 **커널별 CTA당 처리율**(보정 파라미터, F4: fa2는 ≈ 9 GB/s로 스트리밍 커널의 1/3), `t0`는 CTA 고정 비용.
 4. **병렬성 한계 시간** `t_par`: 이벤트 구동 스케줄러의 makespan. SM마다 슬롯 `c`개, CTA는 측정된 블록→SM 배치 규칙(F19: 블록 i → SM 순서표의 i mod n_sm번째, 몇 번째 wave인지에 따라 그 SM의 k번째 자리)대로 배정한다. **같은 SM에 상주한 CTA는 SM 처리량을 나눠 쓴다**(프로세서 공유: 상주 k개면 각자 속도 × s(k), s(1)=1, s(2)는 보정 — F19에서 긴 CTA가 2배 느려진 현상). 래깅 작업량(F14)이 이 스케줄러에서 자연스럽게 긴 꼬리를 만든다. 수천 CTA도 numpy로 수 ms.
-5. **대역폭 한계 시간** `t_bw = Σ bytes · (h / l2_gbps + (1−h) / dram_gbps)`.
+5. **대역폭 한계 시간** `t_bw = max(Σ bytes / l2_gbps, Σ bytes · (1−h) / dram_gbps)` — 포화 상태에서는 L2 적중과 DRAM 미스가 동시에 처리된다(F6). CTA 하나의 지연(3번)은 직렬 합이 맞다.
 6. **런치 시간** `t = t_launch0 + smoothmax(t_par, t_bw)` (p-노름, p≈4, 꺾임 대신 완만한 전이).
 7. **커널 시간** = 런치 시간의 합(profiler 커널 시간과 같은 정의). 사용자 체감 지연 = 커널 시간 + 플러그인별 `event − kernel` 오프셋(측정 보정).
 
