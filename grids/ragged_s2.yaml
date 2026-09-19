@@ -1,0 +1,11 @@
+# Ragged decode: n_long long sequences + (B - n_long) short ones; B=52 is the S2 threshold
+# where flash-attn's heuristic stops splitting (0.8 * 2 * 128 SMs / H_kv 4 = 51.2) — spec F15
+phase: decode
+H_q: 28
+H_kv: 4
+d: 128
+ragged:
+  B: [16, 32, 48, 52, 64]
+  n_long: [1, 2, 4]
+  L_long: [8192, 16384, 32768]
+  L_short: [512, 1024, 2048]

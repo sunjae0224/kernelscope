@@ -194,3 +194,20 @@ missing requested kernels. **69 simulation/store tests pass** after the D4
 changes; CLI defaults, installed tool/config paths and the root override were
 also checked successfully. The model is usable for explicit experimental
 replay and is not yet a calibrated RTX 4090 performance predictor.
+
+## 2026-09-19 — design-1-3: Phase 0 foundation
+
+Phase 0 measurement campaign complete on the RTX 4090 (worktree `design-1-3`,
+Task 12). GPU idle throughout (only the `rerun` viewer present); no hygiene
+wait needed. `machines/rtx4090.json` measured: DRAM 952.6 GB/s, L2 plateau
+4.85 TB/s, CTA DRAM/L2 26.0/46.4 GB/s, `block_placement.distinct_sms` 128 —
+all matching the design spec's probe facts. New grids `grids/dispatch_s{1,2}.yaml`
+and `grids/ragged_s{1,2}.yaml` (uniform and ragged-batch decode, S1/S2 head
+geometries) drove 8 `bench` runs, 6801 cells total, **0 errors**, in ~10.6 min
+of GPU time (well under the ~1 h estimate). All **five acceptance checks
+pass**: uniform S1 dense cold regret 0.72 %/5.71 % (median/max), warm max
+41.66 %, ragged S1 worst-lens regret 5.85× (in the required 5–10× band),
+`iterations_dropped` ≤ 2 for 100 % of ok cells everywhere, `check_ok` false
+nowhere. Full numbers, per-B fa2 crossover, and the ragged worst-case
+dense-vs-paged comparison (a fact beyond spec F14, which was dense-only) are
+in [docs/plan/2026-09-19-p0-campaign.md](plan/2026-09-19-p0-campaign.md).

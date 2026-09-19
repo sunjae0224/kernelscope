@@ -41,6 +41,23 @@ CUDA_VISIBLE_DEVICES=0 $PY -m kernelscope.cli simsweep --grid grids/sim_smoke.ya
     --work-dir /home/skkai/accelsim/kernelscope_sim --device-index 0 --python $PY
 $PY -m kernelscope.cli report --results results/hw results/sim --out results/summary.csv
 $PY -m kernelscope.cli plot --results results/hw --ceilings results/machine_ceilings.json --out results/roofline.png
+
+# machine spec used by the surrogate performance model (dram/L2 bandwidth, L2 hit curve, block→SM placement)
+$PY -m kernelscope.cli machine --out machines/rtx4090.json
+
+# bench: in-process real-HW batch (no subprocess/ncu per cell) over one or more grids, both cache states in one pass
+$PY -m kernelscope.cli bench --grid grids/dispatch_s1.yaml --plugins fa2,flashdecoding,fd_s8,fd_s16 \
+    --results results/hw_4090/uniform_s1_dense --cache-state cold,warm
+    # --cache-state: 'cold' flushes/re-touches the KV cache between iterations (IterationHooks),
+    # 'warm' does not; a comma list runs one pass per state and both land in the same summaries.jsonl /
+    # parquet with a `cache_state` extra column. An interrupted or timed-out run is safe to re-run:
+    # cells already recorded as `ok` are skipped (resume is automatic, `--no-resume` disables it).
+
+# dispatch-table: best interchangeable variant per workload + the library heuristic's regret against it
+$PY -m kernelscope.cli dispatch-table --results results/hw_4090/uniform_s1_dense --family dense \
+    --cache-state cold --out results/hw_4090/tables/uniform_s1_dense_cold.csv
+    # --family dense|paged selects which kernel variants are interchangeable (fa2/flashdecoding/fd_s{N}
+    # vs their _paged counterparts); prints a regret_summary (median/max/worst-key) plus the table head.
 ```
 
 Measure on an **idle** GPU: check `nvidia-smi` first (the sweep records utilisation and
@@ -69,9 +86,17 @@ kernelscope/
   analysis/
     trace_mix.py         opcode histogram + global bytes from the raw NVBit trace
     report.py            one wide row per (kernel, workload) across tracks + what-if verdict
-  bench/ceilings.py      measured HBM and fp16-GEMM peaks (torch only)
-  results/store.py       long-format parquet, one file per write
-grids/                   workload grids (w1_min, decode_full, prefill, sim_smoke)
+    dispatch.py           dispatch_table / regret_summary: best interchangeable variant per
+                          workload (dense or paged family) and the library heuristic's regret
+  bench/
+    ceilings.py            measured HBM and fp16-GEMM peaks (torch only)
+    machine.py             measure_machine(): full MachineSpec (dram/L2/CTA bandwidths, L2 hit
+                           curve, block→SM placement) written to machines/<gpu>.json
+  results/store.py       long-format parquet, one file per write (`cache_state` extra column
+                         when written by `bench`: 'cold' or 'warm')
+grids/                   workload grids (w1_min, decode_full, prefill, sim_smoke, dispatch_s{1,2},
+                        ragged_s{1,2} — uniform vs. ragged-batch decode shapes for dispatch-table)
+machines/                measured MachineSpec JSON per GPU (`kernelscope machine --out`)
 tests/                   CPU unit tests + gpu-marked integration tests
 docs/plan/               approved plan;  docs/setup/  machine reports;  docs/STATUS.md  progress log
 ```

@@ -1,0 +1,7 @@
+# Uniform decode, Llama-3.1-8B / DeepSeek-R1-Distill-Llama-8B head geometry (spec shape S1)
+phase: decode
+B: [1, 2, 4, 8, 16, 32, 64]
+L: [512, 1024, 2048, 4096, 8192, 16384, 32768]
+H_q: 32
+H_kv: 8
+d: 128
