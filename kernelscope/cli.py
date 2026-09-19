@@ -9,6 +9,7 @@
   kernelscope machine   --out machines/rtx4090.json                      (measured MachineSpec for the surrogate model)
   kernelscope dispatch-table --results DIR [DIR ...] [--family dense|paged] [--cache-state cold|warm] [--out t.csv]
                           (best interchangeable variant per workload + the library heuristic's regret)
+  kernelscope model fit|predict|validate|blocked                        (surrogate performance model)
 """
 import argparse
 import json
@@ -148,6 +149,30 @@ def _cmd_machine(args):
     print(json.dumps({k: v for k, v in spec.items() if k not in ("l2_hit_curve", "block_placement")}, indent=2))
 
 
+def _load_results(dirs):
+    import pandas as pd
+    return pd.concat([ResultStore(r).load() for r in dirs], ignore_index=True)
+
+
+def _ragged_train_half(key: str) -> bool:
+    return sum(map(ord, key)) % 2 == 0
+
+
+def _cmd_model_fit(args):
+    from kernelscope.model.fit import fit_model, prepare_rows
+    from kernelscope.model.machine import MachineSpec
+    from kernelscope.model.params import SPIKE_DEFAULTS
+    m = MachineSpec.from_json(args.machine)
+    rows = prepare_rows(_load_results(args.results), m)
+    if args.train == "uniform":
+        rows = [r for r in rows if not r.workload.is_ragged]
+    else:
+        rows = [r for r in rows if not r.workload.is_ragged or _ragged_train_half(r.workload.key())]
+    params = fit_model(rows, SPIKE_DEFAULTS, max_rows_per_group=args.max_rows, maxiter=args.maxiter)
+    params.to_json(args.out)
+    print(f"wrote {args.out} ({len(rows)} training rows)")
+
+
 def _cmd_simsweep(args):
     from kernelscope.backends.accelsim.trace import PLANNING_RATE
     workloads = _workloads(args)
@@ -264,6 +289,17 @@ def main(argv=None):
     p_mach.add_argument("--device", default="cuda")
     p_mach.add_argument("--no-placement", action="store_true", help="skip the CUDA-extension block-placement probe")
     p_mach.set_defaults(func=_cmd_machine)
+
+    p_model = sub.add_parser("model", help="surrogate performance model: fit / predict / validate / blocked")
+    msub = p_model.add_subparsers(dest="model_cmd", required=True)
+    p_fit = msub.add_parser("fit", help="fit model constants to measured bench results")
+    p_fit.add_argument("--results", nargs="+", required=True)
+    p_fit.add_argument("--machine", default="machines/rtx4090.json")
+    p_fit.add_argument("--out", default="models/rtx4090.json")
+    p_fit.add_argument("--train", choices=["all", "uniform"], default="all")
+    p_fit.add_argument("--max-rows", type=int, default=250)
+    p_fit.add_argument("--maxiter", type=int, default=400)
+    p_fit.set_defaults(func=_cmd_model_fit)
 
     args = ap.parse_args(argv)
     args.func(args)
