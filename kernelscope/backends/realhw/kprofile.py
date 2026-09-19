@@ -66,27 +66,64 @@ def kernel_events_from_chrome_trace(src) -> list[dict]:
     return out
 
 
-def summarize_launches(events: list[dict], kernel_regex: str | None, iters: int) -> dict:
+def summarize_launches(events: list[dict], kernel_regex: str | None, iters: int, marker_regex: str | None = None) -> dict:
+    """Per-launch median duration and geometry of the kernels matching ``kernel_regex``.
+
+    With ``marker_regex`` and marker kernels in the trace, iterations are the matching launches
+    between consecutive markers; iterations whose launch count differs from the most common one
+    (the profiler dropped an event) are discarded and the last ``iters`` good ones summarised.
+    Marker kernels are never counted. Without markers the trace must hold exactly ``iters``
+    iterations (legacy behaviour).
+    """
     rx = re.compile(kernel_regex) if kernel_regex else None
-    matching = [e for e in events if rx and rx.search(e["name"])]
-    unmatched = list(dict.fromkeys(e["name"] for e in events if not (rx and rx.search(e["name"]))))
+    mx = re.compile(marker_regex) if marker_regex else None
+
+    def is_marker(e):
+        return bool(mx and mx.search(e["name"]))
+
+    def matches(e):
+        return bool(rx and rx.search(e["name"])) and not is_marker(e)
+
+    unmatched = list(dict.fromkeys(e["name"] for e in events if not is_marker(e) and not matches(e)))
+    if mx is not None and any(is_marker(e) for e in events):
+        segments, cur = [], None
+        for e in events:
+            if is_marker(e):
+                if cur is not None:
+                    segments.append(cur)
+                cur = []
+            elif cur is not None and matches(e):
+                cur.append(e)
+        if cur is not None:
+            segments.append(cur)
+        per = statistics.mode(len(s) for s in segments)
+        good = [s for s in segments if len(s) == per]
+        used = good[-iters:]
+        out = _launch_summary(used, per, unmatched)
+        out.update(iterations_used=len(used), iterations_dropped=len(segments) - len(good))
+        return out
+    matching = [e for e in events if matches(e)]
     n = len(matching)
     if n % iters:
         raise ValueError(f"{n} matching launches is not a multiple of iters={iters}; "
                          f"launch count varies between iterations?")
     per = n // iters
+    return _launch_summary([matching[k * per:(k + 1) * per] for k in range(iters)], per, unmatched)
+
+
+def _launch_summary(iterations: list[list[dict]], per: int, unmatched: list[str]) -> dict:
+    if per == 0 or not iterations:
+        return {"launches_per_iter": 0, "launches": [], "kernel_time_us_median": None, "unmatched": unmatched}
     launches = []
     for idx in range(per):
-        evs = [matching[k * per + idx] for k in range(iters)]
+        evs = [it[idx] for it in iterations]
         launches.append({
             "idx": idx, "name": evs[0]["name"],
             "dur_us_median": statistics.median(e["dur_us"] for e in evs),
             "grid": evs[0]["grid"], "block": evs[0]["block"],
             "regs": evs[0]["regs"], "smem_bytes": evs[0]["smem_bytes"],
         })
-    total = None
-    if per:
-        total = statistics.median(sum(e["dur_us"] for e in matching[k * per:(k + 1) * per]) for k in range(iters))
+    total = statistics.median(sum(e["dur_us"] for e in it) for it in iterations)
     return {"launches_per_iter": per, "launches": launches, "kernel_time_us_median": total, "unmatched": unmatched}
 
 
