@@ -4,7 +4,10 @@
 crashing kernels) at ~10 s per cell. `bench` measures every (workload, cache state) of each
 plugin inside this process with the same row builders and schema, at well under a second per
 cell. A Python exception in one cell is recorded and the batch continues; a hard crash
-(segfault) ends the process, and `resume` skips cells already measured.
+(segfault) ends the process, and `resume` skips cells already measured. The exception to that
+per-cell isolation is `ProfilerCaptureLost` (torch.profiler recorded no CUDA kernels): that
+cell is recorded as "error" and the whole run stops, since every later cell in this process
+would be affected the same way; re-running the same command resumes where it stopped.
 """
 import json
 import os
@@ -15,6 +18,7 @@ from pathlib import Path
 
 from kernelscope.backends.realhw.cache import IterationHooks
 from kernelscope.backends.realhw.hygiene import gpu_contention, visible_device_index
+from kernelscope.backends.realhw.kprofile import ProfilerCaptureLost
 from kernelscope.backends.realhw.latency import measure_latency
 from kernelscope.backends.realhw.sweep import _row, analytic_rows, profile_rows
 from kernelscope.check import check_outputs
@@ -75,13 +79,18 @@ def run_bench(plugins, workloads, cache_states, store, summaries_path, *, device
                           "reason": "executable plugin (use sweep)" if not isinstance(plugin, KernelPlugin)
                                     else "plugin.supports() is False"})
                 continue
-            _bench_workload(plugin, w, todo, store, emit, base_extra, device=device, warmup=warmup, iters=iters,
-                            pad=pad, ceilings=ceilings, check_max_ref_bytes=check_max_ref_bytes, atol=atol)
+            stopped = _bench_workload(plugin, w, todo, store, emit, base_extra, device=device, warmup=warmup,
+                                       iters=iters, pad=pad, ceilings=ceilings,
+                                       check_max_ref_bytes=check_max_ref_bytes, atol=atol)
+            if stopped:
+                return out
     return out
 
 
 def _bench_workload(plugin, w, states, store, emit, base_extra, *, device, warmup, iters, pad, ceilings,
-                    check_max_ref_bytes, atol):
+                    check_max_ref_bytes, atol) -> bool:
+    """Measure every cache state of one (plugin, workload). Returns True if a
+    ``ProfilerCaptureLost`` stopped the run early (the caller must not attempt further cells)."""
     inputs = None
     check = None
     try:
@@ -95,7 +104,8 @@ def _bench_workload(plugin, w, states, store, emit, base_extra, *, device, warmu
                   "error": f"{type(e).__name__}: {e}"[-2000:]})
         del inputs
         _free(device)
-        return
+        return False
+    stop = False
     for i, st in enumerate(states):
         t0 = time.time()
         s = {"status": "ok", "plugin": plugin.name, "workload_key": w.key(), "cache_state": st,
@@ -120,6 +130,10 @@ def _bench_workload(plugin, w, states, store, emit, base_extra, *, device, warmu
             rows += analytic_rows(w, plugin.name, plugin.kv_heads_read(w), kt, ceilings, cache_state=st)
             s.update(kernel_time_us=kt, latency_us=lat["median_s"] * 1e6, launches=prof["launches_per_iter"],
                      iterations_dropped=prof.get("iterations_dropped"))
+        except ProfilerCaptureLost as e:
+            s["status"] = "error"
+            s["error"] = f"{type(e).__name__}: {e}"[-2000:]
+            stop = True
         except Exception as e:
             s["status"] = "error"
             s["error"] = f"{type(e).__name__}: {e}"[-2000:]
@@ -127,5 +141,8 @@ def _bench_workload(plugin, w, states, store, emit, base_extra, *, device, warmu
             store.write(rows, tag=f"{plugin.name}_{w.key()}_{st}", extra={**base_extra, "cache_state": st})
         s["elapsed_s"] = round(time.time() - t0, 3)
         emit(s)
+        if stop:
+            break
     del inputs
     _free(device)
+    return stop

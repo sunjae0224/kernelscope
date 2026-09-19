@@ -74,9 +74,15 @@ def _cmd_bench(args):
     plugins = [registry.get(n, device=args.device) for n in args.plugins.split(",")]
     ceilings = json.loads(Path(args.ceilings).read_text()) if args.ceilings else None
     results = Path(args.results)
-    run_bench(plugins, workloads, args.cache_state.split(","), ResultStore(results), results / "summaries.jsonl",
-              device=args.device, warmup=args.warmup, iters=args.iters, pad=args.pad, ceilings=ceilings,
-              check_max_ref_bytes=args.check_max_ref_mib << 20, atol=args.atol, resume=not args.no_resume)
+    summaries = run_bench(plugins, workloads, args.cache_state.split(","), ResultStore(results),
+                          results / "summaries.jsonl", device=args.device, warmup=args.warmup, iters=args.iters,
+                          pad=args.pad, ceilings=ceilings, check_max_ref_bytes=args.check_max_ref_mib << 20,
+                          atol=args.atol, resume=not args.no_resume)
+    if any(s.get("status") == "error" and s.get("error", "").startswith("ProfilerCaptureLost")
+           for s in summaries):
+        print("bench: torch.profiler stopped recording CUDA kernels in this process; "
+              "re-run the same command (bench resumes where it stopped)")
+        raise SystemExit(3)
 
 
 def _cmd_report(args):

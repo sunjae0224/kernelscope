@@ -4,8 +4,9 @@ from types import SimpleNamespace
 import pytest
 
 from kernelscope.backends.realhw.kprofile import (
-    A100_PROPS, RTX4090_PROPS, blocks_per_sm_limit, kernel_events_from_chrome_trace,
-    occupancy_estimate, props_from_torch, summarize_launches,
+    A100_PROPS, RTX4090_PROPS, ProfilerCaptureLost, blocks_per_sm_limit,
+    kernel_events_from_chrome_trace, occupancy_estimate, props_from_torch, require_kernel_events,
+    summarize_launches,
 )
 
 
@@ -186,3 +187,17 @@ def test_marker_regex_without_markers_in_the_trace_falls_back_to_the_legacy_path
     ev = kernel_events_from_chrome_trace(TRACE)
     s = summarize_launches(ev, "flash_fwd", iters=2, marker_regex=MRX)
     assert s["kernel_time_us_median"] == 13.5
+
+
+def test_require_kernel_events_raises_on_an_empty_cuda_capture():
+    with pytest.raises(ProfilerCaptureLost):
+        require_kernel_events([], "cuda")
+
+
+def test_require_kernel_events_allows_an_empty_capture_on_cpu():
+    require_kernel_events([], "cpu")
+
+
+def test_require_kernel_events_allows_a_nonempty_cuda_capture():
+    ev = kernel_events_from_chrome_trace(TRACE)
+    require_kernel_events(ev[:1], "cuda")

@@ -50,6 +50,24 @@ def props_from_torch(device="cuda") -> dict:
     }
 
 
+class ProfilerCaptureLost(RuntimeError):
+    """torch.profiler recorded zero CUDA kernel events for what should have been a CUDA run."""
+
+
+def require_kernel_events(events: list[dict], device: str) -> None:
+    """Raise ``ProfilerCaptureLost`` if a CUDA run's profiler trace holds no kernel events.
+
+    Any real CUDA run launches at least the plugin's own kernel (and, with active
+    IterationHooks, the boundary marker/flush kernels too), so an empty kernel-event list on a
+    CUDA device means the profiler failed to capture, not that nothing ran."""
+    if str(device).startswith("cuda") and not events:
+        raise ProfilerCaptureLost(
+            "torch.profiler recorded no CUDA kernels in a process that profiled before; "
+            "known torch 2.8 / CUPTI behaviour after a pause between sessions; "
+            "re-run in a fresh process -- `bench` resumes where it stopped"
+        )
+
+
 def kernel_events_from_chrome_trace(src) -> list[dict]:
     obj = src if isinstance(src, dict) else json.loads(Path(src).read_text())
     out = []

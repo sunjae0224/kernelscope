@@ -90,7 +90,8 @@ def profile_launches(plugin, inputs, device: str, iters: int, hooks=None, pad: i
     import tempfile
     from torch.profiler import ProfilerActivity, profile
     from kernelscope.backends.realhw.kprofile import (
-        kernel_events_from_chrome_trace, occupancy_estimate, props_from_torch, summarize_launches)
+        kernel_events_from_chrome_trace, occupancy_estimate, props_from_torch, require_kernel_events,
+        summarize_launches)
     active = hooks is not None and hooks.active
     runs = iters + (pad if active else 0)
     activities = [ProfilerActivity.CPU]
@@ -106,6 +107,7 @@ def profile_launches(plugin, inputs, device: str, iters: int, hooks=None, pad: i
         path = tmp.name
     prof.export_chrome_trace(path)
     events = kernel_events_from_chrome_trace(path)
+    require_kernel_events(events, device)
     os.unlink(path)
     summary = summarize_launches(events, plugin.kernel_regex, iters, marker_regex=MARKER_REGEX if active else None)
     props = props_from_torch(device) if device.startswith("cuda") else None

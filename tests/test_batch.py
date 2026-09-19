@@ -72,6 +72,21 @@ def test_check_is_skipped_when_the_reference_would_be_too_large(tmp_path, fake_p
     assert df[df.backend == "check"].empty
 
 
+def test_profiler_capture_lost_stops_the_whole_run(tmp_path, monkeypatch):
+    from kernelscope.backends.realhw.kprofile import ProfilerCaptureLost
+
+    def _boom(*a, **k):
+        raise ProfilerCaptureLost("torch.profiler recorded no CUDA kernels in a process that profiled before")
+
+    monkeypatch.setattr(batch, "profile_launches", _boom)
+    out, _, summ = _run(tmp_path, [FaithfulCPU(device="cpu")], [W1, W2], states=("cold",))
+    assert len(out) == 1
+    assert out[0]["status"] == "error"
+    assert "profiler" in out[0]["error"].lower()
+    lines = [json.loads(l) for l in summ.read_text().splitlines()]
+    assert len(lines) == 1
+
+
 @pytest.mark.gpu
 def test_bench_on_real_flash_kernels(tmp_path):
     torch = pytest.importorskip("torch")
