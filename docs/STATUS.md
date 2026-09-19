@@ -206,8 +206,10 @@ and `grids/ragged_s{1,2}.yaml` (uniform and ragged-batch decode, S1/S2 head
 geometries) drove 8 `bench` runs, 6801 cells total, **0 errors**, in ~10.6 min
 of GPU time (well under the ~1 h estimate). All **five acceptance checks
 pass**: uniform S1 dense cold regret 0.72 %/5.71 % (median/max), warm max
-41.66 %, ragged S1 worst-lens regret 5.85× (in the required 5–10× band),
-`iterations_dropped` ≤ 2 for 100 % of ok cells everywhere, `check_ok` false
-nowhere. Full numbers, per-B fa2 crossover, and the ragged worst-case
-dense-vs-paged comparison (a fact beyond spec F14, which was dense-only) are
+41.66 %; the ragged check cell's heuristic is 6.85× slower than the best
+fixed split (required 5–10×); the worst ragged cell is 12.5× slower on the
+dense path and 3.8× on the paged path; `iterations_dropped` ≤ 2 for 100 % of
+ok cells everywhere, `check_ok` false nowhere. Full numbers, per-B fa2
+crossover, and the ragged worst-case dense-vs-paged comparison (a fact beyond
+spec F14, which was dense-only) are
 in [docs/plan/2026-09-19-p0-campaign.md](plan/2026-09-19-p0-campaign.md).
