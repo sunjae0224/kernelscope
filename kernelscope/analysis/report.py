@@ -8,9 +8,36 @@ sim_vs_kernel_time, sens_<variant> = cycles_variant / cycles_base - 1.
 import pandas as pd
 
 CLOCK_MHZ_A100 = 1410.0
-KEY = ["kernel", "workload_key"]
+ARCH_CLOCK_MHZ = {"SM80_A100": CLOCK_MHZ_A100, "SM89_RTX4090": 2520.0}
+KEY = ["kernel", "workload_key", "cache_state"]
 _SENS_THRESHOLD = 0.05
 _RESOURCE = {"bw": "bandwidth-bound", "sm": "parallelism-bound", "l2": "L2-capacity-bound"}
+
+
+def _with_cache_state(df: pd.DataFrame, assume: str) -> pd.DataFrame:
+    """Hardware rows carry the cache state they were measured in (rows written before
+    --cache-state existed get ``assume``); a simulator replay always starts cold."""
+    df = df.copy()
+    if "cache_state" not in df.columns:
+        df["cache_state"] = None
+    df["cache_state"] = df["cache_state"].astype(object)
+    df.loc[df.backend.str.startswith("sim:"), "cache_state"] = "cold"
+    df["cache_state"] = df["cache_state"].fillna(assume)
+    return df
+
+
+def _sim_clock(df: pd.DataFrame, clock_mhz) -> float | None:
+    if clock_mhz:
+        return float(clock_mhz)
+    sim = df[df.backend.str.startswith("sim:")]
+    if sim.empty:
+        return None
+    if "clock_mhz" in sim.columns and sim["clock_mhz"].notna().all() and sim["clock_mhz"].nunique() == 1:
+        return float(sim["clock_mhz"].iloc[0])
+    archs = set(sim["arch"].dropna()) if "arch" in sim.columns else set()
+    if len(archs) == 1 and next(iter(archs)) in ARCH_CLOCK_MHZ:
+        return ARCH_CLOCK_MHZ[next(iter(archs))]
+    raise ValueError(f"cannot infer the simulator core clock (arch={sorted(archs) or 'unknown'}); pass --clock-mhz")
 
 
 def _pick(df, backend, metric, launch_idx=None):
@@ -20,7 +47,9 @@ def _pick(df, backend, metric, launch_idx=None):
     return sub.groupby(KEY)["value"].median()
 
 
-def summarize(df: pd.DataFrame, clock_mhz: float = CLOCK_MHZ_A100) -> pd.DataFrame:
+def summarize(df: pd.DataFrame, clock_mhz: float = None, assume_cache_state: str = "warm") -> pd.DataFrame:
+    df = _with_cache_state(df, assume_cache_state)
+    clock = _sim_clock(df, clock_mhz)
     cols = {
         "latency_us": _pick(df, "latency", "median_s") * 1e6,
         "kernel_time_us": _pick(df, "profile", "kernel_time_us"),
@@ -40,7 +69,7 @@ def summarize(df: pd.DataFrame, clock_mhz: float = CLOCK_MHZ_A100) -> pd.DataFra
     out = out.dropna(axis=1, how="all")
     out.index.names = KEY
     if "sim_cycles_base" in out.columns:
-        out["sim_us_base"] = out["sim_cycles_base"] / clock_mhz
+        out["sim_us_base"] = out["sim_cycles_base"] / clock
         if "kernel_time_us" in out.columns:
             out["sim_vs_kernel_time"] = out["sim_us_base"] / out["kernel_time_us"]
         for v in variants:

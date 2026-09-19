@@ -85,7 +85,7 @@ def _cmd_report(args):
     df = pd.concat([ResultStore(r).load() for r in args.results], ignore_index=True)
     if df.empty:
         raise SystemExit("report: no rows found under " + ", ".join(args.results))
-    s = with_verdicts(summarize(df, clock_mhz=args.clock_mhz))
+    s = with_verdicts(summarize(df, clock_mhz=args.clock_mhz, assume_cache_state=args.assume_cache_state))
     with pd.option_context("display.width", 250, "display.max_columns", 40, "display.float_format", "{:.4g}".format):
         print(s.to_string())
     if args.out:
@@ -197,7 +197,10 @@ def main(argv=None):
     p_rep = sub.add_parser("report", help="one wide row per (kernel, workload) across all tracks + what-if verdict")
     p_rep.add_argument("--results", nargs="+", required=True, help="one or more result dirs (real-HW and sim can be joined)")
     p_rep.add_argument("--out", help="write the table as CSV")
-    p_rep.add_argument("--clock-mhz", type=float, default=1410.0, help="core clock to convert sim cycles to µs")
+    p_rep.add_argument("--clock-mhz", type=float, default=None,
+                        help="core clock to convert sim cycles to µs (default: from the simulated arch)")
+    p_rep.add_argument("--assume-cache-state", choices=["warm", "cold"], default="warm",
+                        help="cache state for hardware rows recorded before --cache-state existed")
     p_rep.set_defaults(func=_cmd_report)
 
     p_plot = sub.add_parser("plot", help="roofline PNG from the analytic track (+ ceilings)")
