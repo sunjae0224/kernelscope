@@ -168,9 +168,32 @@ def _cmd_model_fit(args):
         rows = [r for r in rows if not r.workload.is_ragged]
     else:
         rows = [r for r in rows if not r.workload.is_ragged or _ragged_train_half(r.workload.key())]
+    if args.uniform_train_grid:
+        from kernelscope.model.validate import TRAIN_B, TRAIN_L
+        rows = [r for r in rows if r.workload.is_ragged or (r.workload.B in TRAIN_B and r.workload.L_kv in TRAIN_L
+                                                            and r.workload.H_kv == 8)]
     params = fit_model(rows, SPIKE_DEFAULTS, max_rows_per_group=args.max_rows, maxiter=args.maxiter)
     params.to_json(args.out)
     print(f"wrote {args.out} ({len(rows)} training rows)")
+
+
+def _cmd_model_validate(args):
+    from kernelscope.model.fit import prepare_rows
+    from kernelscope.model.machine import MachineSpec
+    from kernelscope.model.params import ModelParams
+    from kernelscope.model.validate import markdown, report
+    m = MachineSpec.from_json(args.machine)
+    rows = prepare_rows(_load_results(args.results), m)
+    full = ModelParams.from_json(args.params)
+    uni = ModelParams.from_json(args.params_uniform) if args.params_uniform else full
+    states = sorted({r.cache_state for r in rows})
+    results = [report(rows, full, s, c) for s in ("V1", "V5") for c in states]
+    results += [report(rows, uni, "V6", c) for c in states]
+    md = markdown([r for r in results if r["n"]])
+    print(md)
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(md)
 
 
 def _cmd_simsweep(args):
@@ -299,7 +322,16 @@ def main(argv=None):
     p_fit.add_argument("--train", choices=["all", "uniform"], default="all")
     p_fit.add_argument("--max-rows", type=int, default=250)
     p_fit.add_argument("--maxiter", type=int, default=400)
+    p_fit.add_argument("--uniform-train-grid", action=argparse.BooleanOptionalAction, default=True)
     p_fit.set_defaults(func=_cmd_model_fit)
+
+    p_val = msub.add_parser("validate", help="validate the fitted model against held-out sets (V1/V2/V5/V6)")
+    p_val.add_argument("--results", nargs="+", required=True)
+    p_val.add_argument("--machine", default="machines/rtx4090.json")
+    p_val.add_argument("--params", required=True)
+    p_val.add_argument("--params-uniform")
+    p_val.add_argument("--out")
+    p_val.set_defaults(func=_cmd_model_validate)
 
     args = ap.parse_args(argv)
     args.func(args)
