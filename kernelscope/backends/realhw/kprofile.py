@@ -11,28 +11,43 @@ import re
 import statistics
 from pathlib import Path
 
+# Per-compute-capability limits torch does not expose (CUDA C Programming Guide,
+# "Technical Specifications per Compute Capability").
+MAX_BLOCKS_PER_SM = {(7, 0): 32, (7, 5): 16, (8, 0): 32, (8, 6): 16, (8, 7): 16, (8, 9): 24, (9, 0): 32}
+SMEM_PER_SM = {(7, 0): 98304, (7, 5): 65536, (8, 0): 167936, (8, 6): 102400, (8, 7): 167936,
+               (8, 9): 102400, (9, 0): 233472}
+REG_ALLOC_UNIT = 256          # registers are allocated per warp in units of 256 (CC 7.x-9.x)
+
 A100_PROPS = {
-    "num_sms": 108, "max_threads_per_sm": 2048, "regs_per_sm": 65536,
-    "smem_per_sm": 167936, "max_blocks_per_sm": 32, "warp_size": 32, "max_warps_per_sm": 64,
+    "name": "NVIDIA A100-SXM4-80GB", "cc": "8.0", "num_sms": 108, "max_threads_per_sm": 2048,
+    "regs_per_sm": 65536, "smem_per_sm": 167936, "max_blocks_per_sm": 32,
+    "reserved_smem_per_block": 1024, "warp_size": 32, "max_warps_per_sm": 64, "l2_bytes": 41943040,
+}
+RTX4090_PROPS = {
+    "name": "NVIDIA GeForce RTX 4090", "cc": "8.9", "num_sms": 128, "max_threads_per_sm": 1536,
+    "regs_per_sm": 65536, "smem_per_sm": 102400, "max_blocks_per_sm": 24,
+    "reserved_smem_per_block": 1024, "warp_size": 32, "max_warps_per_sm": 48, "l2_bytes": 75497472,
 }
 
 
 def props_from_torch(device="cuda") -> dict:
-    try:
-        import torch
-        p = torch.cuda.get_device_properties(device)
-        return {
-            "num_sms": p.multi_processor_count,
-            "max_threads_per_sm": p.max_threads_per_multi_processor,
-            "regs_per_sm": getattr(p, "regs_per_multiprocessor", A100_PROPS["regs_per_sm"]),
-            "smem_per_sm": getattr(p, "shared_memory_per_multiprocessor", A100_PROPS["smem_per_sm"]),
-            "max_blocks_per_sm": A100_PROPS["max_blocks_per_sm"],
-            "warp_size": p.warp_size,
-            "max_warps_per_sm": p.max_threads_per_multi_processor // p.warp_size,
-            "name": p.name,
-        }
-    except Exception:
-        return dict(A100_PROPS)
+    """Occupancy-relevant limits of the current device. Raises if CUDA is unavailable."""
+    import torch
+    p = torch.cuda.get_device_properties(device)
+    cc = (p.major, p.minor)
+    return {
+        "name": p.name,
+        "cc": f"{p.major}.{p.minor}",
+        "num_sms": p.multi_processor_count,
+        "max_threads_per_sm": p.max_threads_per_multi_processor,
+        "regs_per_sm": getattr(p, "regs_per_multiprocessor", 65536),
+        "smem_per_sm": getattr(p, "shared_memory_per_multiprocessor", SMEM_PER_SM.get(cc, 65536)),
+        "max_blocks_per_sm": MAX_BLOCKS_PER_SM.get(cc, 16),
+        "reserved_smem_per_block": 1024 if p.major >= 8 else 0,
+        "warp_size": p.warp_size,
+        "max_warps_per_sm": p.max_threads_per_multi_processor // p.warp_size,
+        "l2_bytes": p.L2_cache_size,
+    }
 
 
 def kernel_events_from_chrome_trace(src) -> list[dict]:
@@ -75,20 +90,27 @@ def summarize_launches(events: list[dict], kernel_regex: str | None, iters: int)
     return {"launches_per_iter": per, "launches": launches, "kernel_time_us_median": total, "unmatched": unmatched}
 
 
-def occupancy_estimate(grid, block, regs, smem_bytes, props=A100_PROPS) -> dict:
-    """First-wave occupancy from launch geometry + per-thread resources.
+def blocks_per_sm_limit(threads, regs, smem_bytes, props) -> tuple[int, str]:
+    """Resident CTAs per SM and the resource that limits it (CUDA occupancy-calculator rules:
+    per-warp register allocation in units of 256, 1 KiB shared memory reserved per block)."""
+    warp = props["warp_size"]
+    warps_per_block = math.ceil(threads / warp)
+    by = {"threads": props["max_threads_per_sm"] // threads, "blocks": props["max_blocks_per_sm"]}
+    if regs:
+        per_warp = math.ceil(regs * warp / REG_ALLOC_UNIT) * REG_ALLOC_UNIT
+        by["regs"] = (props["regs_per_sm"] // per_warp) // warps_per_block
+    if smem_bytes:
+        by["smem"] = props["smem_per_sm"] // (smem_bytes + props.get("reserved_smem_per_block", 0))
+    limiter = min(by, key=by.get)
+    return int(by[limiter]), limiter
 
-    Ignores register-allocation granularity, so ``blocks_per_sm_limit`` can be
-    one too high in edge cases; the profiler's own "warps per SM" agrees with
-    ``warps_per_sm_device`` for the kernels checked so far.
-    """
+
+def occupancy_estimate(grid, block, regs, smem_bytes, props=A100_PROPS) -> dict:
+    """First-wave occupancy from launch geometry + per-thread resources."""
     blocks = math.prod(grid)
     threads = math.prod(block)
     warps_per_block = math.ceil(threads / props["warp_size"])
-    by_threads = props["max_threads_per_sm"] // threads
-    by_regs = props["regs_per_sm"] // (regs * threads) if regs else math.inf
-    by_smem = props["smem_per_sm"] // smem_bytes if smem_bytes else math.inf
-    limit = int(min(by_threads, by_regs, by_smem, props["max_blocks_per_sm"]))
+    limit, _ = blocks_per_sm_limit(threads, regs, smem_bytes, props)
     num_sms = props["num_sms"]
     sm_coverage = min(1.0, blocks / num_sms)
     blocks_per_active_sm = min(limit, math.ceil(blocks / num_sms))

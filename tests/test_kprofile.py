@@ -1,9 +1,11 @@
 import json
+from types import SimpleNamespace
 
 import pytest
 
 from kernelscope.backends.realhw.kprofile import (
-    A100_PROPS, kernel_events_from_chrome_trace, occupancy_estimate, summarize_launches,
+    A100_PROPS, RTX4090_PROPS, blocks_per_sm_limit, kernel_events_from_chrome_trace,
+    occupancy_estimate, props_from_torch, summarize_launches,
 )
 
 
@@ -76,3 +78,54 @@ def test_occupancy_estimate_for_a_grid_larger_than_the_gpu():
     assert o["blocks_per_sm_limit"] == 8                 # threads: 2048/256 = 8 (regs 65536/8192 = 8, smem inf)
     assert o["warps_per_active_sm"] == 64                # 8 blocks x 8 warps saturates the SM
     assert o["occupancy_active_sm"] == 1.0
+
+
+def test_splitkv_kernel_fits_once_per_sm_on_ada_because_of_shared_memory():
+    # flash_fwd_splitkv_kernel, d=128, measured on the 4090: 128 threads, 244 regs, 80 KiB smem
+    assert blocks_per_sm_limit(128, 244, 81920, RTX4090_PROPS) == (1, "smem")
+
+
+def test_splitkv_kernel_fits_twice_per_sm_on_a100():
+    assert blocks_per_sm_limit(128, 244, 81920, A100_PROPS)[0] == 2
+
+
+def test_fa2_decode_kernel_is_register_limited_to_two_per_sm_on_ada():
+    # 255 regs * 32 lanes = 8160 -> 8192 per warp -> 8 warps/SM -> 2 blocks of 4 warps
+    assert blocks_per_sm_limit(128, 255, 49152, RTX4090_PROPS) == (2, "regs")
+
+
+def test_combine_kernel_limit_matches_the_profiler_on_ada():
+    assert blocks_per_sm_limit(128, 52, 160, RTX4090_PROPS) == (9, "regs")
+
+
+def test_register_allocation_rounds_up_to_256_per_warp():
+    # 44 regs * 32 = 1408 -> 1536 per warp -> 42 warps -> 21 blocks of 2 warps (23 without rounding)
+    assert blocks_per_sm_limit(64, 44, 0, RTX4090_PROPS) == (21, "regs")
+
+
+def test_cta_cap_limits_tiny_blocks():
+    assert blocks_per_sm_limit(32, 16, 0, RTX4090_PROPS) == (24, "blocks")
+
+
+def _fake_props(**drop):
+    p = dict(name="NVIDIA GeForce RTX 4090", major=8, minor=9, multi_processor_count=128,
+             max_threads_per_multi_processor=1536, regs_per_multiprocessor=65536,
+             shared_memory_per_multiprocessor=102400, warp_size=32, L2_cache_size=75497472)
+    for k in drop:
+        p.pop(k)
+    return SimpleNamespace(**p)
+
+
+def test_props_from_torch_reads_the_device_and_takes_the_cta_cap_from_the_compute_capability(monkeypatch):
+    import torch
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda device=None: _fake_props())
+    assert props_from_torch("cuda") == RTX4090_PROPS
+
+
+def test_props_from_torch_falls_back_to_the_cc_table_for_missing_fields(monkeypatch):
+    import torch
+    fake = _fake_props(regs_per_multiprocessor=1, shared_memory_per_multiprocessor=1)
+    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda device=None: fake)
+    p = props_from_torch("cuda")
+    assert p["smem_per_sm"] == 102400
+    assert p["regs_per_sm"] == 65536
