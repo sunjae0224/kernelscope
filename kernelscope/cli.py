@@ -6,6 +6,9 @@
   kernelscope bench     --grid g.yaml | --workload KEY --plugins a,b --results DIR [--cache-state cold,warm]  (in-process, no ncu)
   kernelscope simsweep  --grid g.yaml | --workload KEY --plugins a,b --results DIR --variants base,bw_x2,...
   kernelscope report    --results DIR [DIR ...] [--out summary.csv]  (joins tracks, adds what-if verdict)
+  kernelscope machine   --out machines/rtx4090.json                      (measured MachineSpec for the surrogate model)
+  kernelscope dispatch-table --results DIR [DIR ...] [--family dense|paged] [--cache-state cold|warm] [--out t.csv]
+                          (best interchangeable variant per workload + the library heuristic's regret)
 """
 import argparse
 import json

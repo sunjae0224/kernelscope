@@ -47,7 +47,7 @@ def _pick(df, backend, metric, launch_idx=None):
     return sub.groupby(KEY)["value"].median()
 
 
-def summarize(df: pd.DataFrame, clock_mhz: float = None, assume_cache_state: str = "warm") -> pd.DataFrame:
+def summarize(df: pd.DataFrame, clock_mhz: float | None = None, assume_cache_state: str = "warm") -> pd.DataFrame:
     df = _with_cache_state(df, assume_cache_state)
     clock = _sim_clock(df, clock_mhz)
     cols = {

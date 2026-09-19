@@ -48,9 +48,11 @@ $PY -m kernelscope.cli machine --out machines/rtx4090.json
 # bench: in-process real-HW batch (no subprocess/ncu per cell) over one or more grids, both cache states in one pass
 $PY -m kernelscope.cli bench --grid grids/dispatch_s1.yaml --plugins fa2,flashdecoding,fd_s8,fd_s16 \
     --results results/hw_4090/uniform_s1_dense --cache-state cold,warm
-    # --cache-state: 'cold' flushes/re-touches the KV cache between iterations (IterationHooks),
-    # 'warm' does not; a comma list runs one pass per state and both land in the same summaries.jsonl /
-    # parquet with a `cache_state` extra column. An interrupted or timed-out run is safe to re-run:
+    # --cache-state: 'cold' writes 4 x L2 bytes with a dedicated flush kernel before every timed
+    # call (serving-realistic: another layer's weights stream through L2 between two attention
+    # calls of the same layer); 'warm' only inserts a one-float iteration-marker kernel. A comma
+    # list runs one pass per state and both land in the same summaries.jsonl / parquet with a
+    # `cache_state` extra column. An interrupted or timed-out run is safe to re-run:
     # cells already recorded as `ok` are skipped (resume is automatic, `--no-resume` disables it).
 
 # dispatch-table: best interchangeable variant per workload + the library heuristic's regret against it
@@ -79,9 +81,12 @@ kernelscope/
   plugins/
     base.py              KernelPlugin (python-callable) / ExecutablePlugin (CUDA binary)
     builtin/             sdpa_{math,efficient,cudnn,flash}, fa2, flashdecoding
+    paged.py             paged-KV-cache block_table helpers backing the builtin plugins' _paged variants
   backends/
     realhw/              latency.py (CUDA events), kprofile.py (torch.profiler + occupancy),
                          ncu.py (optional), sweep.py (orchestrator)
+    realhw/cache.py      IterationHooks: cold-flush / warm-marker boundary kernels before each timed call
+    realhw/batch.py      in-process batch runner used by `bench` (no subprocess/ncu per cell)
     accelsim/            paths / config (what-if variants) / trace / stats / sweep
   analysis/
     trace_mix.py         opcode histogram + global bytes from the raw NVBit trace
@@ -92,6 +97,10 @@ kernelscope/
     ceilings.py            measured HBM and fp16-GEMM peaks (torch only)
     machine.py             measure_machine(): full MachineSpec (dram/L2/CTA bandwidths, L2 hit
                            curve, block→SM placement) written to machines/<gpu>.json
+    stream.py              Triton streaming-read kernel for DRAM/L2 bandwidth measurements
+    cuda_ext.py            small CUDA kernels Triton can't express: SM blocker + %smid probe
+    sm_blocker.py          real-hardware SM-count what-if: occupies n SMs while a target kernel runs
+    placement.py           records %smid for a grid filling every SM (block-to-SM placement rule)
   results/store.py       long-format parquet, one file per write (`cache_state` extra column
                          when written by `bench`: 'cold' or 'warm')
 grids/                   workload grids (w1_min, decode_full, prefill, sim_smoke, dispatch_s{1,2},
@@ -151,3 +160,7 @@ timing is self-reported (no torch.profiler around a foreign process).
 
 Always call interpreters by absolute path on this machine — `conda activate` does
 not reliably put the env first on `PATH`.
+
+Run the whole suite with a single `pytest -q` (don't split it into a GPU pass and a CPU pass).
+GPU tests are ordered first because torch.profiler can stop recording CUDA kernels after a pause
+in a process that already profiled (see `tests/conftest.py`).

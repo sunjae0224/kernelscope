@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from kernelscope.backends.realhw.sweep import RealHWSweep, rows_from_ncu
+from kernelscope.backends.realhw.sweep import RealHWSweep, analytic_rows, rows_from_ncu
 from kernelscope.results.store import ResultStore
 from kernelscope.workload import Workload
 
@@ -164,9 +164,6 @@ def test_run_grid_visits_every_supported_cell_and_returns_summaries(tmp_path):
     assert [s["workload_key"] for s in summaries] == [w.key() for w in ws]
     assert all(s["status"] == "ok" for s in summaries)
     assert set(sweep.store.load()["workload_key"]) == {w.key() for w in ws}
-
-
-from kernelscope.backends.realhw.sweep import analytic_rows
 
 
 def test_dram_util_is_only_reported_for_cold_measurements():
