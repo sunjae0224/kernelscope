@@ -3,6 +3,7 @@
   kernelscope list      [--registry M:A]
   kernelscope ceilings  --out machine_ceilings.json                      (measured roofline peaks)
   kernelscope sweep     --grid g.yaml | --workload KEY --plugins a,b --results DIR [--ceilings f] [--ncu cmd]
+  kernelscope bench     --grid g.yaml | --workload KEY --plugins a,b --results DIR [--cache-state cold,warm]  (in-process, no ncu)
   kernelscope simsweep  --grid g.yaml | --workload KEY --plugins a,b --results DIR --variants base,bw_x2,...
   kernelscope report    --results DIR [DIR ...] [--out summary.csv]  (joins tracks, adds what-if verdict)
 """
@@ -62,6 +63,20 @@ def _cmd_sweep(args):
             cache_state=state, pad=args.pad,
         )
         _run_with_log(sweep, args, workloads)
+
+
+def _cmd_bench(args):
+    from kernelscope.backends.realhw.batch import run_bench
+    if bool(args.grid) == bool(args.workload):
+        raise SystemExit("bench: give --grid (repeatable) or --workload")
+    workloads = [w for g in args.grid for w in load_grid(g)] if args.grid else [Workload.from_key(args.workload)]
+    registry = load_registry(args.registry)
+    plugins = [registry.get(n, device=args.device) for n in args.plugins.split(",")]
+    ceilings = json.loads(Path(args.ceilings).read_text()) if args.ceilings else None
+    results = Path(args.results)
+    run_bench(plugins, workloads, args.cache_state.split(","), ResultStore(results), results / "summaries.jsonl",
+              device=args.device, warmup=args.warmup, iters=args.iters, pad=args.pad, ceilings=ceilings,
+              check_max_ref_bytes=args.check_max_ref_mib << 20, atol=args.atol, resume=not args.no_resume)
 
 
 def _cmd_report(args):
@@ -140,6 +155,23 @@ def main(argv=None):
     p_sweep.add_argument("--cache-state", default="warm", help="warm, cold, or a comma list (one pass per state)")
     p_sweep.add_argument("--pad", type=int, default=5)
     p_sweep.set_defaults(func=_cmd_sweep)
+
+    p_bench = sub.add_parser("bench", help="in-process real-HW batch: every (workload, cache state) of each plugin in one process")
+    p_bench.add_argument("--grid", action="append", help="YAML workload grid (repeatable)")
+    p_bench.add_argument("--workload", help="single workload key instead of --grid")
+    p_bench.add_argument("--plugins", required=True)
+    p_bench.add_argument("--results", required=True)
+    p_bench.add_argument("--cache-state", default="cold", help="cold, warm, or a comma list")
+    p_bench.add_argument("--ceilings")
+    p_bench.add_argument("--warmup", type=int, default=10)
+    p_bench.add_argument("--iters", type=int, default=30)
+    p_bench.add_argument("--pad", type=int, default=5)
+    p_bench.add_argument("--check-max-ref-mib", type=int, default=1024, help="skip the reference check when its float32 K/V would exceed this")
+    p_bench.add_argument("--atol", type=float, default=1e-2)
+    p_bench.add_argument("--device", default="cuda")
+    p_bench.add_argument("--registry", default=DEFAULT_REGISTRY)
+    p_bench.add_argument("--no-resume", action="store_true")
+    p_bench.set_defaults(func=_cmd_bench)
 
     from kernelscope.backends.accelsim.trace import PLANNING_RATE
 
