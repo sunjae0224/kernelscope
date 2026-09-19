@@ -109,6 +109,19 @@ def test_sweep_requires_grid_or_workload():
         cli.main(["sweep", "--plugins", "faithful_cpu", "--results", "x"])
 
 
+def test_sweep_runs_one_pass_per_cache_state(tmp_path, capsys):
+    grid = tmp_path / "grid.yaml"
+    grid.write_text(GRID_YAML)
+    out = tmp_path / "res"
+    cli.main(["sweep", "--grid", str(grid), "--plugins", "faithful_cpu", "--results", str(out),
+              "--registry", REG, "--device", "cpu", "--warmup", "1", "--iters", "2",
+              "--cache-state", "warm,cold"])
+    import pandas as pd
+    from kernelscope.results.store import ResultStore
+    df = ResultStore(out).load()
+    assert set(df["cache_state"]) == {"warm", "cold"}
+
+
 def test_simsweep_wires_variants_budget_and_paths(tmp_path, monkeypatch):
     captured = {}
 

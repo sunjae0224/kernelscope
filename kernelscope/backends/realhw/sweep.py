@@ -25,6 +25,7 @@ import uuid
 from pathlib import Path
 
 from kernelscope.analytic import arithmetic_intensity, attention_flops, attention_traffic
+from kernelscope.backends.realhw.cache import CACHE_STATES
 from kernelscope.backends.realhw.executable import check_executable, run_executable
 from kernelscope.backends.realhw.hygiene import gpu_contention, visible_device_index
 from kernelscope.backends.realhw.ncu import DEFAULT_METRICS, build_ncu_command, parse_ncu_csv
@@ -60,10 +61,14 @@ def profile_rows(w: Workload, plugin: str, prof: dict) -> list[dict]:
         ]
         rows += [_row(w, plugin, "profile", k, v, launch_idx=i, note=note)
                  for k, v in (l.get("occupancy") or {}).items()]
+    for k in ("iterations_used", "iterations_dropped"):
+        if k in prof:
+            rows.append(_row(w, plugin, "profile", k, prof[k]))
     return rows
 
 
-def analytic_rows(w: Workload, plugin: str, kv_heads_read: int, kernel_time_us, ceilings: dict | None) -> list[dict]:
+def analytic_rows(w: Workload, plugin: str, kv_heads_read: int, kernel_time_us, ceilings: dict | None,
+                   cache_state: str = "warm") -> list[dict]:
     t = attention_traffic(w, kv_heads_read)
     f = attention_flops(w)
     rows = [_row(w, plugin, "analytic", "total_bytes", t["total_bytes"], unit="B"),
@@ -80,7 +85,7 @@ def analytic_rows(w: Workload, plugin: str, kv_heads_read: int, kernel_time_us, 
                  _row(w, plugin, "analytic", "achieved_tflops", tflops, unit="TFLOP/s")]
         if ceilings:
             hbm = ceilings.get("hbm_gbps") or ceilings.get("hbm_copy_gbps")
-            if hbm:
+            if hbm and cache_state == "cold":
                 rows.append(_row(w, plugin, "analytic", "dram_util", gbps / hbm))
             if ceilings.get("fp16_matmul_tflops"):
                 rows.append(_row(w, plugin, "analytic", "tc_util", tflops / ceilings["fp16_matmul_tflops"]))
@@ -90,7 +95,9 @@ def analytic_rows(w: Workload, plugin: str, kv_heads_read: int, kernel_time_us, 
 class RealHWSweep:
     def __init__(self, store, python_exe=sys.executable, registry=DEFAULT_REGISTRY, device="cuda",
                  ncu_cmd=None, warmup=10, iters=50, metrics=None, atol=1e-2,
-                 timeout_s=3600, run_id=None, ceilings=None):
+                 timeout_s=3600, run_id=None, ceilings=None, cache_state="warm", pad=5):
+        if cache_state not in CACHE_STATES:
+            raise ValueError(f"cache_state must be one of {CACHE_STATES}, got {cache_state!r}")
         self.store = store
         self.python_exe = python_exe
         self.registry = registry
@@ -102,6 +109,8 @@ class RealHWSweep:
         self.atol = atol
         self.timeout_s = timeout_s
         self.ceilings = dict(ceilings) if ceilings else None
+        self.cache_state = cache_state
+        self.pad = pad
         self.run_id = run_id or time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
         self._registry_obj = None
         self.contention = gpu_contention(visible_device_index(device), my_pids={os.getpid()})
@@ -109,6 +118,7 @@ class RealHWSweep:
     def _extra(self) -> dict:
         c = self.contention or {}
         return {"run_id": self.run_id, "host": socket.gethostname(), "device": self.device,
+                "cache_state": self.cache_state,
                 "gpu_util_at_start": c.get("utilization_pct"),
                 "other_pids_at_start": ",".join(str(p) for p in c.get("other_pids", []))}
 
@@ -127,7 +137,8 @@ class RealHWSweep:
         return [self.python_exe, "-m", "kernelscope.run_kernel",
                 "--plugin", plugin, "--workload", w.key(), "--mode", mode,
                 "--registry", self.registry, "--device", self.device,
-                "--warmup", str(self.warmup), "--iters", str(self.iters), "--atol", str(self.atol)]
+                "--warmup", str(self.warmup), "--iters", str(self.iters), "--atol", str(self.atol),
+                "--cache-state", self.cache_state, "--pad", str(self.pad)]
 
     def _run_json(self, argv: list[str]) -> dict:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=self.timeout_s)
@@ -150,6 +161,10 @@ class RealHWSweep:
             return summary
         extra = self._extra()
         if isinstance(meta, ExecutablePlugin):
+            if self.cache_state == "cold":
+                summary["status"] = "unsupported"
+                summary["reason"] = "executables time themselves; cold mode needs in-process flushing"
+                return summary
             return self._run_executable_cell(meta, w, summary, extra, t0)
         rows = []
         try:
@@ -170,7 +185,7 @@ class RealHWSweep:
             summary["launches"] = launches
             summary["kernel_time_us"] = kt
             rows += profile_rows(w, plugin, prof)
-            rows += analytic_rows(w, plugin, meta.kv_heads_read(w), kt, self.ceilings)
+            rows += analytic_rows(w, plugin, meta.kv_heads_read(w), kt, self.ceilings, cache_state=self.cache_state)
 
             if self.ncu_cmd is None:
                 summary["ncu"] = "disabled"
@@ -209,7 +224,7 @@ class RealHWSweep:
             rows.append(_row(w, plugin, "profile", "launches_per_iter", launches))
             if kt is not None:
                 rows.append(_row(w, plugin, "profile", "kernel_time_us", kt, unit="us", note="self-reported"))
-            rows += analytic_rows(w, plugin, meta.kv_heads_read(w), kt, self.ceilings)
+            rows += analytic_rows(w, plugin, meta.kv_heads_read(w), kt, self.ceilings, cache_state=self.cache_state)
 
             if self.ncu_cmd is None:
                 summary["ncu"] = "disabled"

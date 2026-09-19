@@ -54,12 +54,14 @@ def _cmd_sweep(args):
     workloads = _workloads(args)
     ncu_cmd = None if args.ncu.lower() == "none" else shlex.split(args.ncu)
     ceilings = json.loads(Path(args.ceilings).read_text()) if args.ceilings else None
-    sweep = RealHWSweep(
-        store=ResultStore(args.results), python_exe=args.python, registry=args.registry,
-        device=args.device, ncu_cmd=ncu_cmd, warmup=args.warmup, iters=args.iters,
-        atol=args.atol, timeout_s=args.timeout, ceilings=ceilings,
-    )
-    _run_with_log(sweep, args, workloads)
+    for state in args.cache_state.split(","):
+        sweep = RealHWSweep(
+            store=ResultStore(args.results), python_exe=args.python, registry=args.registry,
+            device=args.device, ncu_cmd=ncu_cmd, warmup=args.warmup, iters=args.iters,
+            atol=args.atol, timeout_s=args.timeout, ceilings=ceilings,
+            cache_state=state, pad=args.pad,
+        )
+        _run_with_log(sweep, args, workloads)
 
 
 def _cmd_report(args):
@@ -135,6 +137,8 @@ def main(argv=None):
     p_sweep.add_argument("--iters", type=int, default=50)
     p_sweep.add_argument("--atol", type=float, default=1e-2)
     p_sweep.add_argument("--timeout", type=int, default=3600, help="per-subprocess timeout (s)")
+    p_sweep.add_argument("--cache-state", default="warm", help="warm, cold, or a comma list (one pass per state)")
+    p_sweep.add_argument("--pad", type=int, default=5)
     p_sweep.set_defaults(func=_cmd_sweep)
 
     from kernelscope.backends.accelsim.trace import PLANNING_RATE
