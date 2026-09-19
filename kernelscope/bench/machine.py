@@ -11,9 +11,12 @@ from kernelscope.bench.stream import stream_gbps
 
 
 def hit_fraction(gbps: float, dram_gbps: float, l2_gbps: float) -> float:
-    """Share of bytes served by L2 implied by an achieved bandwidth: 1/bw = h/l2 + (1-h)/dram."""
-    h = (1 / gbps - 1 / dram_gbps) / (1 / l2_gbps - 1 / dram_gbps)
-    return min(1.0, max(0.0, h))
+    """Share of bytes served by L2 implied by a bandwidth-saturated streaming rate. Hits and misses
+    are served concurrently, so bw = min(l2, dram / (1 - h)); at the L2 ceiling the hit rate is
+    only bounded from below and is reported as 1."""
+    if gbps >= 0.97 * l2_gbps:
+        return 1.0
+    return min(1.0, max(0.0, 1 - dram_gbps / gbps))
 
 
 def _clocks() -> tuple[float, float]:

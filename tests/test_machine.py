@@ -10,11 +10,10 @@ def test_num_chunks_refuses_a_single_chunk_per_program():
         num_chunks(1024 * 128, G=128)
 
 
-def test_hit_fraction_inverts_the_two_level_bandwidth_mix():
+def test_hit_fraction_inverts_concurrent_l2_and_dram_service():
     assert machine.hit_fraction(1000.0, 1000.0, 5000.0) == 0.0
     assert machine.hit_fraction(5000.0, 1000.0, 5000.0) == 1.0
-    bw = 1 / (0.5 / 5000.0 + 0.5 / 1000.0)
-    assert machine.hit_fraction(bw, 1000.0, 5000.0) == pytest.approx(0.5)
+    assert machine.hit_fraction(2000.0, 1000.0, 5000.0) == pytest.approx(0.5)   # misses half the bytes at a 1000 GB/s DRAM limit -> 2000 GB/s
     assert machine.hit_fraction(9000.0, 1000.0, 5000.0) == 1.0          # clipped
 
 
