@@ -1,9 +1,8 @@
 """Triton streaming-read kernel with an explicit grid, for bandwidth measurements.
 
-Each of G programs reads BLOCK-element chunks at stride BLOCK*G. Repetition r visits chunk
-(c + r) % num_chunks, so no load is invariant across repetitions: with a single chunk per
-program the compiler could hoist the load out of the repetition loop and report bandwidth the
-memory system never delivered (the 1-32 MiB outliers in the 2026-09-19 probes).
+Each of G programs reads BLOCK-element chunks at stride BLOCK*G; in repetition r program p reads
+column (p + r) mod G, so every load depends on r and a program never re-reads its own column from
+L1. ``num_chunks`` still refuses one chunk per program because with G = 1 the column never changes.
 """
 import statistics
 
@@ -19,9 +18,11 @@ def kernelscope_stream_read(x_ptr, out_ptr, n, chunks, reps, BLOCK: tl.constexpr
     pid = tl.program_id(0)
     acc = tl.zeros((BLOCK,), tl.float32)
     for r in range(reps):
+        # Read another program's column each repetition: every load depends on r (no hoisting
+        # out of the repetition loop) and no program re-reads its own column from L1.
+        base = ((pid + r) % G) * BLOCK + tl.arange(0, BLOCK)
         for c in range(chunks):
-            cc = (c + r) % chunks
-            offs = cc * BLOCK * G + pid * BLOCK + tl.arange(0, BLOCK)
+            offs = c * BLOCK * G + base
             acc += tl.load(x_ptr + offs, mask=offs < n, other=0.0).to(tl.float32)
     tl.store(out_ptr + pid, tl.sum(acc, axis=0))
 
