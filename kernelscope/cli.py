@@ -127,6 +127,18 @@ def _cmd_ceilings(args):
     print(json.dumps(out, indent=2))
 
 
+def _cmd_machine(args):
+    from kernelscope.bench.machine import measure_machine
+    placement = None
+    if not args.no_placement:
+        from kernelscope.bench.placement import block_placement
+        placement = lambda: block_placement(ctas_per_sm=2, device=args.device)  # noqa: E731
+    spec = measure_machine(args.device, placement=placement)
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out).write_text(json.dumps(spec, indent=2))
+    print(json.dumps({k: v for k, v in spec.items() if k not in ("l2_hit_curve", "block_placement")}, indent=2))
+
+
 def _cmd_simsweep(args):
     from kernelscope.backends.accelsim.trace import PLANNING_RATE
     workloads = _workloads(args)
@@ -237,6 +249,12 @@ def main(argv=None):
     p_ceil.add_argument("--matmul-ns", default="4096,8192", help="comma-separated GEMM sizes; best is the ceiling")
     p_ceil.add_argument("--iters", type=int, default=10)
     p_ceil.set_defaults(func=_cmd_ceilings)
+
+    p_mach = sub.add_parser("machine", help="measure the machine spec used by the performance model")
+    p_mach.add_argument("--out", default="machines/rtx4090.json")
+    p_mach.add_argument("--device", default="cuda")
+    p_mach.add_argument("--no-placement", action="store_true", help="skip the CUDA-extension block-placement probe")
+    p_mach.set_defaults(func=_cmd_machine)
 
     args = ap.parse_args(argv)
     args.func(args)
