@@ -1,0 +1,4 @@
+# One long request mixed with short requests; arrival steps are deterministic.
+requests:
+  - {count: 1, prompt_len: 16384, max_new_tokens: 128, arrival_step: 0}
+  - {count: 31, prompt_len: 1024, max_new_tokens: 128, arrival_step: 0}

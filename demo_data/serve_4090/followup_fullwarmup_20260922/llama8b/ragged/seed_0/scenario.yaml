@@ -1,0 +1,23 @@
+# Original local text; constructed contexts, not a production request trace.
+dataset:
+  id: kernelscope-campus-garden-v1
+  evaluation_split: heldout_text
+  scenario_family: ragged
+  provenance: original text authored locally for this project; no external dataset
+  construction: seeded paragraph order, repeated token stream, exact target length, intact task suffix
+corpus:
+  - |
+    Campus Garden pilot notes. The student team compares two vegetable beds with the same soil mixture and equal sunlight. The red bed receives water every morning. The blue bed receives water when its moisture sensor reports a value below thirty percent. Each irrigation event records the bed name, the time, and the water volume.
+  - |
+    The team reads soil moisture every fifteen minutes. A volunteer inspects the sensors on Friday and checks them against a handheld meter. A missing reading is marked as missing instead of being replaced with zero. This prevents a disconnected sensor from being mistaken for dry soil.
+  - |
+    Every week the students measure plant height at five marked locations in each bed. They keep the measurement procedure unchanged during the pilot. A notebook explains any unusual weather, damaged plant, or maintenance visit so that later readers can interpret unexpected values.
+  - |
+    The garden controller saves a local log before drawing its dashboard. A green indicator means that a recent reading is available; it does not mean that a treatment improved plant growth. The students compare the two beds only after checking that their observation periods overlap.
+  - |
+    For a demonstration, the team shows the original observations next to a small chart of water use. Estimated values carry a separate label. When a sensor fails, the dashboard displays the gap and the last valid timestamp instead of quietly drawing a smooth line across it.
+  - |
+    The final garden report includes the measurement instructions, the dated logs, and the rule used to decide when to water each bed. It describes both useful outcomes and limitations. The pilot is small, so the students do not claim that its result applies to every climate or crop.
+requests:
+  - {count: 1, prompt_len: 12288, max_new_tokens: 32, arrival_step: 0, prompt_recipe: corpus_repeat, prompt_suffix: "Read the notes above. Summarize one monitoring practice in a short sentence.\nAnswer:"}
+  - {count: 27, prompt_len: 384, max_new_tokens: 32, arrival_step: 0, prompt_recipe: corpus_repeat, prompt_suffix: "Read the notes above. Summarize one monitoring practice in a short sentence.\nAnswer:"}

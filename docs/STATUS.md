@@ -1,5 +1,25 @@
 # Status log
 
+## 2026-09-22 — Follow-up: lower selection cost and two-model natural-text validation
+
+- Optional native C event simulator retains the NumPy oracle and explicit compiler fallback. Seven old configurations have identical predictions/rankings; ragged cold selection **842.600 → 14.293ms**, with one-time build **55.683ms** disclosed separately.
+- Added original natural-text scenarios, fixed resolved tokens, prompt/tokenizer hashes, BF16/backend metadata and setup timing. Existing table/fit parameters remain fixed.
+- Two models × three conditions × two seeds × three policies × three repeats: **108 final GPU runs** after full-scenario warmup. Separate **108-run partial-warmup pilot** is preserved. All paired pilot/final generated-token arrays match.
+- Model policy ragged TPOT improved **1.282–1.290× Qwen4B**, **1.184–1.188× Llama8B**, with exact generated tokens. Uniform has no practical gain. All arrivals comparisons and two ragged table comparisons fail strict equivalence: **14/24** non-reference policy/condition comparisons pass output validation.
+- Teacher-forced natural arrivals diagnostic: 55 decode calls, 868 comparisons per policy, 866 argmax matches per policy, all finite. Does not override failed free-generation validation.
+- Dashboard separates campaign/model/seed/source/warmup identities; shows first decision, later misses and hits, and masks invalid speedups. CSV/PNG/SVG reports and portable raw evidence included.
+- **462 CPU tests passed, 4 skipped, 12 GPU tests deselected**. Offline wheel contains matching C source and no compiled `.so`. Independent Llama HF oracle passed. [Results and scope](experiments/2026-09-22-followup.md).
+
+## 2026-09-22 — Graduation demo and whole-model serving evidence
+
+- Added local Llama/Qwen3 paged decoder, deterministic continuous batching, heuristic/fixed/table/model policies, strict token checks, numeric diagnostics and local text generation.
+- Four-view Korean demo: Diagnose, Kernel map, What-if and Serving, with explicit measured/predicted evidence, repeated results and portable recorded artifacts.
+- Qwen3-4B / RTX 4090: 3 scenarios × 4 policies × 5 repeats. Table TPOT improved **1.806× ragged**, **1.174× arrivals**, with identical greedy tokens in all repeats; uniform table had no material improvement.
+- Preserve negative results: uniform fixed8 token agreement 94.43%; model first-choice cost hurt uniform/arrivals latency. The campaign completes all independent scenarios and returns nonzero for the recorded equivalence failure.
+- CPU surrogate validation passed timing-error thresholds but failed worst-case selection-regret thresholds; what-if remains experimental.
+- Final CPU suite: **392 passed, 4 skipped, 12 GPU tests deselected**. New decoder/KV GPU tests: **7 passed**; independent full-Qwen numeric oracle and same-history policy diagnosis saved under `docs/experiments/`. Portable bundle: 272 copied files, all source hashes verified.
+- Reproduction and limits: [serving results](experiments/2026-09-22-serving-results.md), [project scope](graduation.md), [demo script](demo.md). New code lives in worktree `kernelscope-design`.
+
 ## 2026-09-01 (evening) — W1 D3–5 done: external kernels, w1 grid on both tracks, roofline
 
 **Measurement hygiene incident.** GPUs 0 and 1 were 100 % busy with the user's own `eval_ruler.py`

@@ -333,6 +333,9 @@ def main(argv=None):
     p_val.add_argument("--out")
     p_val.set_defaults(func=_cmd_model_validate)
 
+    from kernelscope.serve.cli import register_parser
+    register_parser(sub)
+
     args = ap.parse_args(argv)
     args.func(args)
 

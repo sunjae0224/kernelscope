@@ -1,0 +1,7 @@
+# Install into an isolated environment. The existing CUDA stack is retained.
+transformers==4.57.6
+tokenizers==0.22.2
+safetensors==0.8.0
+streamlit>=1.64
+plotly>=6
+playwright==1.63.0

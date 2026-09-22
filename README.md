@@ -1,20 +1,102 @@
 # kernelscope
 
-Dual-track evaluation harness for GPU inference kernels: plug in an **existing**
-kernel (FlashAttention-2, FlashDecoding, SDPA backends, flashinfer, Mamba scan,
-your own CUDA/Triton kernel) and get
+**GPU attention 병목 분석 → 커널 선택 → 실제 LLM 생성 지연 검증.**
 
-1. **real-hardware** numbers on an A100 — **without Nsight**: CUDA-event latency,
+KernelScope는 RTX 4090에서 attention 커널을 비교하고, 길이가 다른 요청이 섞일 때의 병목을 설명하며, 실제 Qwen3/Llama decoder에서 split 선택 정책을 교체하는 졸업 프로젝트입니다. **[프로젝트 설명과 연구 질문](docs/graduation.md)** · **[5분 데모 안내](docs/demo.md)**
+
+## 졸업 프로젝트 데모
+
+초기 합성 토큰 실험(RTX 4090 + Qwen3-4B)에서 실측표 기반 선택은 **혼합 길이 배치의 TPOT 61.06 → 33.80ms(1.81배)**, **요청 합류 시나리오 59.09 → 50.34ms(1.17배)**를 기록했습니다. 각 5회 반복에서 해당 정책의 생성 토큰은 기존 휴리스틱과 모두 같았습니다. 균일 배치에서는 개선이 거의 없었으며, 모델 기반 선택의 초기 계산 비용과 고정 split의 출력 불일치 사례도 보고합니다. [전체 결과](docs/experiments/2026-09-22-serving-results.md) · [발표용 비교 그림](docs/img/serving_comparison.png)
+
+**후속 검증도 완료했습니다.** 모델 선택의 첫 계산은 기존 혼합 배치에서 **843 → 14ms**로 줄었습니다. 두 모델·두 시드의 새 자연어 조건에서 최종 108회 측정한 결과, 모델 정책은 혼합 길이에서 **Qwen 4B 1.28–1.29배, Llama 8B 1.18–1.19배** 빨랐고 출력도 같았습니다. 균일 배치의 개선 부재와 요청 합류 조건의 출력 불일치도 보존했습니다. [후속 결과와 해석](docs/experiments/2026-09-22-followup.md) · [36개 정책별 결과와 그림](docs/experiments/followup/README.md)
+
+```bash
+cd /home/skkai/AI_Accelerator/kernelscope-design
+bash scripts/demo.sh
+# http://localhost:8501
+```
+
+네 개의 화면에서 병목 진단, 조건별 최적 커널, 가상 하드웨어 예측, 실제 생성 실험을 볼 수 있습니다. 저장된 결과를 탐색할 때 GPU는 필요하지 않습니다. 원본 결과 폴더가 없는 환경에서는 `demo_data/`의 실측 요약을 사용합니다. `KERNELSCOPE_RESULTS=/path/to/results`로 결과 폴더를 지정할 수 있습니다.
+
+### 실행 환경
+
+현재 장비에서는 기존 CUDA 환경을 유지하는 프로젝트 전용 `.venv`를 사용합니다.
+
+```bash
+/home/skkai/miniforge3/envs/gradkernel/bin/python -m venv --system-site-packages .venv
+.venv/bin/python -m pip install -r env/requirements-demo.txt
+.venv/bin/python -m kernelscope.cli serve doctor
+```
+
+다른 장비에서는 해당 GPU에 맞는 PyTorch·flash-attn 환경을 먼저 준비하고 `pip install -e '.[viz,serve,validation,dev]'`로 설치합니다. 모델은 로컬 Hugging Face 캐시에서만 읽으며, 실행 중 모델을 자동 다운로드하지 않습니다. 현재 지원하는 decoder는 Llama와 Qwen3입니다.
+
+### 실제 LLM 비교
+
+```bash
+# GPU와 모델의 정확도 검증 후 실행하는 작은 전체 모델 실험
+.venv/bin/python -m kernelscope.cli serve run \
+  --model Qwen/Qwen3-4B-Instruct-2507 --scenario scenarios/tiny.yaml \
+  --policy heuristic --policy fixed:8 --kv-gib 1 \
+  --repeats 3 --warmup-runs 1 --warmup-steps 2 \
+  --out ../kernelscope/results/serve_4090/tiny
+
+# 전체 캠페인: 같은 길이, 긴·짧은 요청 혼합, 실행 중 추가 요청
+bash scripts/campaign.sh
+
+# 후속 검증: 두 모델 × 자연어 조건 3개 × 시드 2개 × 정책 3개 × 반복 3회
+.venv/bin/python scripts/followup_campaign.py \
+  --out ../kernelscope/results/serve_4090/followup_new --plan-only
+# --plan-only를 빼면 실제 측정합니다.
+# 기본값은 각 정책으로 전체 시나리오를 워밍업하며, 측정마다 정책 캐시는 비웁니다.
+
+# GPU 없이 실행 로직을 검증하는 별도 CPU 데모
+.venv/bin/python -m kernelscope.cli serve demo --out results/serve/cpu_demo
+```
+
+성능 실험은 전체 사전학습 모델을 사용합니다. `graduation_*`은 합성 토큰 입력, `heldout_text_*`은 직접 작성한 자연어 문단을 길이에 맞춰 구성한 입력입니다. attention 시간, 전체 decode 시간, CPU 선택 비용, 요청별 TPOT, 반복별 결과와 생성 토큰 일치를 따로 기록합니다. `serve demo`의 작은 랜덤 CPU 모델은 실행 로직 확인용이며 GPU 성능 근거가 아닙니다. 기존 커널 실측으로 만든 선택표는 `demo_data/dispatch_paged_cold.csv`에 있습니다.
+
+모델 선택의 CPU 시뮬레이터는 로컬 C 컴파일러가 있으면 빠른 실행 경로를 사용하고, 없으면 NumPy 구현으로 돌아갑니다. 컴파일·로드 비용과 실행 경로는 별도로 기록하며 `KERNELSCOPE_SIMULATOR=python`으로 기준 구현을 강제할 수 있습니다. `.cache/`의 생성 라이브러리는 배포하지 않고 C 소스를 패키지에 포함합니다.
+
+생성 토큰이 달라지면 실험 결과를 보존하고 검증 실패를 반환합니다. `campaign.sh`는 완료된 시나리오를 보존하며 다른 시나리오를 계속 실행하고, 마지막에 검증 실패가 하나라도 있으면 종료 코드 1을 반환합니다. 같은 결과 경로로 재실행하면 완료된 시나리오는 건너뜁니다. 부정적인 결과도 삭제하거나 성공으로 바꾸지 않습니다.
+
+```bash
+# 실제 모델의 자연어 이어쓰기. 단일 요청 데모이며 성능 비교 실험은 아닙니다.
+.venv/bin/python -m kernelscope.cli serve generate \
+  --prompt '인공지능 모델에서 GPU 커널의 역할은' --max-new-tokens 48 --policy heuristic
+
+# 같은 입력의 수치적 출력 검증과 결과 보고서/발표용 그림
+.venv/bin/python scripts/verify_qwen.py --out docs/experiments/qwen3-4b-validation.json
+.venv/bin/python scripts/summarize_campaign.py <캠페인 폴더> --out docs/experiments/serving-results.md
+.venv/bin/python scripts/plot_campaign.py <캠페인 폴더> --out docs/img/serving_comparison.png
+```
+
+```bash
+make test           # CPU 테스트
+make test-gpu       # 유휴 GPU에서 CUDA 검증
+make package-demo  # 원본 측정 결과를 해시와 함께 휴대 가능한 데모로 복사
+```
+
+## 커널 측정 기반
+
+Dual-track evaluation harness for GPU inference kernels: plug in an **existing**
+attention kernel (FlashAttention-2, FlashDecoding, SDPA backends,
+or your own CUDA/Triton attention kernel) and get
+
+1. **real-hardware** numbers on CUDA GPUs (current campaign: RTX 4090; earlier data: A100) — **without Nsight**: CUDA-event latency,
    torch.profiler kernel time + launch geometry (grid/block/registers/smem →
    occupancy estimate), and an analytic traffic/FLOP model that turns kernel time
    into achieved GB/s and TFLOPS against *measured* ceilings; and
-2. **simulated** numbers from Accel-Sim's `SM80_A100` model plus *what-if*
+2. **simulated** numbers from Accel-Sim's `SM80_A100` and experimental `SM89_RTX4090` models plus *what-if*
    variants (L2 size, HBM bandwidth, SM count) that no measurement can give, with
    the instruction mix read straight from the NVBit trace,
 
 joined on one workload key so the two tracks validate each other
 (sim cycles vs measured kernel time) and the what-if sensitivity gets a verdict
 ("bandwidth-bound", "parallelism-bound", "insensitive").
+
+The current SM89 simulation timing is **not a calibrated RTX 4090 performance predictor**.
+The serving results above come from the real GPU; dashboard hardware what-if values come
+from the separately fitted surrogate and remain predictions.
 
 Why Nsight-free? Shared GPU boxes often run `dcgm-exporter`, which holds the
 hardware-counter session and makes `ncu` fail on every kernel. Everything above

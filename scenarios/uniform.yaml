@@ -1,0 +1,2 @@
+requests:
+  - {count: 32, prompt_len: 1024, max_new_tokens: 128, arrival_step: 0}

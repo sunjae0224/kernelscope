@@ -1,0 +1,868 @@
+{
+  "schema_version": 1,
+  "status": "complete",
+  "created_at": "2026-09-22T08:17:24.750598+00:00",
+  "evidence_kind": "cuda_serving",
+  "performance_claim": true,
+  "model": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+  "model_backend": "flash_attn_paged",
+  "model_config": {
+    "arch": "llama",
+    "n_layers": 32,
+    "hidden": 4096,
+    "intermediate": 14336,
+    "n_heads": 32,
+    "n_kv_heads": 8,
+    "head_dim": 128,
+    "vocab": 128256,
+    "rope_theta": 500000.0,
+    "rope_scaling": {
+      "factor": 8.0,
+      "low_freq_factor": 1.0,
+      "high_freq_factor": 4.0,
+      "original_max_position_embeddings": 8192,
+      "rope_type": "llama3"
+    },
+    "rms_eps": 1e-05,
+    "tie_embeddings": false,
+    "qk_norm": false
+  },
+  "model_dtype": "bfloat16",
+  "model_setup_us": 1757445.0970278122,
+  "scenario": "/home/skkai/AI_Accelerator/kernelscope-design/scenarios/heldout_text_uniform.yaml",
+  "scenario_sha256": "13f2bda16e7edbcfd67f960e7dac88887dc24603633d21e65fead04d50f45a49",
+  "requests": [
+    {
+      "rid": 0,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "c9b7ecd1da5a6891287e0dd86042d10debfe1b5dd2a1d088acc5344f6d675bf5",
+      "expected_answer": null
+    },
+    {
+      "rid": 1,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "512d6fb9b3896137d5dbf8ab12aed9e9beca3cb33a52973e67c2a98079cd0467",
+      "expected_answer": null
+    },
+    {
+      "rid": 2,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "7f7207a687cf32a4704b592703f0c099053892f035a810dae074d1d357151ee9",
+      "expected_answer": null
+    },
+    {
+      "rid": 3,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "d30a8ae8d81ed05bdae586a93e66031ad2013077273febedc516fc5048e65dda",
+      "expected_answer": null
+    },
+    {
+      "rid": 4,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "50144409f463d692dfdbbb25e52c36fbca2961662b2dc224cd1d933fafa13321",
+      "expected_answer": null
+    },
+    {
+      "rid": 5,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "155eb0ce4d00c7ae15c3242d3b3bea345cd672f2f6a3b95c2d5c24b99e778a51",
+      "expected_answer": null
+    },
+    {
+      "rid": 6,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "45b28eca95ee7e741de86942a49108e00af1c0d6b01aa8de2cff0cb0590f2ac6",
+      "expected_answer": null
+    },
+    {
+      "rid": 7,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "485c9b408d214c75a3bbd8b4efb1613890d5a66aa70dfe3aa4e97ec8861796eb",
+      "expected_answer": null
+    },
+    {
+      "rid": 8,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "71d62e4a9aaddb6042061a6c80b4b191a2492f13c4aed5a8b8021e43ca8e9457",
+      "expected_answer": null
+    },
+    {
+      "rid": 9,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "268c720e95e7de6174613a9bced2a8710dd3c4ea1ee2a1a271788dcab2baca62",
+      "expected_answer": null
+    },
+    {
+      "rid": 10,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "c7317de90e0bac3529de22224b8277153305d793fd09e985b0bdac4ba3ee1ae6",
+      "expected_answer": null
+    },
+    {
+      "rid": 11,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "12ed5e1fff050cecbaf61300addf4feaf372150e59bc7d6dd1d4c94ed3dff8eb",
+      "expected_answer": null
+    },
+    {
+      "rid": 12,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "77ad9e162d83a57cced23e1174ebfdfb2aaf47a12b72c63cbfa516c3850a95c0",
+      "expected_answer": null
+    },
+    {
+      "rid": 13,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "fdfba5b9eedb6c9c99126d24b7dbf058094ba1140611a2d3160e3517875625ea",
+      "expected_answer": null
+    },
+    {
+      "rid": 14,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "5f8201bdc087236749016931c1ce9edc95fc124dafb56c13680a916600f07ec1",
+      "expected_answer": null
+    },
+    {
+      "rid": 15,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "411d1066f75aea2f54cce4866be731816a953d0cef2846e26e40d31c67e9cfc4",
+      "expected_answer": null
+    },
+    {
+      "rid": 16,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "d30a8ae8d81ed05bdae586a93e66031ad2013077273febedc516fc5048e65dda",
+      "expected_answer": null
+    },
+    {
+      "rid": 17,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "e91fb5efc40e3933148d9b4d50bc1ea60c5db460037e2f92faa1f3627b774792",
+      "expected_answer": null
+    },
+    {
+      "rid": 18,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "e928d4b5f6b39f2e7bba0d77545b335090e3871590369520be3893630980cb63",
+      "expected_answer": null
+    },
+    {
+      "rid": 19,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "4b1cde83e0fb9ddb157981c0efbbc484b23a938657fe7c882341d60629e6071e",
+      "expected_answer": null
+    },
+    {
+      "rid": 20,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "d4c07c8bc0b1158b999595d64ab6e943aa45b9927174f1660a6b4d368b558e96",
+      "expected_answer": null
+    },
+    {
+      "rid": 21,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "411d1066f75aea2f54cce4866be731816a953d0cef2846e26e40d31c67e9cfc4",
+      "expected_answer": null
+    },
+    {
+      "rid": 22,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "e91fb5efc40e3933148d9b4d50bc1ea60c5db460037e2f92faa1f3627b774792",
+      "expected_answer": null
+    },
+    {
+      "rid": 23,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "1f1fc3656ba2a300c049772b5451708aa4766bb9c3407836c39b4d0bb79a7694",
+      "expected_answer": null
+    },
+    {
+      "rid": 24,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "98e3be8a6b0f70b09f3663d66a568f45b53195a84eec47fbb558e31585c6cefa",
+      "expected_answer": null
+    },
+    {
+      "rid": 25,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "0ab30bd99d1e6956d3eeebabd664e5a9765cad21837cf2e0e53de1dfe568754e",
+      "expected_answer": null
+    },
+    {
+      "rid": 26,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "febee7d3f812b31b223c3482e5a424e7aee0e92143abad9787ba691935c2bc0b",
+      "expected_answer": null
+    },
+    {
+      "rid": 27,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "ad1cd8f5bcdd665002af4eb5c4c5713ce141dc43eead537173dcb2abf17c4bf1",
+      "expected_answer": null
+    }
+  ],
+  "policy_specs": [
+    "heuristic",
+    "table:/home/skkai/AI_Accelerator/kernelscope-design/demo_data/dispatch_paged_cold.csv",
+    "model"
+  ],
+  "seed": 1,
+  "max_batch": 64,
+  "kv_bytes": 4294967296,
+  "warmup_runs": 1,
+  "warmup_steps": null,
+  "repeats": 3,
+  "policy_order": "rotate_each_repeat",
+  "policy_cache": "fresh_for_each_measured_run",
+  "prefill": "serial_per_request",
+  "arrival_mode": "logical_decode_step",
+  "dataset": {
+    "id": "kernelscope-campus-garden-v1",
+    "evaluation_split": "heldout_text",
+    "scenario_family": "uniform",
+    "provenance": "original text authored locally for this project; no external dataset",
+    "construction": "seeded paragraph order, repeated token stream, exact target length, intact task suffix"
+  },
+  "dataset_id": "kernelscope-campus-garden-v1",
+  "evaluation_split": "heldout_text",
+  "scenario_family": "uniform",
+  "dataset_sha256": "0f2c2fca0b3c9aa3c0db98a815df3310ef4dfd12cfdb5a485bb615e704c279b1",
+  "resolved_prompts_sha256": "5c43af8475d90d5ee77ce8dc3cdd81364ef75b8bd746c21a535b468f9b3757fc",
+  "prompt_kind": "constructed_natural_text",
+  "prompt_mode": "raw_text_continuation_no_chat_template",
+  "prompt_resolution": "prepared_once_before_warmup_and_measurement",
+  "prompts": [
+    {
+      "rid": 0,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "6ce8211f6d06768cd86fe2ba3d5687b682eb4289882ca763726406d14cf43a8f",
+      "prompt_sha256": "c9b7ecd1da5a6891287e0dd86042d10debfe1b5dd2a1d088acc5344f6d675bf5",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 1,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "58a7e3fc1ce3c34f02e896d7785bb21c9daa114a0d1579c83c7acae14f86135b",
+      "prompt_sha256": "512d6fb9b3896137d5dbf8ab12aed9e9beca3cb33a52973e67c2a98079cd0467",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 2,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "f3b90bbe6dfdf624ccbf6a36c4a2809b64fe1fb6511c2f76c76ab9576eb9114c",
+      "prompt_sha256": "7f7207a687cf32a4704b592703f0c099053892f035a810dae074d1d357151ee9",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 3,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "8e13f4d7eb288a30d11a1838398e85413f88f2136c59be2e00b9d4cb444400c5",
+      "prompt_sha256": "d30a8ae8d81ed05bdae586a93e66031ad2013077273febedc516fc5048e65dda",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 4,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "a26dba210fb3f47554ca820150b0c7f778bbdc78289accd34f519fa8ab056be7",
+      "prompt_sha256": "50144409f463d692dfdbbb25e52c36fbca2961662b2dc224cd1d933fafa13321",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 5,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "b1caaf746d6ae7ac4e4e0b24fb0cece61929a5f61a1940b3ea30df119f9be0f6",
+      "prompt_sha256": "155eb0ce4d00c7ae15c3242d3b3bea345cd672f2f6a3b95c2d5c24b99e778a51",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 6,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "1d0450ecdd0dace5fe24081db1052ec3a032566af27d626cbd5ba1de9ad45315",
+      "prompt_sha256": "45b28eca95ee7e741de86942a49108e00af1c0d6b01aa8de2cff0cb0590f2ac6",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 7,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "800de44bdc512ff707f6cc6f092fed8355f36fe71a06548864f87e73a453bca9",
+      "prompt_sha256": "485c9b408d214c75a3bbd8b4efb1613890d5a66aa70dfe3aa4e97ec8861796eb",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 8,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "c1556bf21ab78111fff4777c2f37a9620eb0ffcd6c5e7c602e340be5f72149e9",
+      "prompt_sha256": "71d62e4a9aaddb6042061a6c80b4b191a2492f13c4aed5a8b8021e43ca8e9457",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 9,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "7fb27d62ba065f275efac6b3677bf7eb25aa4cb9b2ab53aaa0fec84d5e060225",
+      "prompt_sha256": "268c720e95e7de6174613a9bced2a8710dd3c4ea1ee2a1a271788dcab2baca62",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 10,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "d4c830e09492a89fda79ea562a169068b25db67ffb098a6b32aa2574b4e77610",
+      "prompt_sha256": "c7317de90e0bac3529de22224b8277153305d793fd09e985b0bdac4ba3ee1ae6",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 11,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "e95c45b87d0ed18c827a66d0941e632ed448740d0199e7777f1cb679f137e78b",
+      "prompt_sha256": "12ed5e1fff050cecbaf61300addf4feaf372150e59bc7d6dd1d4c94ed3dff8eb",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 12,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "1791b2908f8047fa64f6b8304c96f3dc54ad7088189e2f675589f8d2325be563",
+      "prompt_sha256": "77ad9e162d83a57cced23e1174ebfdfb2aaf47a12b72c63cbfa516c3850a95c0",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 13,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "bfae00c9934a098d25a82a95e78e7acffc32fdf376a6eff7db0fb80c571fd442",
+      "prompt_sha256": "fdfba5b9eedb6c9c99126d24b7dbf058094ba1140611a2d3160e3517875625ea",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 14,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "64f1f964809f8615ffc479db885c957d8b208bc7e05391c9251f0b29afa13f13",
+      "prompt_sha256": "5f8201bdc087236749016931c1ce9edc95fc124dafb56c13680a916600f07ec1",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 15,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "12b33efa36f7208e865e8939d9bb32d00672d2a8bbfa4167c86ac2a20b7c9bce",
+      "prompt_sha256": "411d1066f75aea2f54cce4866be731816a953d0cef2846e26e40d31c67e9cfc4",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 16,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "820ae56c072cbf6e8c25bde11b456e3852fb67cf8d162ac10f9766b73c99c963",
+      "prompt_sha256": "d30a8ae8d81ed05bdae586a93e66031ad2013077273febedc516fc5048e65dda",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 17,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "995920d08c59c7723788b8737ae2d6ea079837d036fd6b4519ccfee7a18dec31",
+      "prompt_sha256": "e91fb5efc40e3933148d9b4d50bc1ea60c5db460037e2f92faa1f3627b774792",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 18,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "92f9c8f6cca4a2d985c25afb0404620f3c81ba7472e795216523f993453272de",
+      "prompt_sha256": "e928d4b5f6b39f2e7bba0d77545b335090e3871590369520be3893630980cb63",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 19,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "91033c49981d488007b9a2a101f20d257145f27676582a931aed961368f2fb1f",
+      "prompt_sha256": "4b1cde83e0fb9ddb157981c0efbbc484b23a938657fe7c882341d60629e6071e",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 20,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "ae53302abfbecd1082ade8697185aa80e7f623971571a2f5cb2f5dd9cb55f9d8",
+      "prompt_sha256": "d4c07c8bc0b1158b999595d64ab6e943aa45b9927174f1660a6b4d368b558e96",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 21,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "c265b586b0843898434fa77985095ea6d766734ab9c73d60bf258f0eb1e967e4",
+      "prompt_sha256": "411d1066f75aea2f54cce4866be731816a953d0cef2846e26e40d31c67e9cfc4",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 22,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "3a7845dae4995ffab2b8b05418026da78125698ac719828e42d445eead29caf3",
+      "prompt_sha256": "e91fb5efc40e3933148d9b4d50bc1ea60c5db460037e2f92faa1f3627b774792",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 23,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "32eee227202ca65c46971f9fa0a7ef0f22a875a9a25e1121bee3bfdec21d608e",
+      "prompt_sha256": "1f1fc3656ba2a300c049772b5451708aa4766bb9c3407836c39b4d0bb79a7694",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 24,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "ad3db6967cfd7ba0c38bee2dd6c85a9b82ad4d75fee21793387974425ef2f540",
+      "prompt_sha256": "98e3be8a6b0f70b09f3663d66a568f45b53195a84eec47fbb558e31585c6cefa",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 25,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "c242097145cff52d30810544eee17e27e8a3b1c7d88560b3248d657cd520ca38",
+      "prompt_sha256": "0ab30bd99d1e6956d3eeebabd664e5a9765cad21837cf2e0e53de1dfe568754e",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 26,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "4de57c983251b97830345affa8cb2feab74c11b93bdf055c5f4e83f9a014e73b",
+      "prompt_sha256": "febee7d3f812b31b223c3482e5a424e7aee0e92143abad9787ba691935c2bc0b",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 27,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "7c62b346856f809bd71e4f6eedfd01239b1b7b8f38c21c62693aa21c4cae8383",
+      "prompt_sha256": "ad1cd8f5bcdd665002af4eb5c4c5713ce141dc43eead537173dcb2abf17c4bf1",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    }
+  ],
+  "tokenization_setup_us": 11615.395022090524,
+  "tokenizer_load_us": 156149.28002469242,
+  "tokenizer_sha256": {
+    "tokenizer.json": "b9c9eb63a8e03059914880f918cd28a880dec8b6e15e4461e1ff677e3743dbb8",
+    "tokenizer_config.json": "8ac8c85fb242563c2260baec0909debd69d718af6a0b3d90e6cab62b4d341cd5"
+  },
+  "sampling": "greedy_fixed_length_no_eos_stop",
+  "quality_setup_us": 0.0,
+  "quality_evaluation": null,
+  "policy_setup_runs": [
+    {
+      "stage": "initial",
+      "setup_us": 9753.032005392015,
+      "policies": [
+        {
+          "name": "heuristic",
+          "simulator_backend": null
+        },
+        {
+          "name": "table",
+          "simulator_backend": null
+        },
+        {
+          "name": "model",
+          "simulator_backend": {
+            "backend": "native_c",
+            "native_available": true,
+            "built_this_process": false,
+            "cache_hit": true,
+            "setup_us": 1240.4400040395558,
+            "compiler": [
+              "/usr/bin/cc"
+            ],
+            "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+            "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+            "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+            "error": null,
+            "compile_flags": [
+              "-O3",
+              "-std=c11",
+              "-shared",
+              "-fPIC",
+              "-fno-fast-math",
+              "-ffp-contract=off"
+            ],
+            "requested_backend": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "repeat_000",
+      "setup_us": 3771.538962610066,
+      "policies": [
+        {
+          "name": "heuristic",
+          "simulator_backend": null
+        },
+        {
+          "name": "table",
+          "simulator_backend": null
+        },
+        {
+          "name": "model",
+          "simulator_backend": {
+            "backend": "native_c",
+            "native_available": true,
+            "built_this_process": false,
+            "cache_hit": true,
+            "setup_us": 1240.4400040395558,
+            "compiler": [
+              "/usr/bin/cc"
+            ],
+            "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+            "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+            "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+            "error": null,
+            "compile_flags": [
+              "-O3",
+              "-std=c11",
+              "-shared",
+              "-fPIC",
+              "-fno-fast-math",
+              "-ffp-contract=off"
+            ],
+            "requested_backend": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "repeat_001",
+      "setup_us": 3533.7989684194326,
+      "policies": [
+        {
+          "name": "heuristic",
+          "simulator_backend": null
+        },
+        {
+          "name": "table",
+          "simulator_backend": null
+        },
+        {
+          "name": "model",
+          "simulator_backend": {
+            "backend": "native_c",
+            "native_available": true,
+            "built_this_process": false,
+            "cache_hit": true,
+            "setup_us": 1240.4400040395558,
+            "compiler": [
+              "/usr/bin/cc"
+            ],
+            "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+            "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+            "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+            "error": null,
+            "compile_flags": [
+              "-O3",
+              "-std=c11",
+              "-shared",
+              "-fPIC",
+              "-fno-fast-math",
+              "-ffp-contract=off"
+            ],
+            "requested_backend": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "repeat_002",
+      "setup_us": 3627.9679625295103,
+      "policies": [
+        {
+          "name": "heuristic",
+          "simulator_backend": null
+        },
+        {
+          "name": "table",
+          "simulator_backend": null
+        },
+        {
+          "name": "model",
+          "simulator_backend": {
+            "backend": "native_c",
+            "native_available": true,
+            "built_this_process": false,
+            "cache_hit": true,
+            "setup_us": 1240.4400040395558,
+            "compiler": [
+              "/usr/bin/cc"
+            ],
+            "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+            "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+            "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+            "error": null,
+            "compile_flags": [
+              "-O3",
+              "-std=c11",
+              "-shared",
+              "-fPIC",
+              "-fno-fast-math",
+              "-ffp-contract=off"
+            ],
+            "requested_backend": "auto"
+          }
+        }
+      ]
+    }
+  ],
+  "timing_instrumentation": "per-layer attention events, per-decode events, synchronized host token timestamps",
+  "limitations": [
+    "No network or production scheduler overhead",
+    "Step-based arrivals are not an open-loop SLA test",
+    "TPOT includes admission/prefill stalls and dispatch overhead",
+    "Constructed prompts are not production traffic or a validated language-quality dataset"
+  ],
+  "preflight": {
+    "python": "3.11.16",
+    "executable": "/home/skkai/AI_Accelerator/kernelscope-design/.venv/bin/python",
+    "packages": {
+      "torch": "2.8.0+cu128",
+      "flash-attn": "2.8.3.post1",
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "pyarrow": "25.0.1",
+      "safetensors": "0.8.0",
+      "tokenizers": "0.22.2"
+    },
+    "cuda_available": true,
+    "torch_cuda": "12.8",
+    "errors": [],
+    "gpu_processes": [
+      {
+        "pid": 861322,
+        "name": "/home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun",
+        "used_memory_mib": "394"
+      }
+    ],
+    "nvidia_smi_output": "861322, /home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun, 394",
+    "gpu_name": "NVIDIA GeForce RTX 4090",
+    "device_capability": [
+      8,
+      9
+    ],
+    "free_memory_bytes": 23669243904,
+    "total_memory_bytes": 25248530432,
+    "model_path": "/home/skkai/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-R1-Distill-Llama-8B/snapshots/6a6f4aa4197940add57724a7707d069478df56b1",
+    "model_config": {
+      "arch": "llama",
+      "n_layers": 32,
+      "hidden": 4096,
+      "intermediate": 14336,
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "head_dim": 128,
+      "vocab": 128256,
+      "rope_theta": 500000.0,
+      "rope_scaling": {
+        "factor": 8.0,
+        "low_freq_factor": 1.0,
+        "high_freq_factor": 4.0,
+        "original_max_position_embeddings": 8192,
+        "rope_type": "llama3"
+      },
+      "rms_eps": 1e-05,
+      "tie_embeddings": false,
+      "qk_norm": false
+    },
+    "model_config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+    "weight_files": [
+      {
+        "name": "model-00001-of-000002.safetensors",
+        "size": 8667826246
+      },
+      {
+        "name": "model-00002-of-000002.safetensors",
+        "size": 7392730108
+      }
+    ],
+    "ready": true
+  },
+  "git": {
+    "commit": "a308ed48db126384e6a86dfe1fdbae74422e7391",
+    "status": "M .gitignore\n M README.md\n M docs/STATUS.md\n M kernelscope/cli.py\n M kernelscope/model/simulate.py\n M pyproject.toml\n?? .streamlit/\n?? Makefile\n?? dashboard/\n?? demo_data/\n?? docs/demo.md\n?? docs/experiments/\n?? docs/graduation.md\n?? docs/img/\n?? docs/plan/2026-09-22-model-validation.md\n?? env/requirements-demo.txt\n?? env/requirements-serve.txt\n?? kernelscope/dashboard/\n?? kernelscope/model/_simulate_backend.py\n?? kernelscope/model/_simulate_native.c\n?? kernelscope/serve/\n?? models/\n?? scenarios/\n?? scripts/\n?? tests/test_dashboard_app.py\n?? tests/test_dashboard_data.py\n?? tests/test_dashboard_figures.py\n?? tests/test_dashboard_research.py\n?? tests/test_followup_campaign.py\n?? tests/test_model_simulate_native.py\n?? tests/test_policy_numerics.py\n?? tests/test_serve_cli.py\n?? tests/test_serve_dispatch.py\n?? tests/test_serve_engine.py\n?? tests/test_serve_equivalence.py\n?? tests/test_serve_generate.py\n?? tests/test_serve_hf.py\n?? tests/test_serve_kvcache.py\n?? tests/test_serve_model.py\n?? tests/test_serve_quality.py\n?? tests/test_serve_report.py\n?? tests/test_serve_scenarios.py"
+  },
+  "source_sha256": {
+    "kernelscope/serve/__init__.py": "b5d3e400a05c4cbf21f06475e7307ede90a6829fe5bd45b559b8ff59be94b584",
+    "kernelscope/serve/cli.py": "726de6b3256350eace39c3431233e9d9528dc3bb680bcffd5a5f97f3b8b75cbc",
+    "kernelscope/serve/dispatch.py": "ebdb4099bacf5c8cba2130807ddadd29b71053620a95a257a5e538eaabcf0206",
+    "kernelscope/serve/engine.py": "3e6214636051869e916c55b8ea4a58fa34418b9027aed9c8038fbe88863a1336",
+    "kernelscope/serve/equivalence.py": "3dcf346b2a6f88b6c89f1f614c2ff8e262647dc225b6755c5de3ed7a42e07b01",
+    "kernelscope/serve/generate.py": "3ddfa9ae10a6eee68853cd8f58703ba556c43357d1a7f88b3b32a576238aa231",
+    "kernelscope/serve/hf.py": "ce679784215e20f6164a62503c0831da78a11dafcd8d9a30d7d6d39ed196f1db",
+    "kernelscope/serve/kvcache.py": "374c756dc60e767c9921bcb4b74f6e314a11a0eef42e27fe114f90d373872371",
+    "kernelscope/serve/model.py": "4926f0bbf9231afd9518a2c59d5d3be987002fc4953b4839bfcc409696d18f8b",
+    "kernelscope/serve/quality.py": "ac87843aa4997fdbf3f8e414ff215d667dee3418d1b2c133917bb1d570cd857d",
+    "kernelscope/serve/report.py": "da2c2892f9015ebeca163b46712cc95ebac71fcbc752f37ef87cd59df7cb44ca",
+    "kernelscope/serve/scenarios.py": "1f85639a5b94675788bc2e5b3bbe6d61ccb14e73ff707d3d34154a770a7753b9",
+    "kernelscope/model/__init__.py": "11b8e331124f6837d0d82e299582b9e903401c69aaf58c77c976fc021e421af2",
+    "kernelscope/model/_simulate_backend.py": "5c90bfe4fca8ccf9464df86d4371b0801af4e1856b34843e6d04614260f8ead9",
+    "kernelscope/model/_simulate_native.c": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+    "kernelscope/model/fit.py": "b09fc4daf519bcdcfebaf7bfcbb4f6a93af562ec61509b83c118ce31122efb37",
+    "kernelscope/model/geometry.py": "3532cf3d5eb364637dfed838a01d369684570483147fd4f299d605671737db13",
+    "kernelscope/model/machine.py": "47e3b5137bcea6f66265a10f595f5b01bcd5155145e70c514d3b7b1653acda64",
+    "kernelscope/model/params.py": "654eca2863e7619e1e98c8afc4e936693322b14d1e074603e4e03a06df258c22",
+    "kernelscope/model/predict.py": "75f0320bf41576bc12e7b33045c4224594fd1a33c6bab5408497cb97f8414fb3",
+    "kernelscope/model/simulate.py": "bf4c24c8e701ba955ae1bf873b4ddf387b08e7b611e34da0eed194fc4aa1cb5e",
+    "kernelscope/model/validate.py": "d5e7b5b42f6af5ce1611f240ed1337927d10f47ae21c37f7da99bfcbb9c40427"
+  },
+  "order": [
+    [
+      "heuristic",
+      "table",
+      "model"
+    ],
+    [
+      "table",
+      "model",
+      "heuristic"
+    ],
+    [
+      "model",
+      "heuristic",
+      "table"
+    ]
+  ],
+  "policy_inputs": {
+    "/home/skkai/AI_Accelerator/kernelscope-design/machines/rtx4090.json": "ca91a6a13f8f46a583957a9c70873a30b459807e4c3c76bcb3aa4bdb7e262edd",
+    "/home/skkai/AI_Accelerator/kernelscope-design/models/rtx4090.json": "327ea55d9cab05e2d04230b3aa36dd62a7e645f914882d734f4e1984e5224e3d",
+    "/home/skkai/AI_Accelerator/kernelscope-design/demo_data/dispatch_paged_cold.csv": "6b775f09c93c20dfdced00fc47c66d33a2a286333a2e3a7d703ab52837016d6d"
+  },
+  "tokens_equivalent": true,
+  "independent_reference_validation": "not_performed_by_this_command",
+  "completed_at": "2026-09-22T08:17:50.157766+00:00"
+}

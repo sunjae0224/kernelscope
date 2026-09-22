@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "kernelscope"
 version = "0.1.0"
-description = "Dual-track (real-HW ncu + Accel-Sim what-if) evaluation harness for GPU inference kernels"
+description = "GPU attention diagnosis, hardware what-if modeling, and measured LLM kernel dispatch"
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
@@ -16,7 +16,9 @@ dependencies = [
 
 [project.optional-dependencies]
 gpu = ["torch", "flash-attn"]
-viz = ["streamlit", "plotly", "matplotlib"]
+viz = ["streamlit>=1.64", "plotly>=6", "matplotlib"]
+serve = ["torch", "flash-attn", "safetensors>=0.4", "tokenizers>=0.22,<0.23"]
+validation = ["transformers==4.57.6", "playwright>=1.50"]
 dev = ["pytest"]
 
 [project.scripts]
@@ -24,6 +26,9 @@ kernelscope = "kernelscope.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["kernelscope*"]
+
+[tool.setuptools.package-data]
+"kernelscope.model" = ["_simulate_native.c"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

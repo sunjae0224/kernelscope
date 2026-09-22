@@ -1,0 +1,16 @@
+policy,reference,steps_compared,max_abs_logit_diff,token_agreement,tokens_compared,token_mismatches,missing_tokens,schedule_match,logits_checked,logits_finite,tokens_identical,passed,first_mismatch,repeat
+fixed8,heuristic,0,,0.9443359375,2048,114,0,True,False,,False,False,"rid=2, position=10, reference=20, candidate=18",0
+table,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,0
+model,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,0
+fixed8,heuristic,0,,0.9443359375,2048,114,0,True,False,,False,False,"rid=2, position=10, reference=20, candidate=18",1
+table,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,1
+model,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,1
+table,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,2
+model,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,2
+fixed8,heuristic,0,,0.9443359375,2048,114,0,True,False,,False,False,"rid=2, position=10, reference=20, candidate=18",2
+model,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,3
+fixed8,heuristic,0,,0.9443359375,2048,114,0,True,False,,False,False,"rid=2, position=10, reference=20, candidate=18",3
+table,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,3
+fixed8,heuristic,0,,0.9443359375,2048,114,0,True,False,,False,False,"rid=2, position=10, reference=20, candidate=18",4
+table,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,4
+model,heuristic,0,,1.0,2048,0,0,True,False,,True,True,,4
