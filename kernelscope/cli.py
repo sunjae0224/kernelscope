@@ -10,6 +10,7 @@
   kernelscope dispatch-table --results DIR [DIR ...] [--family dense|paged] [--cache-state cold|warm] [--out t.csv]
                           (best interchangeable variant per workload + the library heuristic's regret)
   kernelscope model fit|predict|validate|blocked                        (surrogate performance model)
+  kernelscope verify    [--only kernel,serve,...] [--out verify.csv]    (GPU-free: recompute documented numbers)
 """
 import argparse
 import json
@@ -22,7 +23,7 @@ import yaml
 from kernelscope.backends.accelsim.paths import DEFAULT_ROOT, AccelSimPaths
 from kernelscope.backends.accelsim.sweep import AccelSimSweep
 from kernelscope.backends.realhw.sweep import RealHWSweep
-from kernelscope.results.store import ResultStore
+from kernelscope.results.store import ResultStore, load_dirs
 from kernelscope.run_kernel import DEFAULT_REGISTRY, load_registry
 from kernelscope.workload import Workload, expand_grid
 
@@ -106,8 +107,7 @@ def _cmd_report(args):
 def _cmd_dispatch_table(args):
     import pandas as pd
     from kernelscope.analysis.dispatch import dispatch_table, regret_summary
-    df = pd.concat([ResultStore(r).load() for r in args.results], ignore_index=True)
-    t = dispatch_table(df, family=args.family, cache_state=args.cache_state)
+    t = dispatch_table(_load_results(args.results), family=args.family, cache_state=args.cache_state)
     print(json.dumps(regret_summary(t), indent=2))
     with pd.option_context("display.width", 250, "display.max_columns", 20, "display.float_format", "{:.4g}".format):
         print(t.head(10).to_string(index=False))
@@ -150,8 +150,7 @@ def _cmd_machine(args):
 
 
 def _load_results(dirs):
-    import pandas as pd
-    return pd.concat([ResultStore(r).load() for r in dirs], ignore_index=True)
+    return load_dirs(dirs)
 
 
 def _ragged_train_half(key: str) -> bool:
@@ -194,6 +193,29 @@ def _cmd_model_validate(args):
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(md)
+
+
+def _cmd_verify(args):
+    import pandas as pd
+    from kernelscope import verify
+    repo = Path(__file__).resolve().parents[1]
+    checks = verify.CHECKS
+    if args.only:
+        groups = set(args.only.split(","))
+        checks = [c for c in checks if c.id.split(".")[0] in groups]
+        if not checks:
+            valid = sorted({c.id.split(".")[0] for c in verify.CHECKS})
+            raise SystemExit(f"verify: --only {args.only!r} matched no check; valid groups are {', '.join(valid)}")
+    t = verify.run_checks(checks, repo=repo, data=Path(args.data) if args.data else repo / "demo_data")
+    with pd.option_context("display.width", 250, "display.max_colwidth", 70, "display.float_format", "{:.4g}".format):
+        print(t[["id", "expected", "measured", "tol", "unit", "status", "title"]].to_string(index=False))
+    counts = t.status.value_counts().to_dict()
+    print(json.dumps(counts, ensure_ascii=False))
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        t.to_csv(args.out, index=False)
+    if set(counts) - {"PASS"}:
+        raise SystemExit(1)
 
 
 def _cmd_simsweep(args):
@@ -332,6 +354,12 @@ def main(argv=None):
     p_val.add_argument("--params-uniform")
     p_val.add_argument("--out")
     p_val.set_defaults(func=_cmd_model_validate)
+
+    p_ver = sub.add_parser("verify", help="GPU-free: recompute the documented headline numbers from committed raw data")
+    p_ver.add_argument("--data", help="recorded results root with hw_4090/ and serve_4090/ (default: demo_data/)")
+    p_ver.add_argument("--only", help="comma-separated check groups: kernel,serve,followup,latency,model,consistency")
+    p_ver.add_argument("--out", help="write the check table as CSV")
+    p_ver.set_defaults(func=_cmd_verify)
 
     from kernelscope.serve.cli import register_parser
     register_parser(sub)

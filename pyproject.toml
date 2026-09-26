@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "kernelscope"
 version = "0.1.0"
-description = "GPU attention diagnosis, hardware what-if modeling, and measured LLM kernel dispatch"
+description = "Measurement- and simulation-driven dynamic selection of the attention kernel split for LLM decode"
 requires-python = ">=3.10"
 dependencies = [
     "numpy",

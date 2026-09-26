@@ -1,7 +1,7 @@
 # 설계: 1단계 — decode/prefill 진단 리포트 (TPOT → step → 연산 → 커널 → 한계 자원)
 
 작성 2026-09-22. 선행: [2026-09-19-design-surrogate-dispatcher.md](2026-09-19-design-surrogate-dispatcher.md)(방향 1·3 설계), [graduation.md](../graduation.md), [demo.md](../demo.md).
-상태: **사용자 검토 대기.** 이 문서는 코드 변경 없이 작성했다. 커밋 5f678ea(design-1-3)가 출발점이다.
+상태: **보류(2026-09-26).** 중간보고서에서 정체성을 '측정·시뮬레이션 기반 attention 커널 동적 선택 시스템'으로 고정하면서, 진단 리포트는 독립 정체성이 아니라 향후 과제로 남긴다. 이 문서는 코드 변경 없이 작성했다. 커밋 5f678ea(design-1-3)가 출발점이다.
 
 ---
 

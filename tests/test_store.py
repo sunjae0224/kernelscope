@@ -43,3 +43,29 @@ def test_write_stamps_extra_columns_on_every_row(tmp_path):
     df = store.load()
     assert (df["host"] == "a100-box").all()
     assert (df["run_id"] == "r1").all()
+
+
+def test_load_dirs_reads_a_portable_summaries_only_directory(tmp_path):
+    import json
+    from kernelscope.results.store import load_dirs
+    key = "decode_B1_Lq1_Lkv4096_Hq32_Hkv8_d128_float16_causal"
+    lines = [
+        json.dumps({"status": "ok", "plugin": "fa2", "workload_key": key, "cache_state": "cold", "kernel_time_us": 40.0}),
+        json.dumps({"status": "error", "plugin": "fd_s2", "workload_key": key, "cache_state": "cold"}),
+        '{"status": "ok", "plugin": "fd_s4"',  # truncated trailing line from an interrupted writer
+    ]
+    (tmp_path / "summaries.jsonl").write_text("\n".join(lines) + "\n")
+    df = load_dirs([tmp_path])
+    assert len(df) == 1
+    row = df.iloc[0]
+    assert (row.kernel, row.backend, row.metric, row.value, row.cache_state) == (
+        "fa2", "profile", "kernel_time_us", 40.0, "cold")
+
+
+def test_load_dirs_prefers_parquet_rows_when_present(tmp_path):
+    import json
+    from kernelscope.results.store import load_dirs
+    ResultStore(tmp_path).write(ROWS, tag="ncu_fa2")
+    (tmp_path / "summaries.jsonl").write_text(json.dumps(
+        {"status": "ok", "plugin": "fa2", "workload_key": ROWS[0]["workload_key"], "kernel_time_us": 40.0}) + "\n")
+    assert len(load_dirs([tmp_path])) == len(ROWS)

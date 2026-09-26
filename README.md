@@ -1,8 +1,8 @@
 # kernelscope
 
-**GPU attention 병목 분석 → 커널 선택 → 실제 LLM 생성 지연 검증.**
+**GPU 프로파일링·시뮬레이션 기반 LLM 추론 attention 커널 동적 선택 시스템.**
 
-KernelScope는 RTX 4090에서 attention 커널을 비교하고, 길이가 다른 요청이 섞일 때의 병목을 설명하며, 실제 Qwen3/Llama decoder에서 split 선택 정책을 교체하는 졸업 프로젝트입니다. **[프로젝트 설명과 연구 질문](docs/graduation.md)** · **[5분 데모 안내](docs/demo.md)**
+KernelScope는 길이가 다른 요청이 섞인 LLM 디코드 배치에서 FlashAttention의 KV 분할 수(num_splits) 휴리스틱이 GPU를 채우지 못하는 문제를 RTX 4090 실측으로 진단하고, 성능 모델·Accel-Sim으로 설명·예측하며, 매 단계 분할 수를 동적으로 고르는 정책을 실제 Qwen3/Llama decoder에서 검증하는 졸업 프로젝트입니다. 프로파일러와 시뮬레이터는 이 파이프라인의 단계이며 제품이 아닙니다. **[프로젝트 설명과 연구 질문](docs/graduation.md)** · **[5분 데모 안내](docs/demo.md)**
 
 ## 졸업 프로젝트 데모
 
@@ -73,8 +73,37 @@ bash scripts/campaign.sh
 ```bash
 make test           # CPU 테스트
 make test-gpu       # 유휴 GPU에서 CUDA 검증
+make verify         # GPU 없이 문서의 주요 수치를 커밋된 원본 데이터에서 다시 계산해 대조
+make figures        # 보고서 그림을 demo_data에서 직접 생성 (docs/report/fig)
 make package-demo  # 원본 측정 결과를 해시와 함께 휴대 가능한 데모로 복사
 ```
+
+### GPU 없는 장비에서 확인하기
+
+CUDA가 없는 노트북에서도 CPU용 PyTorch로 다음을 확인할 수 있습니다.
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+.venv/bin/pip install numpy pandas pyarrow pyyaml pytest matplotlib 'streamlit>=1.64' 'plotly>=6' safetensors==0.8.0 tokenizers==0.22.2
+.venv/bin/pip install -e . --no-deps
+make test     # CPU 테스트 (GPU 테스트는 제외, flash-attn/transformers 없는 항목은 skip)
+make verify   # 40개 수치 재현 검사: 커널 실측, 실제 생성, 후속 실험, 선택 비용, 성능 모델·혼합 정책 검증, 일관성, GPGPU-Sim 스윕
+make demo     # 저장된 실측 결과로 대시보드 실행
+```
+
+GPU 없이 기록된 측정으로 돌리는 분석 두 가지도 있습니다. `python -m scripts.evaluate_hybrid`는 성능 모델·측정 테이블·혼합 정책의 선택 손실을 leave-one-out으로 비교하고([결과](docs/experiments/2026-09-26-hybrid-policy.md)), `python -m scripts.analyze_mismatches`는 정책 간 생성 토큰 불일치를 분기 사건과 bf16 동점으로 분류합니다([결과](docs/experiments/2026-09-26-mismatch-analysis.md)). 혼합 정책은 `--policy hybrid:<table.csv>:0.2`로 서빙 실험에 쓸 수 있습니다.
+
+`kernelscope verify`는 `demo_data/`와 `docs/experiments/`의 RTX 4090 원본 기록만 읽습니다. 각 수치를 프로젝트의 분석 코드로 다시 계산하고, 해당 문서가 여전히 그 값을 적고 있는지도 확인합니다. 하나라도 어긋나면 종료 코드 1을 반환합니다. `--only kernel,serve`로 일부 묶음만, `--data <결과 폴더>`로 원본 결과 폴더를 지정할 수 있습니다. `serve demo`의 CPU 실행은 스케줄링과 토큰 일치 로직만 확인하며, CPU SDPA는 `num_splits`를 사용하지 않으므로 커널 선택의 성능 효과를 재현하지 않습니다.
+
+이 README의 아래 예시는 개발 장비의 절대 경로를 사용합니다. 다른 장비에서는 다음 환경 변수로 바꿉니다.
+
+| 변수 | 의미 | 기본값 |
+|---|---|---|
+| `KERNELSCOPE_PYTHON` | `scripts/demo.sh`가 사용할 Python | `.venv/bin/python` |
+| `KERNELSCOPE_RESULTS` | 대시보드가 읽을 결과 폴더 | `../kernelscope/results`, 없으면 `demo_data/` |
+| `ACCELSIM_ROOT` | 빌드된 Accel-Sim 경로 | `/home/skkai/accelsim/accel-sim-framework` |
+| `KERNELSCOPE_SIMULATOR` | 성능 모델 시뮬레이터 구현 (`python`이면 NumPy 기준 구현) | C 컴파일러가 있으면 C 구현 |
 
 ## 커널 측정 기반
 

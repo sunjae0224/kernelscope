@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from kernelscope.model.geometry import parse_variant, resolve_splits
+from kernelscope.model.hybrid import hybrid_pick, variant_for_splits
 from kernelscope.model.predict import PAGED_VARIANTS, predict
 from kernelscope.model.simulate import prepare_simulator
 from kernelscope.workload import Workload
@@ -119,6 +120,9 @@ class TablePolicy:
     def _features(lens):
         return np.log2([len(lens), max(lens), float(np.mean(lens))])
 
+    def covers(self, n_heads, n_kv_heads) -> bool:
+        return (n_heads, n_kv_heads) in self._groups
+
     def choose(self, lens, n_heads, n_kv_heads) -> int:
         _validate(lens, n_heads, n_kv_heads)
         key = (n_heads, n_kv_heads, tuple(math.ceil(n / PAGE) for n in lens))
@@ -138,6 +142,42 @@ class TablePolicy:
         return value
 
 
+class HybridPolicy:
+    """Model ranking, but the measured table's variant wins when the model predicts it within ``delta``."""
+    name = "hybrid"
+
+    def __init__(self, machine, params, csv_path, delta=0.10, cache_state="cold"):
+        if not (isinstance(delta, (int, float)) and delta >= 0):
+            raise ValueError("hybrid delta must be a nonnegative number")
+        self.model = ModelPolicy(machine, params, cache_state=cache_state)
+        self.table = TablePolicy(csv_path)
+        self.delta = float(delta)
+        self.simulator_backend = self.model.simulator_backend
+        self.last = None
+        self.last_cache_hit = False
+
+    def reset(self):
+        self.model.reset()
+        self.table.reset()
+        self.last = None
+        self.last_cache_hit = False
+
+    def choose(self, lens, n_heads, n_kv_heads) -> int:
+        model_splits = self.model.choose(lens, n_heads, n_kv_heads)
+        predicted = dict(self.model.last)
+        if not self.table.covers(n_heads, n_kv_heads):          # no measured grid for this head shape
+            self.last_cache_hit = self.model.last_cache_hit
+            self.last = {"source": "model", "pick": min(predicted, key=predicted.get), "model": predicted, "table": None}
+            return model_splits
+        table_splits = self.table.choose(lens, n_heads, n_kv_heads)
+        self.last_cache_hit = self.model.last_cache_hit and self.table.last_cache_hit
+        table_variant = variant_for_splits(table_splits)
+        pick = hybrid_pick(predicted, table_variant, self.delta)
+        source = "table" if pick == table_variant else "model"
+        self.last = {"source": source, "pick": pick, "model": predicted, "table": self.table.last}
+        return table_splits if source == "table" else model_splits
+
+
 def make_policy(spec: str, machine=None, params=None, cache_state="cold") -> Policy:
     if spec == "fa2":
         return FixedPolicy(1)
@@ -149,4 +189,8 @@ def make_policy(spec: str, machine=None, params=None, cache_state="cold") -> Pol
         return ModelPolicy(machine, params, cache_state=cache_state)
     if spec.startswith("table:"):
         return TablePolicy(Path(spec.split(":", 1)[1]))
-    raise ValueError(f"unknown policy {spec!r}; use fa2, heuristic, fixed:N, model, table:PATH")
+    if spec.startswith("hybrid:"):
+        rest = spec.split(":", 1)[1]
+        path, _, delta = rest.rpartition(":") if rest.count(":") else (rest, "", "")
+        return HybridPolicy(machine, params, Path(path), delta=float(delta) if delta else 0.10, cache_state=cache_state)
+    raise ValueError(f"unknown policy {spec!r}; use fa2, heuristic, fixed:N, model, table:PATH, hybrid:PATH[:DELTA]")
