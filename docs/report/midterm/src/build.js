@@ -27,10 +27,6 @@ function c(children, width, o = {}) {
 // ---- cover: evaluation table (평가표는 수정하지 않습니다) ----
 const W = [1300, 4300, 3470];
 const cover = [
-  new Paragraph({ children: L.runs("붙임2", { size: 22, bold: true }), spacing: { after: 600 },
-    border: { top: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 2 }, bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 2 },
-      left: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 }, right: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 } },
-    indent: { right: 8200 } }),
   t("연구논문/작품 중간보고서", { size: 44, before: 600, after: 200 }),
   new Paragraph({ children: [], spacing: { after: 700 }, border: { bottom: { style: BorderStyle.SINGLE, size: 36, color: "8C8C8C", space: 1 } } }),
   t("2026 학년도 제 2 학기", { size: 26, after: 700 }),
@@ -42,7 +38,7 @@ const cover = [
     ] }),
     new TableRow({ height: { value: 800, rule: HeightRule.ATLEAST }, children: [
       c(t("GitHub\nURL".split("\n").join(" "), { bold: true }), W[0], { fill: GRAY }),
-      c(t(`${GITHUB} (design-1-3 브랜치)`, { size: 19, align: AlignmentType.LEFT }), W[1] + W[2], { span: 2, fill: GRAY }),
+      c(t(GITHUB, { size: 19, align: AlignmentType.LEFT }), W[1] + W[2], { span: 2, fill: GRAY }),
     ] }),
     new TableRow({ children: [
       c(t("평가등급", { bold: true }), W[0], { fill: GRAY }),
@@ -52,7 +48,7 @@ const cover = [
     new TableRow({ height: { value: 3000, rule: HeightRule.ATLEAST }, children: [
       c([t("A,B,F중", { size: 19 }), t("택1", { size: 19 }), t("(지도교수가", { size: 15, before: 60 }), t("부여)", { size: 15 })], W[0]),
       c([t("○", { align: AlignmentType.LEFT, after: 600 }), t("○", { align: AlignmentType.LEFT, after: 600 }), t("○", { align: AlignmentType.LEFT })], W[1], { valign: VerticalAlign.TOP }),
-      c([t("이 선 재 (인) (학번:            )", { size: 19 })], W[2]),
+      c([t("이 선 재 (인)", { size: 19 }), t("(학번: 2021313805)", { size: 19, before: 80 })], W[2]),
     ] }),
   ] }),
 ];
@@ -61,7 +57,7 @@ const cover = [
 const signature = [
   t("2026 년   9 월   27 일", { size: 26, before: 2400, after: 1400 }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [
-    ...L.runs("지도교수 : o o o     ", { size: 26 }),
+    ...L.runs("지도교수 : 민 동 문     ", { size: 26 }),
     new TextRun({ text: "서명                        ", size: 26, underline: {}, font: L.runFont }),
   ] }),
 ];

@@ -5,8 +5,8 @@ const {
   HeadingLevel, BorderStyle, VerticalAlign, PageBreak, LevelFormat, LineRuleType,
 } = require("docx");
 
-const FONT = "맑은 고딕";
-const MONO = "Consolas";
+const FONT = process.env.REPORT_FONT || "맑은 고딕";
+const MONO = process.env.REPORT_MONO || "Consolas";
 const BODY_W = 9070; // A4 21.0 cm - 2 x 2.5 cm margins, in DXA
 const BODY_PT = 20;  // half-points: 10 pt
 
