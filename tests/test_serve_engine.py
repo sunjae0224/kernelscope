@@ -1,3 +1,4 @@
+import contextlib
 from types import SimpleNamespace
 
 import pytest
@@ -103,3 +104,54 @@ def test_actual_cpu_decoder_replay_preserves_tokens_across_split_parameters():
                             cfg.vocab, 2 * PagePool.bytes_per_page(1, 1, 8, torch.float32), record_steps=3)
     assert rows.passed.all() and rows.tokens_identical.all()
     assert rows.max_abs_logit_diff.max() == 0
+
+
+from kernelscope.serve.engine import OPS_COLUMNS, STEP_COLUMNS
+
+
+class RegionModel(ArithmeticModel):
+    """Scheduler double that opens op regions the way DecoderModel does."""
+
+    def prefill(self, rid, tokens, pool, timer=None):
+        reg = timer.region if timer is not None else (lambda *a: contextlib.nullcontext())
+        with reg("embed"):
+            pool.reserve(rid, len(tokens))
+            pool.set_length(rid, len(tokens))
+        with reg("lm_head"):
+            return self._logits(sum(tokens))
+
+    def decode(self, seq_ids, tokens, pool, num_splits=0, timer=None):
+        with timer.region("embed"):
+            for rid in seq_ids:
+                length = pool.length(rid) + 1
+                pool.reserve(rid, length)
+                pool.set_length(rid, length)
+        with timer.region("attention", 0):
+            output = torch.stack([self._logits(token + 1) for token in tokens])
+        with timer.region("mlp", 0):
+            pass
+        return output
+
+
+def test_event_mode_collects_op_rows_and_keeps_step_columns():
+    result = Engine(RegionModel(), pool(), FixedPolicy(1)).run([Request(0, 3, 2), Request(1, 2, 2)], 16, ops_mode="event")
+    assert list(result.steps.columns) == STEP_COLUMNS
+    assert list(result.ops.columns) == OPS_COLUMNS
+    decode = result.ops[result.ops.phase == "decode"]
+    prefill = result.ops[result.ops.phase == "prefill"]
+    assert (decode.rid == "").all() and set(decode.op_class) == {"embed", "attention", "mlp"}
+    assert set(prefill.rid) == {"0", "1"} and set(prefill.op_class) == {"embed", "lm_head"}
+    per_step = decode[decode.op_class == "attention"].groupby("step").gpu_us.sum()
+    assert per_step.index.tolist() == result.steps.step.tolist()
+    assert result.metadata["ops_mode"] == "event"
+
+
+def test_default_mode_has_no_op_rows_and_accepts_the_old_double():
+    result = Engine(ArithmeticModel(), pool(), FixedPolicy(1)).run([Request(0, 3, 2)], 16)
+    assert result.ops.empty and list(result.ops.columns) == OPS_COLUMNS
+    assert result.metadata["ops_mode"] is None
+
+
+def test_unknown_ops_mode_is_rejected():
+    with pytest.raises(ValueError, match="ops_mode"):
+        Engine(ArithmeticModel(), pool(), FixedPolicy(1)).run([Request(0, 3, 2)], 16, ops_mode="trace")

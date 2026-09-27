@@ -13,13 +13,15 @@ import pandas as pd
 import torch
 
 from kernelscope.serve.kvcache import PAGE
-from kernelscope.serve.model import AttentionTimer
+from kernelscope.serve.model import AttentionTimer, OpTimer
 from kernelscope.serve.scenarios import prompt_ids
 
 STEP_COLUMNS = ["step", "policy", "B", "len_max", "len_sum", "n_long", "num_splits", "attn_us",
                 "step_us", "policy_us", "policy_cache_hit", "decode_wall_us", "seq_ids", "lens"]
 TOKEN_COLUMNS = ["rid", "step", "position", "token", "t_us", "phase"]
 PREFILL_COLUMNS = ["rid", "prompt_len", "prefill_us", "arrival_us", "admitted_us", "first_token_us", "prompt_sha256"]
+OPS_COLUMNS = ["phase", "step", "rid", "layer", "op_class", "gpu_us"]
+OPS_MODES = (None, "event")
 
 
 @dataclass
@@ -29,6 +31,7 @@ class RunResult:
     prefill: pd.DataFrame
     logits: list = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
+    ops: pd.DataFrame = field(default_factory=lambda: pd.DataFrame(columns=OPS_COLUMNS))
 
 
 class _CallTimer:
@@ -61,9 +64,11 @@ class Engine:
         self.model, self.pool, self.policy, self.max_batch = model, pool, policy, max_batch
 
     @torch.inference_mode()
-    def run(self, requests, vocab, record_logits_steps=0, seed=0) -> RunResult:
+    def run(self, requests, vocab, record_logits_steps=0, seed=0, ops_mode=None) -> RunResult:
         if record_logits_steps < 0:
             raise ValueError("record_logits_steps must be nonnegative")
+        if ops_mode not in OPS_MODES:
+            raise ValueError(f"ops_mode must be one of {OPS_MODES}, got {ops_mode!r}")
         requests = list(requests)
         if len({r.rid for r in requests}) != len(requests):
             raise ValueError("request IDs must be unique")
@@ -89,7 +94,7 @@ class Engine:
         if too_large:
             raise MemoryError(f"requests {too_large} exceed this pool's {capacity} pages; increase --kv-gib")
         active, owned, last_tok, produced, arrivals = [], set(), {}, {}, {}
-        steps, tokens, prefills, logits, logit_keys = [], [], [], [], []
+        steps, tokens, prefills, logits, logit_keys, ops_rows = [], [], [], [], [], []
         reserved = 0
         if torch.device(device).type == "cuda":
             torch.cuda.synchronize(device)
@@ -128,8 +133,14 @@ class Engine:
                     timer = _CallTimer(device)
                     owned.add(request.rid)
                     timer.start()
-                    output = self.model.prefill(request.rid, ids, self.pool)
+                    if ops_mode == "event":
+                        ops = OpTimer(device=device)
+                        output = self.model.prefill(request.rid, ids, self.pool, timer=ops)
+                    else:
+                        output = self.model.prefill(request.rid, ids, self.pool)
                     elapsed = timer.stop()
+                    if ops_mode == "event":
+                        ops_rows.extend({"phase": "prefill", "step": step, "rid": str(request.rid), **row} for row in ops.rows())
                     first = int(output.argmax().item())
                     stamp = now_us()
                     last_tok[request.rid], produced[request.rid] = first, 1
@@ -150,12 +161,14 @@ class Engine:
                 select_started = time.perf_counter()
                 splits = self.policy.choose(lens, cfg.n_heads, cfg.n_kv_heads)
                 selection_us = (time.perf_counter() - select_started) * 1e6
-                attention = AttentionTimer(device=device)
+                attention = OpTimer(device=device) if ops_mode == "event" else AttentionTimer(device=device)
                 timer = _CallTimer(device)
                 timer.start()
                 output = self.model.decode(seq_ids, [last_tok[rid] for rid in seq_ids], self.pool,
                                            num_splits=splits, timer=attention)
                 step_us = timer.stop()
+                if ops_mode == "event":
+                    ops_rows.extend({"phase": "decode", "step": step, "rid": "", **row} for row in attention.rows())
                 next_tokens = output.argmax(-1).tolist()
                 stamp = now_us()
                 wall_us = (time.perf_counter() - wall_started) * 1e6
@@ -187,4 +200,6 @@ class Engine:
                           "model_dtype": str(self.model.dtype).removeprefix("torch."), "logit_step_keys": logit_keys,
                           "timing_backend": "cuda_events" if torch.device(device).type == "cuda" else "cpu_perf_counter",
                           "model_backend": getattr(self.model, "backend", "unknown"),
-                          "measurement_scope": "single_process_continuous_batching_replay"})
+                          "measurement_scope": "single_process_continuous_batching_replay",
+                          "ops_mode": ops_mode},
+                         ops=pd.DataFrame(ops_rows, columns=OPS_COLUMNS))

@@ -233,3 +233,72 @@ def test_local_qwen4b_prefill_and_decode_match_transformers():
 
 def F_cosine(a, b):
     return torch.nn.functional.cosine_similarity(a, b, dim=0).item()
+
+
+from kernelscope.serve.model import NULL_REGION, OP_CLASSES, OpTimer
+
+
+def _prefilled(seed=0):
+    model = DecoderModel.random(TINY, device="cpu", seed=seed)
+    pool = _pool(model)
+    model.prefill(0, list(range(1, 6)), pool)
+    model.prefill(1, list(range(1, 9)), pool)
+    return model, pool
+
+
+def test_op_timer_records_every_class_for_every_layer_on_decode():
+    model, pool = _prefilled()
+    timer = OpTimer(device="cpu")
+    model.decode([0, 1], [3, 4], pool, timer=timer)
+    rows = timer.rows()
+    layers = {}
+    for row in rows:
+        layers.setdefault(row["op_class"], set()).add(row["layer"])
+    assert set(layers) == set(OP_CLASSES)
+    for op_class in ("norm", "qkv_proj", "rope", "attention", "o_proj", "mlp"):
+        assert layers[op_class] == set(range(TINY.n_layers))
+    assert layers["embed"] == {-1} and layers["lm_head"] == {-1}
+    assert all(row["gpu_us"] >= 0 for row in rows)
+    attention = sum(row["gpu_us"] for row in rows if row["op_class"] == "attention")
+    assert timer.total_us("attention") == pytest.approx(attention)
+
+
+def test_prefill_accepts_a_timer_and_records_one_embed_per_chunk():
+    model = DecoderModel.random(TINY, device="cpu")
+    pool = _pool(model)
+    timer = OpTimer(device="cpu")
+    model.prefill(0, list(range(1, 12)), pool, chunk=4, timer=timer)
+    rows = timer.rows()
+    assert {row["op_class"] for row in rows} == set(OP_CLASSES)
+    assert sum(row["op_class"] == "embed" for row in rows) == 3      # 11 tokens in chunks of 4
+
+
+def test_attention_timer_keeps_layer_api_and_skips_other_classes():
+    timer = AttentionTimer(device="cpu")
+    assert timer.region("mlp", 0) is NULL_REGION
+    timer.start(0)
+    timer.stop(0)
+    with timer.region("attention", 1):
+        pass
+    assert timer.total_us() >= 0
+    assert {row["layer"] for row in timer.rows()} == {0, 1}
+    timer.start(2)
+    with pytest.raises(RuntimeError, match="already running"):
+        timer.start(2)
+
+
+def test_op_timer_rejects_unknown_classes_and_unfinished_reads():
+    with pytest.raises(ValueError, match="unknown op class"):
+        OpTimer(device="cpu", classes=("attention", "softmax"))
+    timer = OpTimer(device="cpu")
+    timer.start("mlp", 0)
+    with pytest.raises(RuntimeError, match="unfinished"):
+        timer.rows()
+
+
+def test_instrumentation_does_not_change_decode_logits():
+    model, pool = _prefilled()
+    plain = model.decode([0, 1], [3, 4], pool)
+    model2, pool2 = _prefilled()
+    timed = model2.decode([0, 1], [3, 4], pool2, timer=OpTimer(device="cpu"))
+    assert torch.equal(plain, timed)

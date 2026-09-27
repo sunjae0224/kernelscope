@@ -6,6 +6,7 @@ not implement split-K dispatch and its timings are not GPU performance evidence.
 
 from __future__ import annotations
 
+import contextlib
 import operator
 import time
 
@@ -26,12 +27,42 @@ def _rotate_half(x):
     return torch.cat((-x[..., half:], x[..., :half]), dim=-1)
 
 
-class AttentionTimer:
-    """Sum attention regions with CUDA events, or a CPU monotonic clock."""
+OP_CLASSES = ("embed", "norm", "qkv_proj", "rope", "attention", "o_proj", "mlp", "lm_head")
+NULL_REGION = contextlib.nullcontext()
 
-    def __init__(self, device=None):
+
+def _null_region(op_class, layer=-1):
+    return NULL_REGION
+
+
+class _Region:
+    __slots__ = ("timer", "op_class", "layer")
+
+    def __init__(self, timer, op_class, layer):
+        self.timer, self.op_class, self.layer = timer, op_class, layer
+
+    def __enter__(self):
+        self.timer._start(self.op_class, self.layer)
+
+    def __exit__(self, *exc):
+        self.timer._stop(self.op_class, self.layer)
+        return False
+
+
+class OpTimer:
+    """GPU time per (operation class, layer) from CUDA event pairs, or a CPU monotonic clock.
+
+    Regions of classes outside ``classes`` cost one dict lookup and a shared null context, so the
+    attention-only subclass used by performance campaigns adds no events for the other classes.
+    """
+
+    def __init__(self, device=None, classes=OP_CLASSES):
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
-        self._starts = {}
+        self.classes = tuple(classes)
+        unknown = set(self.classes) - set(OP_CLASSES)
+        if unknown:
+            raise ValueError(f"unknown op class {sorted(unknown)}; expected a subset of {OP_CLASSES}")
+        self._open = {}
         self._regions = []
 
     def _stamp(self):
@@ -41,24 +72,61 @@ class AttentionTimer:
             return event
         return time.perf_counter_ns()
 
+    def _start(self, op_class, layer):
+        key = (op_class, layer)
+        if key in self._open:
+            raise RuntimeError(f"{op_class} layer {layer} timer is already running")
+        self._open[key] = self._stamp()
+
+    def _stop(self, op_class, layer):
+        key = (op_class, layer)
+        if key not in self._open:
+            raise RuntimeError(f"{op_class} layer {layer} timer was not started")
+        self._regions.append((op_class, layer, self._open.pop(key), self._stamp()))
+
+    def start(self, op_class, layer=-1):
+        self._start(op_class, layer)
+
+    def stop(self, op_class, layer=-1):
+        self._stop(op_class, layer)
+
+    def region(self, op_class, layer=-1):
+        if op_class not in self.classes:
+            return NULL_REGION
+        return _Region(self, op_class, layer)
+
+    def _elapsed_us(self, start, end):
+        if self.device.type == "cuda":
+            end.synchronize()
+            return start.elapsed_time(end) * 1000
+        return (end - start) / 1000
+
+    def rows(self) -> list:
+        if self._open:
+            raise RuntimeError("cannot read an unfinished op timer")
+        return [{"layer": layer, "op_class": op_class, "gpu_us": self._elapsed_us(start, end)}
+                for op_class, layer, start, end in self._regions]
+
+    def total_us(self, op_class="attention") -> float:
+        if self._open:
+            raise RuntimeError("cannot read an unfinished op timer")
+        return sum(self._elapsed_us(start, end) for cls, _, start, end in self._regions if cls == op_class)
+
+
+class AttentionTimer(OpTimer):
+    """Attention-only timer of the performance campaigns; keeps the layer-only start/stop API."""
+
+    def __init__(self, device=None):
+        super().__init__(device, classes=("attention",))
+
     def start(self, layer):
-        if layer in self._starts:
-            raise RuntimeError(f"attention layer {layer} timer is already running")
-        self._starts[layer] = self._stamp()
+        self._start("attention", layer)
 
     def stop(self, layer):
-        if layer not in self._starts:
-            raise RuntimeError(f"attention layer {layer} timer was not started")
-        self._regions.append((self._starts.pop(layer), self._stamp()))
+        self._stop("attention", layer)
 
     def total_us(self) -> float:
-        if self._starts:
-            raise RuntimeError("cannot read an unfinished attention timer")
-        if self.device.type == "cuda":
-            for _, end in self._regions:
-                end.synchronize()
-            return sum(start.elapsed_time(end) * 1000 for start, end in self._regions)
-        return sum((end - start) / 1000 for start, end in self._regions)
+        return super().total_us("attention")
 
 
 def _weight_shapes(cfg):
@@ -195,37 +263,42 @@ class DecoderModel:
     def _forward(self, x, positions, pool, seq_ids, cache_lens, num_splits, timer=None):
         cfg, weights = self.cfg, self.w
         batch, tokens, _ = x.shape
+        reg = timer.region if timer is not None else _null_region
         cos, sin = self._rope(positions)
         table = pool.block_table(seq_ids)
         for layer in range(cfg.n_layers):
             prefix = f"model.layers.{layer}."
-            h = _rms(x, weights[prefix + "input_layernorm.weight"], cfg.rms_eps)
-            q = F.linear(h, weights[prefix + "self_attn.q_proj.weight"]).view(batch, tokens, cfg.n_heads, cfg.head_dim)
-            k = F.linear(h, weights[prefix + "self_attn.k_proj.weight"]).view(batch, tokens, cfg.n_kv_heads, cfg.head_dim)
-            v = F.linear(h, weights[prefix + "self_attn.v_proj.weight"]).view(batch, tokens, cfg.n_kv_heads, cfg.head_dim)
+            with reg("norm", layer):
+                h = _rms(x, weights[prefix + "input_layernorm.weight"], cfg.rms_eps)
+            with reg("qkv_proj", layer):
+                q = F.linear(h, weights[prefix + "self_attn.q_proj.weight"]).view(batch, tokens, cfg.n_heads, cfg.head_dim)
+                k = F.linear(h, weights[prefix + "self_attn.k_proj.weight"]).view(batch, tokens, cfg.n_kv_heads, cfg.head_dim)
+                v = F.linear(h, weights[prefix + "self_attn.v_proj.weight"]).view(batch, tokens, cfg.n_kv_heads, cfg.head_dim)
             if cfg.qk_norm:
-                q = _rms(q, weights[prefix + "self_attn.q_norm.weight"], cfg.rms_eps)
-                k = _rms(k, weights[prefix + "self_attn.k_norm.weight"], cfg.rms_eps)
-            q = q * cos + _rotate_half(q) * sin
-            k = k * cos + _rotate_half(k) * sin
-            if timer is not None:
-                timer.start(layer)
-            if self._flash_attention is not None:
-                attn = self._flash_attention(
-                    q, pool.k[layer], pool.v[layer], k=k, v=v,
-                    cache_seqlens=cache_lens, block_table=table,
-                    softmax_scale=cfg.head_dim ** -0.5, causal=True, num_splits=num_splits,
-                )
-            else:
-                attn = self._cpu_attention(q, k, v, pool, layer, cache_lens, table)
-            if timer is not None:
-                timer.stop(layer)
-            x = x + F.linear(attn.reshape(batch, tokens, cfg.n_heads * cfg.head_dim),
-                             weights[prefix + "self_attn.o_proj.weight"])
-            h = _rms(x, weights[prefix + "post_attention_layernorm.weight"], cfg.rms_eps)
-            gate = F.silu(F.linear(h, weights[prefix + "mlp.gate_proj.weight"]))
-            up = F.linear(h, weights[prefix + "mlp.up_proj.weight"])
-            x = x + F.linear(gate * up, weights[prefix + "mlp.down_proj.weight"])
+                with reg("norm", layer):
+                    q = _rms(q, weights[prefix + "self_attn.q_norm.weight"], cfg.rms_eps)
+                    k = _rms(k, weights[prefix + "self_attn.k_norm.weight"], cfg.rms_eps)
+            with reg("rope", layer):
+                q = q * cos + _rotate_half(q) * sin
+                k = k * cos + _rotate_half(k) * sin
+            with reg("attention", layer):
+                if self._flash_attention is not None:
+                    attn = self._flash_attention(
+                        q, pool.k[layer], pool.v[layer], k=k, v=v,
+                        cache_seqlens=cache_lens, block_table=table,
+                        softmax_scale=cfg.head_dim ** -0.5, causal=True, num_splits=num_splits,
+                    )
+                else:
+                    attn = self._cpu_attention(q, k, v, pool, layer, cache_lens, table)
+            with reg("o_proj", layer):
+                x = x + F.linear(attn.reshape(batch, tokens, cfg.n_heads * cfg.head_dim),
+                                 weights[prefix + "self_attn.o_proj.weight"])
+            with reg("norm", layer):
+                h = _rms(x, weights[prefix + "post_attention_layernorm.weight"], cfg.rms_eps)
+            with reg("mlp", layer):
+                gate = F.silu(F.linear(h, weights[prefix + "mlp.gate_proj.weight"]))
+                up = F.linear(h, weights[prefix + "mlp.up_proj.weight"])
+                x = x + F.linear(gate * up, weights[prefix + "mlp.down_proj.weight"])
         return x
 
     def _logits(self, hidden):
@@ -233,7 +306,7 @@ class DecoderModel:
         return F.linear(hidden, self.lm_head).float()
 
     @torch.inference_mode()
-    def prefill(self, seq_id, token_ids: list[int], pool, chunk=4096):
+    def prefill(self, seq_id, token_ids: list[int], pool, chunk=4096, *, timer=None):
         """Fill a fresh (possibly pre-reserved) sequence, returning its last-token logits."""
         self._check_pool(pool)
         if isinstance(chunk, bool) or not isinstance(chunk, int) or chunk < 1:
@@ -248,13 +321,16 @@ class DecoderModel:
         if current:
             raise ValueError("prefill requires a fresh sequence with zero cache length")
         pool.reserve(seq_id, ids.numel())
+        reg = timer.region if timer is not None else _null_region
         for start in range(0, ids.numel(), chunk):
             stop = min(ids.numel(), start + chunk)
-            x = F.embedding(ids[start:stop], self.w["model.embed_tokens.weight"]).unsqueeze(0)
+            with reg("embed"):
+                x = F.embedding(ids[start:stop], self.w["model.embed_tokens.weight"]).unsqueeze(0)
             positions = torch.arange(start, stop, device=self.device).unsqueeze(0)
-            h = self._forward(x, positions, pool, [seq_id], pool.lengths([seq_id]), num_splits=0)
+            h = self._forward(x, positions, pool, [seq_id], pool.lengths([seq_id]), num_splits=0, timer=timer)
             pool.set_length(seq_id, stop)
-        return self._logits(h[0, -1])
+        with reg("lm_head"):
+            return self._logits(h[0, -1])
 
     @torch.inference_mode()
     def decode(self, seq_ids, token_ids: list[int], pool, num_splits=0, timer=None):
@@ -273,9 +349,12 @@ class DecoderModel:
         pool.reserve_many({seq_id: length + 1 for seq_id, length in zip(seq_ids, lengths)})
         cache_lens = pool.lengths(seq_ids)
         positions = cache_lens.long().unsqueeze(1)
-        x = F.embedding(ids, self.w["model.embed_tokens.weight"]).unsqueeze(1)
+        reg = timer.region if timer is not None else _null_region
+        with reg("embed"):
+            x = F.embedding(ids, self.w["model.embed_tokens.weight"]).unsqueeze(1)
         h = self._forward(x, positions, pool, seq_ids, cache_lens, num_splits, timer)
-        logits = self._logits(h[:, -1])
+        with reg("lm_head"):
+            logits = self._logits(h[:, -1])
         for seq_id, length in zip(seq_ids, lengths):
             pool.set_length(seq_id, length + 1)
         return logits

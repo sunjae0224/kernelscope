@@ -56,3 +56,18 @@ def test_scaling_changes_one_resource_each(m):
     assert m.scaled(smem=1.64).smem_sm == 167936
     assert blocks_per_sm_limit(128, 244, 81920, m.scaled(smem=1.64).props())[0] == 2
     assert "sm=0.5" in half.name
+
+
+def test_tensor_core_ceiling_and_ridge(m):
+    assert m.tc_tflops == 168.6
+    assert m.ridge_flop_per_byte() == pytest.approx(168.6e12 / 952.6e9)
+    assert m.scaled(dram=0.5).ridge_flop_per_byte() == pytest.approx(2 * m.ridge_flop_per_byte())
+
+
+def test_missing_tensor_core_ceiling_is_none_and_ridge_refuses(tmp_path):
+    p = tmp_path / "m.json"
+    p.write_text(json.dumps({k: v for k, v in SPEC.items() if k != "tc_tflops"}))
+    m = MachineSpec.from_json(p)
+    assert m.tc_tflops is None
+    with pytest.raises(ValueError, match="tc_tflops"):
+        m.ridge_flop_per_byte()

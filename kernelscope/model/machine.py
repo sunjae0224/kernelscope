@@ -27,6 +27,7 @@ class MachineSpec:
     l2_gbps: float
     l2_curve: tuple            # ((working_set_bytes, hit), ...) measured at l2_curve_ref_bytes
     l2_curve_ref_bytes: int
+    tc_tflops: float | None = None
 
     @classmethod
     def from_json(cls, path) -> "MachineSpec":
@@ -35,7 +36,8 @@ class MachineSpec:
         return cls(name=d["name"], n_sm=d["n_sm"], max_threads_sm=d["max_threads_sm"], max_ctas_sm=d["max_ctas_sm"],
                    regs_sm=d["regs_sm"], smem_sm=d["smem_sm"], reserved_smem_per_block=d["reserved_smem_per_block"],
                    l2_bytes=d["l2_bytes"], dram_gbps=float(d["dram_gbps"]), l2_gbps=float(d["l2_gbps"]),
-                   l2_curve=curve, l2_curve_ref_bytes=d["l2_bytes"])
+                   l2_curve=curve, l2_curve_ref_bytes=d["l2_bytes"],
+                   tc_tflops=float(d["tc_tflops"]) if d.get("tc_tflops") is not None else None)
 
     def props(self) -> dict:
         return {"num_sms": self.n_sm, "max_threads_per_sm": self.max_threads_sm, "regs_per_sm": self.regs_sm,
@@ -59,3 +61,9 @@ class MachineSpec:
         return replace(self, name=self.name + (" [" + ",".join(tags) + "]" if tags else ""),
                        n_sm=max(1, round(self.n_sm * sm)), dram_gbps=self.dram_gbps * dram,
                        l2_bytes=round(self.l2_bytes * l2), smem_sm=round(self.smem_sm * smem))
+
+    def ridge_flop_per_byte(self) -> float:
+        """Arithmetic intensity where the tensor-core roof meets the DRAM roof (FLOP per byte)."""
+        if self.tc_tflops is None:
+            raise ValueError("machine spec has no tc_tflops ceiling")
+        return self.tc_tflops * 1e12 / (self.dram_gbps * 1e9)
