@@ -29,6 +29,8 @@ LLM 서빙에서 길이가 다른 요청이 한 배치에 섞이면 FlashAttenti
 4. **FlashInfer 비교** — [docs/plan/2026-09-26-plan-flashinfer-comparison.md](docs/plan/2026-09-26-plan-flashinfer-comparison.md). GPU 필요(연구실 4090 호스트).
 5. **최종 보고서·발표·데모** — 12월. 대시보드에 재현 검증 화면 추가.
 
+6. **step 연산 분해 진단(`serve diagnose`, 2026-09-27 시작)** — decode step을 8개 연산 클래스로 CUDA event 분해하고 DRAM/텐서코어 상한에 대어 판정, attention 행에 선택 변형·손실·Amdahl 상한. 정체성은 바꾸지 않는 원인 설명(§1 ②) 보강이며 "균일 배치에서 이득이 없는 이유"의 실측 근거가 목적. 스펙 [docs/plan/2026-09-27-design-op-breakdown-diagnose.md](docs/plan/2026-09-27-design-op-breakdown-diagnose.md), 계획 [docs/plan/2026-09-27-plan-op-breakdown-diagnose.md](docs/plan/2026-09-27-plan-op-breakdown-diagnose.md). Task 1~5(타이머·엔진·비용 모델·리포트) 완료, 6~9(그림·CLI·GPU 실행 D1~D3·verify/문서) 남음 — 이어서 할 순서는 [TODO.md](TODO.md).
+
 **중단 조건**: GPU 접근이 11월 중순까지 없으면 1·2·4는 "설계·도구 완료, 미실행"으로 보고하고 3(a)와 재현 검증을 데모의 중심으로 둔다.
 
 ## 3. 환경
