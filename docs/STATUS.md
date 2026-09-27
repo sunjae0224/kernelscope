@@ -1,5 +1,40 @@
 # Status log
 
+## 2026-09-27 — Op-class step breakdown (Tasks 1–5), midterm report v4 (branch `design-1-3`)
+
+- **`serve diagnose` groundwork** (spec `docs/plan/2026-09-27-design-op-breakdown-diagnose.md`, plan `docs/plan/2026-09-27-plan-op-breakdown-diagnose.md`; identity unchanged — this is the cause-explanation stage, not a profiler): `OpTimer` generalises `AttentionTimer` to 8 op classes (embed, norm, qkv_proj, rope, attention, o_proj, mlp, lm_head) with the attention-only subclass keeping the frozen `start(layer)/stop(layer)/total_us()` API; `Engine.run(ops_mode="event")` returns per-(phase, step, rid, layer, op_class) rows in `RunResult.ops` while `ops_mode=None` is byte-for-byte the old path; `MachineSpec.tc_tflops` + `ridge_flop_per_byte()`; `kernelscope/diagnose/opmodel.py` (compulsory bytes/FLOPs per class, torch-free) and `kernelscope/diagnose/report.py` (verdicts memory_bound / compute_bound / launch_bound / parallelism_candidate / below_ceiling_unknown, unattributed and timer-overhead shares, attention row against the nearest measured cell, `diagnosis.json`/`ops.csv`). CPU suite 518 passed; `verify` still 40/40. Remaining Tasks 6–9 (figure, CLI, GPU runs D1–D3, verify items + docs) and three open review findings are listed in `TODO.md`.
+- **Midterm report v4** (`docs/report/midterm/중간보고서_이선재_v4.pdf`, sources in `docs/report/midterm/src/`): table 7 V1·warm hybrid cell corrected from "미평가" to the recorded 41.7% with a sentence on the warm failure; chapter numbers restored so the "2장~5장" and "4장 라)" references resolve; abstract qualifies 12.53× as the contiguous-KV kernel figure; 6,801 defined as workload × cache state × candidate cells; limitations and table 8 gain the vLLM reproduction item; formal wording pass. All numbers re-derived from `demo_data/` (verify 40/40) before the rebuild.
+- GPU note: the 4090 was occupied by another project's vLLM processes during this session, so the A8 performance-path baseline (pre-change `serve run` step time, commit 6ce775f) is still to be measured back-to-back with the post-change run.
+
+## 2026-09-26 — Hybrid selection, mismatch root cause, GPU-free verification (branch `design-1-3`)
+
+- Identity fixed for the midterm report: *measurement- and simulation-driven dynamic selection of the attention kernel split*. Profiler and simulator are pipeline stages, not products. Root `PLAN.md` v3 and `CLAUDE.md` rewritten; the July GPGPU-Sim plan is archived.
+- `kernelscope verify` (new): recomputes **40 documented numbers** from `demo_data/` and `docs/experiments/` without a GPU and checks the documents still state them; `make figures` renders the report figures from the same data. Fixed CPU-only collection (`bench/stream.py` imports triton lazily) and made `dispatch-table` / `model validate` read the portable `summaries.jsonl` bundle.
+- **Hybrid policy** (`HybridPolicy`, `--policy hybrid:<table>:<delta>`): model ranking, but the nearest measured cell decides when the model predicts it within δ. Leave-one-out replay on the recorded cells (`scripts/evaluate_hybrid.py`): δ = 0.2 passes the 5 % / 15 % selection criterion on all three cold sets (max regret **1.97 % / 7.54 % / 10.90 %** for V1 / V5 / V6) where the model alone (24.3 / 66.3 / 24.5 %) and the table alone (50.4 / 66.1 / 100.7 %) fail. Warm V1 still fails for every policy. Not yet run on the GPU. [Details](experiments/2026-09-26-hybrid-policy.md).
+- **Mismatch root cause** (`scripts/analyze_mismatches.py`): every token disagreement in the 108-run follow-up starts at the same position in all repeats; the 10 failing runs contain 25 divergence events (8 at the last token). In the teacher-forced diagnostic all 4 argmax flips have a reference top-1 margin of 0.125–0.25 = 1–2 bf16 spacings, and the free-generation divergence positions coincide with those flips 4/4. Output validation will report divergence events classified `tie_1ulp` / `tie_2ulp` / `clear` instead of token agreement; the "restrict splits" idea from the midterm plan is dropped as it does not match the cause. [Details](experiments/2026-09-26-mismatch-analysis.md).
+- FlashInfer comparison designed, not run: [plan](plan/2026-09-26-plan-flashinfer-comparison.md). CUDA 11.8 toolkit installed and GPGPU-Sim 4.2 built and running on the GPU-less laptop (`experiments/gpgpusim/`, recipe: uncompressed fatbin, `CUOBJDUMP_SIM_FILE=1`, no `-lineinfo`, no warp shuffles); a reduced fp32 split-KV decode kernel (CPU reference match 2e-8) swept over the split count reproduces the mechanism qualitatively: ragged 2048+128×15 is 8.5× slower than a uniform batch of similar key count at S=1 (IPC 105 vs 921) and speeds up **7.23×** by S=16, while the uniform batch saturates at 2.25× (S=8). Numbers in `docs/experiments/gpgpusim-splitkv-sweep.csv`, checked by `verify` (`sim.*`, now 40 items).
+- CPU suite on the laptop: 470 passed before this entry's additions; new tests for verify, divergence, hybrid, evaluation scripts and report figures.
+
+## 2026-09-22 — Follow-up: lower selection cost and two-model natural-text validation
+
+- Optional native C event simulator retains the NumPy oracle and explicit compiler fallback. Seven old configurations have identical predictions/rankings; ragged cold selection **842.600 → 14.293ms**, with one-time build **55.683ms** disclosed separately.
+- Added original natural-text scenarios, fixed resolved tokens, prompt/tokenizer hashes, BF16/backend metadata and setup timing. Existing table/fit parameters remain fixed.
+- Two models × three conditions × two seeds × three policies × three repeats: **108 final GPU runs** after full-scenario warmup. Separate **108-run partial-warmup pilot** is preserved. All paired pilot/final generated-token arrays match.
+- Model policy ragged TPOT improved **1.282–1.290× Qwen4B**, **1.184–1.188× Llama8B**, with exact generated tokens. Uniform has no practical gain. All arrivals comparisons and two ragged table comparisons fail strict equivalence: **14/24** non-reference policy/condition comparisons pass output validation.
+- Teacher-forced natural arrivals diagnostic: 55 decode calls, 868 comparisons per policy, 866 argmax matches per policy, all finite. Does not override failed free-generation validation.
+- Dashboard separates campaign/model/seed/source/warmup identities; shows first decision, later misses and hits, and masks invalid speedups. CSV/PNG/SVG reports and portable raw evidence included.
+- **462 CPU tests passed, 4 skipped, 12 GPU tests deselected**. Offline wheel contains matching C source and no compiled `.so`. Independent Llama HF oracle passed. [Results and scope](experiments/2026-09-22-followup.md).
+
+## 2026-09-22 — Graduation demo and whole-model serving evidence
+
+- Added local Llama/Qwen3 paged decoder, deterministic continuous batching, heuristic/fixed/table/model policies, strict token checks, numeric diagnostics and local text generation.
+- Four-view Korean demo: Diagnose, Kernel map, What-if and Serving, with explicit measured/predicted evidence, repeated results and portable recorded artifacts.
+- Qwen3-4B / RTX 4090: 3 scenarios × 4 policies × 5 repeats. Table TPOT improved **1.806× ragged**, **1.174× arrivals**, with identical greedy tokens in all repeats; uniform table had no material improvement.
+- Preserve negative results: uniform fixed8 token agreement 94.43%; model first-choice cost hurt uniform/arrivals latency. The campaign completes all independent scenarios and returns nonzero for the recorded equivalence failure.
+- CPU surrogate validation passed timing-error thresholds but failed worst-case selection-regret thresholds; what-if remains experimental.
+- Final CPU suite: **392 passed, 4 skipped, 12 GPU tests deselected**. New decoder/KV GPU tests: **7 passed**; independent full-Qwen numeric oracle and same-history policy diagnosis saved under `docs/experiments/`. Portable bundle: 272 copied files, all source hashes verified.
+- Reproduction and limits: [serving results](experiments/2026-09-22-serving-results.md), [project scope](graduation.md), [demo script](demo.md). New code lives in worktree `kernelscope-design`.
+
 ## 2026-09-01 (evening) — W1 D3–5 done: external kernels, w1 grid on both tracks, roofline
 
 **Measurement hygiene incident.** GPUs 0 and 1 were 100 % busy with the user's own `eval_ruler.py`
@@ -73,3 +108,143 @@ throttles at its 400 W cap on long GEMMs.
 Repo skeleton (separate git, nothing committed); plugins sdpa_*/fa2/flashdecoding; **Accel-Sim W1 gate
 PASSED** (NVBit 1.8 works under driver 595; tracer regex is `std::regex_match` on the mangled name →
 wrapped as `.*(?:re).*`); ncu blocked by DCGM.
+
+
+## 2026-09-18 — sim track (RTX 4090)
+
+**D1 PASS, D2 functional PASS, D3 PARTIAL / BLOCKED; D4 defaults deferred.**
+Work is on `sim-track-4090`. Full evidence, versions, commands, calibration
+probes and remaining limits: [RTX 4090 gate report](setup/accelsim_4090_gate_report.md).
+
+- Built pinned Accel-Sim v2.0.0, NVBit 1.8 and GCC 11 / CMake 3.31 / CUDA 12.9
+  under `/home/skkai/accelsim/` and conda `accelsim-build`; system tools untouched.
+  Driver 580.95.05 tracing passed. Unmodified SM86 gate: 524288 warp instructions,
+  36589 cycles, clean exit. Native binary version 89 needed the documented Ampere
+  opcode-map compatibility patch; this is not complete Ada ISA support.
+- Installed SM89_RTX4090 resource config: 128 SMs, 72 MiB L2, 384-bit bus,
+  2520 MHz core / 5250 MHz DRAM, 24 CTAs/SM. Native-sm89 vector-add and all seven
+  variants passed. Parent HMMA/tensor-core settings were retained. The parent
+  actually uses 16 x 16-bit controllers and CTA limit 32; derivation follows
+  the pinned file rather than the anticipated parent values in the task.
+- Created shared `gradkernel` with torch 2.8.0+cu128 / flash-attn 2.8.3.post1.
+  The requested wheel required glibc 2.32; this host has 2.31, so the exact same
+  version was rebuilt locally (1518.55 s, CUDA 12.9/GCC 11, sm80 SASS). Imports
+  and four real-HW attention correctness checks passed.
+- Completed smoke plus **28/28 attention variant replays** for FA2 and
+  FlashDecoding B1 L1K/L8K. Real profiler / base simulator comparison:
+
+| kernel | cell | real kernel us | sim cycles | sim/real at 2520 MHz |
+|---|---|---:|---:|---:|
+| fa2 | B1 L1K | 63.584 | 170012 | 1.061 |
+| fa2 | B1 L8K | 494.336 | 1300168 | 1.044 |
+| flashdecoding | B1 L1K | 10.016 | 39077 | **1.548, outside target** |
+| flashdecoding | B1 L8K | 27.456 | 185450 | **2.680, outside target** |
+
+FA2's 8-CTA B1 grid covers 6.25% of this GPU; both cells remain starved.
+FlashDecoding is bandwidth-bound in the model (+41%/+89% for half bandwidth),
+but its absolute timing is not calibrated. Isolated clock, DRAM latency and
+zero-launch-delay probes are recorded in the report; no fit-only change was
+promoted to the canonical config. Scoped warm-up experiments support cache-state mismatch: repeating just the
+two captured FD launches with zero launch delay gives second-pair sim/real
+ratios **0.831 (L1K), 1.054 (L8K)**. These exploratory results are separate from
+the baseline parquet table. B16 and all variants still need validation under
+an explicit warm-up accounting convention before adopting it.
+
+B16 L1K and naive fp32 B1 L1K are **not yet measured/replayed**. After idle B1
+measurements, foreign Python jobs resumed (PID 998528, then 1017901); the next
+idle gate stopped at 71% utilization. The desktop rerun viewer remained present
+during idle measurements and its warning is retained in the result records.
+No foreign job was stopped. Naive's Makefile only gained the allowed sm89 gencode;
+its binary built successfully. Per the requested deliverable ordering, old A100
+backend/README defaults remain until D3 is completed. Validation scripts pass
+this host's root, work directory, architecture and device explicitly.
+
+Backend changes: preserve fractional DRAM clocks, detect unsupported binary 89
+and subprocess errors/timeouts, select CUDA 12.9 cuobjdump instead of system 10.1,
+isolate concurrent CPU variant artifacts (`--sim-jobs`, default 1), and expose
+`--sim-rate`. Base FD L8K measured 11638 warp-inst/s; planning now uses 10000.
+SMx2 measured 4493; use `--sim-rate 4000` for conservative seven-variant planning.
+**69 simulation/store CPU tests pass.** Real SM89 stats/stdout fixtures are checked
+in. The previously missing ResultStore was restored as explicitly authorized.
+
+Result contract and `backend="sim:<variant>"` are unchanged. Analysis, real-HW,
+plugins, run_kernel and pyproject were not edited. Always pass `--clock-mhz 2520`
+to the shared report command; its default is still 1410 for A100.
+
+Artifacts: `results/{hw_4090_simtrack,sim_4090}/20260918-validation2`; generated
+table: `results/sim_4090/20260918-validation2/validation.csv`. The result directory
+is ignored by git; trace/log provenance lives under `/home/skkai/accelsim/`.
+Reproduce with `bash docs/setup/validate_4090.sh` once the GPU is idle; replay
+saved scoped traces without the GPU using `python -m docs.setup.replay_4090`.
+
+
+## 2026-09-18 — sim track (RTX 4090), resumed validation
+
+**All requested executions completed; D4 host defaults enabled. Timing accuracy
+remains outside target for FA2 B16 and FlashDecoding.** This supersedes the GPU
+block and deferred-default status in the earlier entry without rewriting it.
+
+The GPU was idle at 19:17 KST with only the desktop rerun viewer present.
+B16 FA2/FlashDecoding and naive fp32 passed hardware correctness checks; their
+scoped traces were saved before CPU replay. All **42 attention variants plus
+one naive base replay** finished cleanly. An exact-key audit verified 43 unique
+successful simulator results and seven hardware cells with no missing or
+duplicate results. Final table: `results/sim_4090/20260918-complete/validation.csv`;
+audit/provenance: `audit.json` and `audit.py` in the same directory.
+
+| kernel | resumed cell | real kernel us | sim cycles | sim/real at 2520 MHz |
+|---|---|---:|---:|---:|
+| fa2 | B16 L1K | 64.303 | 276533 | **1.707, outside target** |
+| flashdecoding | B16 L1K | 38.2235 | 294358 | **3.056, outside target** |
+| naive_exec | B1 L1K, fp32 | 465.920 | 837308 | 0.713 |
+
+Both B16 baseline models are bandwidth-bound (+97%/+102% for half BW).
+FlashDecoding agrees qualitatively with the prior A100 verdict; FA2 differs
+from A100's parallelism-bound result. Naive's reference time is self-reported
+CUDA-event timing from the executable; attention uses torch.profiler.
+
+Separate B16 zero-launch-delay plus scoped warm-up probes yielded ratios
+1.470 (FA2) and 3.039 (FD), still outside target. Mode 2's 64-to-48 partition
+hash reduction was found to bias 16 L2 slices: actual FD counters measured
+2.003x more read events per slice there than in the other 32 slices. Thus a
+nominal 72 MiB capacity does not establish correct cache residency. Mode 6
+(IPoly-Modulo) is a candidate for a new controlled calibration revision, not
+a validated replacement. The canonical config was kept fixed for this sweep;
+no exploratory warm-probe numbers were substituted for baseline parquet rows.
+See the [updated gate report](setup/accelsim_4090_gate_report.md) for all seven
+validation rows, knob probes, raw evidence, remaining limitations and commands.
+
+D4 now defaults to `/home/skkai/accelsim/accel-sim-framework`, work directory
+`/home/skkai/accelsim/kernelscope_sim`, architecture `SM89_RTX4090`, device 0.
+`ACCELSIM_ROOT` still overrides the root. README quick-start changes are limited
+to host environment/device/path references. The shared report default remains
+1410 MHz; **always pass `--clock-mhz 2520` for this model**. Analysis, real-HW,
+plugins, run_kernel and the result contract remain untouched.
+
+Resumed FD B16 base throughput was 7839 warp-inst/s and SMx2 was 3591;
+planning now uses **5000**, with `--sim-rate 3000` for conservative planning
+across the measured variants. CLI help reads the live planning constant.
+The replay helper now supports `--plugins` to select saved traces and rejects
+missing requested kernels. **69 simulation/store tests pass** after the D4
+changes; CLI defaults, installed tool/config paths and the root override were
+also checked successfully. The model is usable for explicit experimental
+replay and is not yet a calibrated RTX 4090 performance predictor.
+
+## 2026-09-19 — design-1-3: Phase 0 foundation
+
+Phase 0 measurement campaign complete on the RTX 4090 (worktree `design-1-3`,
+Task 12). GPU idle throughout (only the `rerun` viewer present); no hygiene
+wait needed. `machines/rtx4090.json` measured: DRAM 952.6 GB/s, L2 plateau
+4.85 TB/s, CTA DRAM/L2 26.0/46.4 GB/s, `block_placement.distinct_sms` 128 —
+all matching the design spec's probe facts. New grids `grids/dispatch_s{1,2}.yaml`
+and `grids/ragged_s{1,2}.yaml` (uniform and ragged-batch decode, S1/S2 head
+geometries) drove 8 `bench` runs, 6801 cells total, **0 errors**, in ~10.6 min
+of GPU time (well under the ~1 h estimate). All **five acceptance checks
+pass**: uniform S1 dense cold regret 0.72 %/5.71 % (median/max), warm max
+41.66 %; the ragged check cell's heuristic is 6.85× slower than the best
+fixed split (required 5–10×); the worst ragged cell is 12.5× slower on the
+dense path and 3.8× on the paged path; `iterations_dropped` ≤ 2 for 100 % of
+ok cells everywhere, `check_ok` false nowhere. Full numbers, per-B fa2
+crossover, and the ragged worst-case dense-vs-paged comparison (a fact beyond
+spec F14, which was dense-only) are
+in [docs/plan/2026-09-19-p0-campaign.md](plan/2026-09-19-p0-campaign.md).

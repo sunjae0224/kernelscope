@@ -9,6 +9,7 @@ import re
 
 EXIT_SENTINEL = "GPGPU-Sim: *** exit detected ***"
 _UNDEF = re.compile(r"ERROR: undefined instruction : (\S+)")
+_UNSUPPORTED_BINARY = re.compile(r"unsupported binary version:\s*(\d+)")
 _KV = re.compile(r"^([A-Za-z_][A-Za-z0-9_ ]*?)\s*=\s*(.+?)\s*$")
 
 KERNEL_KEYS = {"gpu_sim_cycle", "gpu_sim_insn", "gpu_ipc", "gpu_occupancy"}
@@ -62,8 +63,15 @@ def parse_sim_stdout(text: str) -> dict:
                 cur[key] = v
         elif key in TOTAL_KEYS:
             totals[key] = v
-    if unsupported:
+    binary = _UNSUPPORTED_BINARY.search(text)
+    if binary:
+        status = "unsupported_binary:" + binary.group(1)
+    elif unsupported:
         status = "unsupported_opcode"
+    elif "KERNELSCOPE_SIM_PROCESS_FAILED" in text:
+        status = "process_error"
+    elif "KERNELSCOPE_SIM_TIMEOUT" in text:
+        status = "timeout"
     elif EXIT_SENTINEL not in text:
         status = "incomplete"
     elif not kernels:

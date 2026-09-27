@@ -1,0 +1,516 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "single_request_text_demo",
+  "performance_claim": false,
+  "prompt_mode": "raw_text_continuation_no_chat_template",
+  "prompt": "인공지능 모델에서 GPU 커널의 역할은",
+  "generated_text": " 무엇인가요?\n\n인공지능 모델에서 **GPU 커널**(GPU Kernel)의 역할은 **데이터 처리 및 계산 작업을 효율적으로 수행하기 위해 GPU에 직접 실행되는 소프트",
+  "prompt_tokens": 15,
+  "generated_tokens": 48,
+  "token_ids": [
+    132779,
+    31328,
+    19969,
+    35711,
+    1939,
+    31328,
+    78125,
+    21329,
+    66019,
+    54070,
+    142713,
+    56475,
+    3070,
+    49891,
+    89095,
+    97,
+    139287,
+    83725,
+    49891,
+    36603,
+    8,
+    20401,
+    127864,
+    47836,
+    33704,
+    3070,
+    167,
+    50362,
+    81058,
+    128355,
+    94203,
+    85057,
+    139495,
+    17877,
+    141540,
+    132841,
+    128552,
+    139393,
+    66425,
+    130039,
+    22670,
+    19391,
+    137352,
+    85788,
+    128841,
+    126291,
+    126445,
+    28626
+  ],
+  "token_timestamps_us": [
+    164742.87502933294,
+    181653.35804224014,
+    195269.86102573574,
+    208882.78604252264,
+    222418.21401985362,
+    235900.53204679862,
+    249344.33604357764,
+    262838.41900294647,
+    276245.70805346593,
+    289702.6900318451,
+    303124.75201208144,
+    316571.9039971009,
+    329968.8660190441,
+    343455.33105079085,
+    356854.2590364814,
+    370158.5920061916,
+    383489.9369976483,
+    396827.7480453253,
+    410157.92201505974,
+    423465.9930225462,
+    436739.57005375996,
+    450022.91101263836,
+    463302.543037571,
+    476582.2970075533,
+    489850.3800504841,
+    503194.0470216796,
+    516504.11600712687,
+    529805.7650215924,
+    543102.4090503342,
+    556406.1280456372,
+    569655.3300367668,
+    582860.5850110762,
+    596084.121032618,
+    609333.8430509903,
+    622573.8400244154,
+    635811.0069995746,
+    649114.9520152248,
+    662379.2680329643,
+    675657.5350300409,
+    688901.0820304975,
+    702179.4990287162,
+    715452.3100471124,
+    728670.4720463604,
+    741891.7629984207,
+    755129.5390003361,
+    768315.8260188065,
+    781909.8519976251,
+    795146.0080221295
+  ],
+  "stopped_on_eos": false,
+  "policy": "heuristic",
+  "prefill_us": 161339.38598632812,
+  "ttft_us": 164742.87502933294,
+  "total_wall_us": 795146.6100057587,
+  "tpot_us": 13412.832616868012,
+  "steps": [
+    {
+      "position": 1,
+      "num_splits": 0,
+      "policy_us": 8.864037226885557,
+      "step_us": 16740.51284790039,
+      "attn_us": 3446.9761047512293
+    },
+    {
+      "position": 2,
+      "num_splits": 0,
+      "policy_us": 5.0460221245884895,
+      "step_us": 13464.927673339844,
+      "attn_us": 531.3280038535595
+    },
+    {
+      "position": 3,
+      "num_splits": 0,
+      "policy_us": 4.686007741838694,
+      "step_us": 13470.911979675293,
+      "attn_us": 532.7680045738816
+    },
+    {
+      "position": 4,
+      "num_splits": 0,
+      "policy_us": 3.8910075090825558,
+      "step_us": 13409.440040588379,
+      "attn_us": 532.1280034258962
+    },
+    {
+      "position": 5,
+      "num_splits": 0,
+      "policy_us": 3.430002834647894,
+      "step_us": 13375.935554504395,
+      "attn_us": 528.6080045625567
+    },
+    {
+      "position": 6,
+      "num_splits": 0,
+      "policy_us": 3.129011020064354,
+      "step_us": 13336.480140686035,
+      "attn_us": 529.9520045518875
+    },
+    {
+      "position": 7,
+      "num_splits": 0,
+      "policy_us": 3.088032826781273,
+      "step_us": 13399.999618530273,
+      "attn_us": 567.6160007715225
+    },
+    {
+      "position": 8,
+      "num_splits": 0,
+      "policy_us": 2.829998265951872,
+      "step_us": 13316.543579101562,
+      "attn_us": 528.704003430903
+    },
+    {
+      "position": 9,
+      "num_splits": 0,
+      "policy_us": 2.3560132831335068,
+      "step_us": 13369.05574798584,
+      "attn_us": 529.3760048225522
+    },
+    {
+      "position": 10,
+      "num_splits": 0,
+      "policy_us": 2.0919833332300186,
+      "step_us": 13334.464073181152,
+      "attn_us": 556.0640040785074
+    },
+    {
+      "position": 11,
+      "num_splits": 0,
+      "policy_us": 2.1060113795101643,
+      "step_us": 13359.392166137695,
+      "attn_us": 528.2240035012364
+    },
+    {
+      "position": 12,
+      "num_splits": 0,
+      "policy_us": 2.2170133888721466,
+      "step_us": 13310.943603515625,
+      "attn_us": 527.8720045462251
+    },
+    {
+      "position": 13,
+      "num_splits": 0,
+      "policy_us": 2.036977093666792,
+      "step_us": 13399.776458740234,
+      "attn_us": 527.9360050335526
+    },
+    {
+      "position": 14,
+      "num_splits": 0,
+      "policy_us": 2.0539737306535244,
+      "step_us": 13312.992095947266,
+      "attn_us": 530.6560033932328
+    },
+    {
+      "position": 15,
+      "num_splits": 0,
+      "policy_us": 2.1180021576583385,
+      "step_us": 13217.951774597168,
+      "attn_us": 520.5120034515858
+    },
+    {
+      "position": 16,
+      "num_splits": 0,
+      "policy_us": 2.103974111378193,
+      "step_us": 13214.912414550781,
+      "attn_us": 531.5840039402246
+    },
+    {
+      "position": 17,
+      "num_splits": 0,
+      "policy_us": 4.273024387657642,
+      "step_us": 13231.200218200684,
+      "attn_us": 518.9440036192536
+    },
+    {
+      "position": 18,
+      "num_splits": 0,
+      "policy_us": 3.237975761294365,
+      "step_us": 13235.360145568848,
+      "attn_us": 537.408004514873
+    },
+    {
+      "position": 19,
+      "num_splits": 0,
+      "policy_us": 2.075976226478815,
+      "step_us": 13221.343994140625,
+      "attn_us": 518.9760038629174
+    },
+    {
+      "position": 20,
+      "num_splits": 0,
+      "policy_us": 2.001004759222269,
+      "step_us": 13188.41552734375,
+      "attn_us": 516.9280031695962
+    },
+    {
+      "position": 21,
+      "num_splits": 0,
+      "policy_us": 2.001004759222269,
+      "step_us": 13200.35171508789,
+      "attn_us": 537.6320043578744
+    },
+    {
+      "position": 22,
+      "num_splits": 0,
+      "policy_us": 1.9189901649951935,
+      "step_us": 13191.455841064453,
+      "attn_us": 519.8080046102405
+    },
+    {
+      "position": 23,
+      "num_splits": 0,
+      "policy_us": 1.9380240701138973,
+      "step_us": 13192.959785461426,
+      "attn_us": 517.8880020976067
+    },
+    {
+      "position": 24,
+      "num_splits": 0,
+      "policy_us": 2.02603405341506,
+      "step_us": 13175.904273986816,
+      "attn_us": 520.3200057148933
+    },
+    {
+      "position": 25,
+      "num_splits": 0,
+      "policy_us": 2.1370360627770424,
+      "step_us": 13250.528335571289,
+      "attn_us": 540.032004006207
+    },
+    {
+      "position": 26,
+      "num_splits": 0,
+      "policy_us": 2.162996679544449,
+      "step_us": 13221.695899963379,
+      "attn_us": 535.5840036645532
+    },
+    {
+      "position": 27,
+      "num_splits": 0,
+      "policy_us": 2.0720181055366993,
+      "step_us": 13191.583633422852,
+      "attn_us": 514.6880019456148
+    },
+    {
+      "position": 28,
+      "num_splits": 0,
+      "policy_us": 2.0799925550818443,
+      "step_us": 13208.352088928223,
+      "attn_us": 542.0800037682056
+    },
+    {
+      "position": 29,
+      "num_splits": 0,
+      "policy_us": 1.976964995265007,
+      "step_us": 13211.74430847168,
+      "attn_us": 532.800005748868
+    },
+    {
+      "position": 30,
+      "num_splits": 0,
+      "policy_us": 2.3570028133690357,
+      "step_us": 13159.263610839844,
+      "attn_us": 513.9840021729469
+    },
+    {
+      "position": 31,
+      "num_splits": 0,
+      "policy_us": 1.9040307961404324,
+      "step_us": 13110.81600189209,
+      "attn_us": 511.64800114929676
+    },
+    {
+      "position": 32,
+      "num_splits": 0,
+      "policy_us": 2.369983121752739,
+      "step_us": 13126.399993896484,
+      "attn_us": 506.20799977332354
+    },
+    {
+      "position": 33,
+      "num_splits": 0,
+      "policy_us": 2.501998096704483,
+      "step_us": 13153.471946716309,
+      "attn_us": 510.4000009596348
+    },
+    {
+      "position": 34,
+      "num_splits": 0,
+      "policy_us": 2.496992237865925,
+      "step_us": 13141.663551330566,
+      "attn_us": 512.5440023839474
+    },
+    {
+      "position": 35,
+      "num_splits": 0,
+      "policy_us": 2.482964191585779,
+      "step_us": 13135.904312133789,
+      "attn_us": 510.4000009596348
+    },
+    {
+      "position": 36,
+      "num_splits": 0,
+      "policy_us": 2.6489724405109882,
+      "step_us": 13212.160110473633,
+      "attn_us": 513.6640006676316
+    },
+    {
+      "position": 37,
+      "num_splits": 0,
+      "policy_us": 2.1989690139889717,
+      "step_us": 13134.592056274414,
+      "attn_us": 520.2560015022755
+    },
+    {
+      "position": 38,
+      "num_splits": 0,
+      "policy_us": 2.588029019534588,
+      "step_us": 13176.83219909668,
+      "attn_us": 531.3919996842742
+    },
+    {
+      "position": 39,
+      "num_splits": 0,
+      "policy_us": 3.0830269679427147,
+      "step_us": 13143.487930297852,
+      "attn_us": 506.784001365304
+    },
+    {
+      "position": 40,
+      "num_splits": 0,
+      "policy_us": 2.763990778476,
+      "step_us": 13181.344032287598,
+      "attn_us": 543.5520019382238
+    },
+    {
+      "position": 41,
+      "num_splits": 0,
+      "policy_us": 2.7100322768092155,
+      "step_us": 13177.887916564941,
+      "attn_us": 511.9360005483031
+    },
+    {
+      "position": 42,
+      "num_splits": 0,
+      "policy_us": 2.332031726837158,
+      "step_us": 13123.071670532227,
+      "attn_us": 514.2080020159483
+    },
+    {
+      "position": 43,
+      "num_splits": 0,
+      "policy_us": 2.3840111680328846,
+      "step_us": 13125.856399536133,
+      "attn_us": 517.1520030125976
+    },
+    {
+      "position": 44,
+      "num_splits": 0,
+      "policy_us": 2.5999615900218487,
+      "step_us": 13141.92008972168,
+      "attn_us": 514.2400022596121
+    },
+    {
+      "position": 45,
+      "num_splits": 0,
+      "policy_us": 2.7319765649735928,
+      "step_us": 13091.072082519531,
+      "attn_us": 513.1840016692877
+    },
+    {
+      "position": 46,
+      "num_splits": 0,
+      "policy_us": 2.7500209398567677,
+      "step_us": 13490.400314331055,
+      "attn_us": 506.3040005043149
+    },
+    {
+      "position": 47,
+      "num_splits": 0,
+      "policy_us": 2.9640505090355873,
+      "step_us": 13139.391899108887,
+      "attn_us": 538.0480028688908
+    }
+  ],
+  "limitations": [
+    "One request, no warmup or repeated comparison",
+    "Raw continuation without instruction/chat templating"
+  ],
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "model_path": "/home/skkai/.cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+  "preflight": {
+    "python": "3.11.16",
+    "executable": "/home/skkai/AI_Accelerator/kernelscope-design/.venv/bin/python",
+    "packages": {
+      "torch": "2.8.0+cu128",
+      "flash-attn": "2.8.3.post1",
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "pyarrow": "25.0.1",
+      "safetensors": "0.8.0",
+      "tokenizers": "0.22.2"
+    },
+    "cuda_available": true,
+    "torch_cuda": "12.8",
+    "errors": [],
+    "gpu_processes": [
+      {
+        "pid": 861322,
+        "name": "/home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun",
+        "used_memory_mib": "394"
+      }
+    ],
+    "nvidia_smi_output": "861322, /home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun, 394",
+    "gpu_name": "NVIDIA GeForce RTX 4090",
+    "device_capability": [
+      8,
+      9
+    ],
+    "free_memory_bytes": 23672717312,
+    "total_memory_bytes": 25248530432,
+    "model_path": "/home/skkai/.cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+    "model_config": {
+      "arch": "qwen3",
+      "n_layers": 36,
+      "hidden": 2560,
+      "intermediate": 9728,
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "head_dim": 128,
+      "vocab": 151936,
+      "rope_theta": 5000000.0,
+      "rope_scaling": null,
+      "rms_eps": 1e-06,
+      "tie_embeddings": true,
+      "qk_norm": true
+    },
+    "model_config_sha256": "5beea1a4a34c62782bfb2f911c606741a3bab8f92d80a118fa053c28af12e8ba",
+    "weight_files": [
+      {
+        "name": "model-00001-of-00003.safetensors",
+        "size": 3957900840
+      },
+      {
+        "name": "model-00002-of-00003.safetensors",
+        "size": 3987450520
+      },
+      {
+        "name": "model-00003-of-00003.safetensors",
+        "size": 99630640
+      }
+    ],
+    "ready": true
+  }
+}

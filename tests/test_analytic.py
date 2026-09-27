@@ -1,6 +1,6 @@
 import pytest
 
-from kernelscope.analytic import attended_pairs, attention_flops, attention_traffic
+from kernelscope.analytic import attended_pairs, attention_flops, attention_traffic, total_attended_pairs
 from kernelscope.workload import Workload
 
 DECODE = Workload(phase="decode", B=1, L_q=1, L_kv=1024, H_q=32, H_kv=8, d=128)          # fp16
@@ -46,3 +46,23 @@ def test_arithmetic_intensity_is_flops_per_byte():
     ai = arithmetic_intensity(DECODE)
     assert ai == pytest.approx(attention_flops(DECODE) / attention_traffic(DECODE)["total_bytes"])
     assert ai < 8   # decode attention lives deep in the memory-bound region
+
+
+RAGGED = Workload(phase="decode", B=3, L_q=1, L_kv=1000, H_q=4, H_kv=2, d=8, kv_lens=[1000, 24, 100])
+
+
+def test_ragged_pairs_and_flops_sum_over_sequences():
+    assert total_attended_pairs(RAGGED) == 1124
+    assert attention_flops(RAGGED) == 4 * 4 * 8 * 1124
+
+
+def test_ragged_kv_bytes_sum_over_sequences():
+    t = attention_traffic(RAGGED)
+    assert t["kv_bytes"] == 2 * 1124 * 2 * 8 * 2
+    assert t["q_bytes"] == 3 * 1 * 4 * 8 * 2
+
+
+def test_uniform_totals_are_unchanged():
+    w = Workload(phase="decode", B=3, L_q=1, L_kv=1000, H_q=4, H_kv=2, d=8)
+    assert total_attended_pairs(w) == 3000
+    assert attention_traffic(w)["kv_bytes"] == 2 * 3 * 1000 * 2 * 8 * 2

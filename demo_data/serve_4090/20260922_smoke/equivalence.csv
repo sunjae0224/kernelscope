@@ -1,0 +1,2 @@
+policy,reference,steps_compared,max_abs_logit_diff,token_agreement,tokens_compared,token_mismatches,missing_tokens,schedule_match,logits_checked,logits_finite,tokens_identical,passed,first_mismatch,repeat
+fixed8,heuristic,0,,1.0,32,0,0,True,False,,True,True,,0

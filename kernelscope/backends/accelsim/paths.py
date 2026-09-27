@@ -3,7 +3,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_ROOT = os.environ.get("ACCELSIM_ROOT", "/var/tmp/uceeeee/accelsim/accel-sim-framework")
+DEFAULT_ROOT = os.environ.get("ACCELSIM_ROOT", "/home/skkai/accelsim/accel-sim-framework")
 
 
 @dataclass(frozen=True)

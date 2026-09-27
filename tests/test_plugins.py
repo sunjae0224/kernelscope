@@ -3,6 +3,7 @@ import pytest
 from kernelscope.plugins.base import ExecutablePlugin, KernelPlugin
 from kernelscope.plugins.registry import PluginRegistry
 from kernelscope.workload import Workload
+from tests.fake_plugins import FakeExec, FaithfulCPU
 
 
 class DecodeOnly(KernelPlugin):
@@ -78,3 +79,16 @@ def test_registry_filters_plugins_supporting_a_workload():
     reg.register(BinaryAttn)
     assert [p.name for p in reg.supporting(PREFILL)] == ["binary_attn"]
     assert [p.name for p in reg.supporting(DECODE)] == ["decode_only", "binary_attn"]
+
+
+_R = Workload(phase="decode", B=2, L_q=1, L_kv=64, H_q=8, H_kv=2, d=16, dtype="float32", kv_lens=[64, 3])
+
+
+def test_plugins_do_not_support_ragged_workloads_unless_they_opt_in():
+    assert FaithfulCPU(device="cpu").supports(_R) is True
+    assert FakeExec(device="cpu").supports(_R) is False
+
+
+def test_builtin_non_flash_plugins_refuse_ragged_workloads():
+    from kernelscope.plugins.builtin.sdpa import SDPAFlash
+    assert SDPAFlash(device="cpu").supports(_R) is False

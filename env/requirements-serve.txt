@@ -1,0 +1,6 @@
+# Install in a project environment that already has the GPU stack.
+# transformers is the independent model oracle; serving uses safetensors/tokenizers.
+transformers==4.57.6
+tokenizers==0.22.2
+safetensors==0.8.0
+huggingface-hub==0.36.2

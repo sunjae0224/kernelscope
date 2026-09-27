@@ -1,0 +1,31 @@
+# Original, small sanity set. Expected answers are annotations, not measured accuracy.
+dataset:
+  id: kernelscope-local-qa-v1
+  evaluation_split: heldout_text
+  scenario_family: qa
+  provenance: original locally authored questions; no external benchmark
+requests:
+  - prompt_text: "The campus library opens at 09:00 and closes at 18:00. Question: At what time does the library open? Answer:"
+    max_new_tokens: 16
+    expected_answer: "09:00"
+  - prompt_text: "A box contains three red pencils and two blue pencils. Question: How many pencils are in the box in total? Answer:"
+    max_new_tokens: 16
+    expected_answer: "5"
+  - prompt_text: "The blue garden bed is watered when soil moisture falls below thirty percent. Question: Which bed uses the moisture threshold? Answer:"
+    max_new_tokens: 16
+    expected_answer: "blue"
+  - prompt_text: "Mina submitted the first report on Monday. She submitted the second report on Wednesday. Question: On which day did Mina submit the second report? Answer:"
+    max_new_tokens: 16
+    expected_answer: "Wednesday"
+  - prompt_text: "The experiment stores measurements in a file named garden.csv. Question: What is the name of the measurement file? Answer:"
+    max_new_tokens: 16
+    expected_answer: "garden.csv"
+  - prompt_text: "Each tray holds four seedlings. There are three full trays. Question: How many seedlings are there? Answer:"
+    max_new_tokens: 16
+    expected_answer: "12"
+  - prompt_text: "The sensor is inspected every Friday. A missing measurement is marked as missing rather than replaced with zero. Question: On which day is the sensor inspected? Answer:"
+    max_new_tokens: 16
+    expected_answer: "Friday"
+  - prompt_text: "The red bus goes to the museum. The green bus goes to the station. Question: Which bus goes to the station? Answer:"
+    max_new_tokens: 16
+    expected_answer: "green"

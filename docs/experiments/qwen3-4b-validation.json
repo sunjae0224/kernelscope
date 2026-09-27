@@ -1,0 +1,116 @@
+{
+  "format_version": 1,
+  "kind": "hf_correctness_validation",
+  "evidence": "measured_gpu",
+  "measured_at_utc": "2026-09-22T05:56:05.337636+00:00",
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "snapshot_revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+  "local_file_sha256": {
+    "config.json": "5beea1a4a34c62782bfb2f911c606741a3bab8f92d80a118fa053c28af12e8ba",
+    "model.safetensors.index.json": "d6c42883a895dfef5b0080ed2116a1bcd764f558406b98923d675978a1abf29c"
+  },
+  "dtype": "bfloat16",
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "versions": {
+    "torch": "2.8.0+cu128",
+    "transformers": "4.57.6",
+    "flash-attn": "2.8.3.post1",
+    "safetensors": "0.8.0"
+  },
+  "gpu_processes_before": "pid, process_name, used_gpu_memory [MiB]\n861322, /home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun, 394 MiB",
+  "oracle": {
+    "implementation": "Hugging Face SDPA",
+    "use_cache": false,
+    "local_files_only": true,
+    "trust_remote_code": false
+  },
+  "kernelscope": {
+    "implementation": "flash_attn_with_kvcache",
+    "page_tokens": 256,
+    "prefill_chunk": 13,
+    "decode_num_splits": 8
+  },
+  "inputs": {
+    "prompt_token_ids": [
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      116,
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131
+    ],
+    "continuation_token_ids": [
+      800,
+      801
+    ]
+  },
+  "tolerances": {
+    "cosine_similarity_min": 0.999,
+    "require_top1_match": true,
+    "require_finite_logits": true,
+    "bit_identity_required": false
+  },
+  "comparisons": [
+    {
+      "stage": "prefill",
+      "context_tokens": 32,
+      "cosine_similarity": 0.999399721622467,
+      "max_abs_logit_diff": 0.453125,
+      "mean_abs_logit_diff": 0.07797448337078094,
+      "reference_top1": 244,
+      "kernelscope_top1": 244,
+      "top1_matches": true,
+      "finite_logits": true
+    },
+    {
+      "stage": "decode_1",
+      "context_tokens": 33,
+      "cosine_similarity": 0.9998068809509277,
+      "max_abs_logit_diff": 0.171875,
+      "mean_abs_logit_diff": 0.03088383376598358,
+      "reference_top1": 82,
+      "kernelscope_top1": 82,
+      "top1_matches": true,
+      "finite_logits": true
+    },
+    {
+      "stage": "decode_2",
+      "context_tokens": 34,
+      "cosine_similarity": 0.9999158978462219,
+      "max_abs_logit_diff": 0.125,
+      "mean_abs_logit_diff": 0.02542254328727722,
+      "reference_top1": 25,
+      "kernelscope_top1": 25,
+      "top1_matches": true,
+      "finite_logits": true
+    }
+  ],
+  "passed": true,
+  "scope": "One local checkpoint, one synthetic token prompt, chunked prefill and two teacher-forced decode steps. This is not broad generation equivalence or serving speed evidence."
+}

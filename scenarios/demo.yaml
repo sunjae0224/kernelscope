@@ -1,0 +1,5 @@
+# Small real CPU decoder replay. CPU SDPA does not dispatch num_splits.
+requests:
+  - {count: 1, prompt_len: 96, max_new_tokens: 12, arrival_step: 0}
+  - {count: 3, prompt_len: 12, max_new_tokens: 8, arrival_step: 0}
+  - {count: 2, prompt_len: 24, max_new_tokens: 8, arrival_step: 4}

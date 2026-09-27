@@ -109,6 +109,19 @@ def test_sweep_requires_grid_or_workload():
         cli.main(["sweep", "--plugins", "faithful_cpu", "--results", "x"])
 
 
+def test_sweep_runs_one_pass_per_cache_state(tmp_path, capsys):
+    grid = tmp_path / "grid.yaml"
+    grid.write_text(GRID_YAML)
+    out = tmp_path / "res"
+    cli.main(["sweep", "--grid", str(grid), "--plugins", "faithful_cpu", "--results", str(out),
+              "--registry", REG, "--device", "cpu", "--warmup", "1", "--iters", "2",
+              "--cache-state", "warm,cold"])
+    import pandas as pd
+    from kernelscope.results.store import ResultStore
+    df = ResultStore(out).load()
+    assert set(df["cache_state"]) == {"warm", "cold"}
+
+
 def test_simsweep_wires_variants_budget_and_paths(tmp_path, monkeypatch):
     captured = {}
 
@@ -136,3 +149,13 @@ def test_simsweep_wires_variants_budget_and_paths(tmp_path, monkeypatch):
     assert captured["paths"].root == tmp_path / "repo"
     assert captured["work_dir"] == tmp_path / "work"
     assert (results / "summaries.jsonl").read_text().strip() == '{"status": "ok"}'
+
+
+def test_dispatch_table_reads_the_portable_demo_bundle(capsys):
+    demo = Path(__file__).resolve().parents[1] / "demo_data" / "hw_4090" / "uniform_s1_dense"
+    cli.main(["dispatch-table", "--results", str(demo), "--family", "dense", "--cache-state", "cold"])
+    out = capsys.readouterr().out
+    summary = json.loads(out[: out.index("}") + 1])
+    assert summary["cells"] == 49
+    assert summary["median_regret"] == pytest.approx(0.00721, abs=5e-5)
+    assert summary["max_regret"] == pytest.approx(0.05712, abs=5e-5)

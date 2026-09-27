@@ -1,0 +1,860 @@
+{
+  "schema_version": 1,
+  "status": "complete",
+  "created_at": "2026-09-22T08:14:55.267800+00:00",
+  "evidence_kind": "cuda_serving",
+  "performance_claim": false,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "model_backend": "flash_attn_paged",
+  "model_config": {
+    "arch": "qwen3",
+    "n_layers": 36,
+    "hidden": 2560,
+    "intermediate": 9728,
+    "n_heads": 32,
+    "n_kv_heads": 8,
+    "head_dim": 128,
+    "vocab": 151936,
+    "rope_theta": 5000000.0,
+    "rope_scaling": null,
+    "rms_eps": 1e-06,
+    "tie_embeddings": true,
+    "qk_norm": true
+  },
+  "model_dtype": "bfloat16",
+  "model_setup_us": 942075.3460144624,
+  "scenario": "/home/skkai/AI_Accelerator/kernelscope-design/scenarios/heldout_text_ragged.yaml",
+  "scenario_sha256": "b9cbf8b543e8cfa4e2f38d8580001625016b56a114f8e5d3f939b00e1d1e6b17",
+  "requests": [
+    {
+      "rid": 0,
+      "prompt_len": 12288,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "9909f849f4f48729b5be9f3d0094951f9edf08e12757683bdd8efc65dfccbfc2",
+      "expected_answer": null
+    },
+    {
+      "rid": 1,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "2dc4136d97150762f6e86a9dacc29af8526e0aadb4f25e46a72dfa2a0c00909d",
+      "expected_answer": null
+    },
+    {
+      "rid": 2,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "334617f5adce811a09995e5df285d1269542f999cde2d49ecb1666f9a11495b5",
+      "expected_answer": null
+    },
+    {
+      "rid": 3,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "b91fa04ca44c3f7d1c14a3f05ad17d75809298af4d5d61aea923722e04bae213",
+      "expected_answer": null
+    },
+    {
+      "rid": 4,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "7b53ff8af14343268fcb4956c589c7d357d554bafc0319e423f7622be07866e3",
+      "expected_answer": null
+    },
+    {
+      "rid": 5,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "f7ed8846245a4d8d5677b603040d7ded775693f983403b93175509e2b28c4335",
+      "expected_answer": null
+    },
+    {
+      "rid": 6,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "af8aaf7755c0546cf736626f9f1a954d7462cdfb18514d9362284a65d710109c",
+      "expected_answer": null
+    },
+    {
+      "rid": 7,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "d52f93bbf0ff8d5195ad31837a1b2b2d5951bc50803f6da3b7f7f25e51e3a354",
+      "expected_answer": null
+    },
+    {
+      "rid": 8,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "48ba8fa23a342329df0fcfbdb9fc6760d7d730b878ccdea76260ee2af5144489",
+      "expected_answer": null
+    },
+    {
+      "rid": 9,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "7725ca5de7acaa40086fab40b0cedbf36e62cb999f5cdac75e8edd99cf670f36",
+      "expected_answer": null
+    },
+    {
+      "rid": 10,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "663cfee32898168ca99bd9451e2ec3d360f375c0d86539a15b37edc818dcdd20",
+      "expected_answer": null
+    },
+    {
+      "rid": 11,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "2aacdf4e7d3b63cf363c00b89393a1eab54bbc0300b7f6f8ec3472ff4bc2c10f",
+      "expected_answer": null
+    },
+    {
+      "rid": 12,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "601c1f034067782e379b6489299527fc2844d4fbe718ec91109751c7c49fcce0",
+      "expected_answer": null
+    },
+    {
+      "rid": 13,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "95746f2f63c696801f5e1208ac61a612c1369d517328150516526ea1c0c57645",
+      "expected_answer": null
+    },
+    {
+      "rid": 14,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "50ae78c2721ca23e79cc7ea6c3d227a1dcc2dfd97a231ea061c6a338e599f41d",
+      "expected_answer": null
+    },
+    {
+      "rid": 15,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "50a9d6a2d322fec70f3c3046c453fce4a0e7327969c9d8a3ca279fe0fbf4322b",
+      "expected_answer": null
+    },
+    {
+      "rid": 16,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "b91fa04ca44c3f7d1c14a3f05ad17d75809298af4d5d61aea923722e04bae213",
+      "expected_answer": null
+    },
+    {
+      "rid": 17,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "f88c350c988aa1322f161728e47bbad6ce2d02c71953f495653d7deb2da33677",
+      "expected_answer": null
+    },
+    {
+      "rid": 18,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "79ad1de9d74f560f2a05a8e994b316c161c17185f07dc22c7c06642997e65118",
+      "expected_answer": null
+    },
+    {
+      "rid": 19,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "b80550313cc3d44a825565d449c36897b99c1b5a1ed685ce81589c3824448a13",
+      "expected_answer": null
+    },
+    {
+      "rid": 20,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "d82fc78c90426ab7a51f4c7629a183d04fee7c0e35cdf7c6471b873118061978",
+      "expected_answer": null
+    },
+    {
+      "rid": 21,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "50a9d6a2d322fec70f3c3046c453fce4a0e7327969c9d8a3ca279fe0fbf4322b",
+      "expected_answer": null
+    },
+    {
+      "rid": 22,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "f88c350c988aa1322f161728e47bbad6ce2d02c71953f495653d7deb2da33677",
+      "expected_answer": null
+    },
+    {
+      "rid": 23,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "5c15e445ea7796219424c7d979b944d93485fcd774032758e1ebcbc934286b3b",
+      "expected_answer": null
+    },
+    {
+      "rid": 24,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "dbcd0de6fa22cc2777e4eccd84c6a61f5780732fa35d218b9fa791345ad07f15",
+      "expected_answer": null
+    },
+    {
+      "rid": 25,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "48546f99880be5c37ad82e0621f46d3da55ea8f1e88e3887f86852bc45b86975",
+      "expected_answer": null
+    },
+    {
+      "rid": 26,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "9eff8acb02f124c4c094b8e482f1212fb4777e0588bdbb49bff16cffab549960",
+      "expected_answer": null
+    },
+    {
+      "rid": 27,
+      "prompt_len": 384,
+      "max_new_tokens": 32,
+      "arrival_step": 0,
+      "prompt_kind": "constructed_natural_text",
+      "prompt_sha256": "5836847d2849dbe2dc4af5a5e80fba743097cdaca80ae4576f564a75ee2defcb",
+      "expected_answer": null
+    }
+  ],
+  "policy_specs": [
+    "heuristic",
+    "table:/home/skkai/AI_Accelerator/kernelscope-design/demo_data/dispatch_paged_cold.csv",
+    "model"
+  ],
+  "seed": 1,
+  "max_batch": 64,
+  "kv_bytes": 4294967296,
+  "warmup_runs": 1,
+  "warmup_steps": null,
+  "repeats": 3,
+  "policy_order": "rotate_each_repeat",
+  "policy_cache": "fresh_for_each_measured_run",
+  "prefill": "serial_per_request",
+  "arrival_mode": "logical_decode_step",
+  "dataset": {
+    "id": "kernelscope-campus-garden-v1",
+    "evaluation_split": "heldout_text",
+    "scenario_family": "ragged",
+    "provenance": "original text authored locally for this project; no external dataset",
+    "construction": "seeded paragraph order, repeated token stream, exact target length, intact task suffix"
+  },
+  "dataset_id": "kernelscope-campus-garden-v1",
+  "evaluation_split": "heldout_text",
+  "scenario_family": "ragged",
+  "dataset_sha256": "be88aec841f168d48703f28e5c50df237366819fca03e08e77c6775999d2b5ab",
+  "resolved_prompts_sha256": "d33d5cf23af2d604ac5bc2b55e2242449b8cf893c7156b81b42493ed8ce6d28f",
+  "prompt_kind": "constructed_natural_text",
+  "prompt_mode": "raw_text_continuation_no_chat_template",
+  "prompt_resolution": "prepared_once_before_warmup_and_measurement",
+  "prompts": [
+    {
+      "rid": 0,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "fc8891e497f91e476a6b408e32a33970943bad349ca80e2a2bd24a5998f97f63",
+      "prompt_sha256": "9909f849f4f48729b5be9f3d0094951f9edf08e12757683bdd8efc65dfccbfc2",
+      "requested_prompt_len": 12288,
+      "resolved_prompt_len": 12288,
+      "expected_answer": null
+    },
+    {
+      "rid": 1,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "58a7e3fc1ce3c34f02e896d7785bb21c9daa114a0d1579c83c7acae14f86135b",
+      "prompt_sha256": "2dc4136d97150762f6e86a9dacc29af8526e0aadb4f25e46a72dfa2a0c00909d",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 2,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "f3b90bbe6dfdf624ccbf6a36c4a2809b64fe1fb6511c2f76c76ab9576eb9114c",
+      "prompt_sha256": "334617f5adce811a09995e5df285d1269542f999cde2d49ecb1666f9a11495b5",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 3,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "8e13f4d7eb288a30d11a1838398e85413f88f2136c59be2e00b9d4cb444400c5",
+      "prompt_sha256": "b91fa04ca44c3f7d1c14a3f05ad17d75809298af4d5d61aea923722e04bae213",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 4,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "a26dba210fb3f47554ca820150b0c7f778bbdc78289accd34f519fa8ab056be7",
+      "prompt_sha256": "7b53ff8af14343268fcb4956c589c7d357d554bafc0319e423f7622be07866e3",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 5,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "b1caaf746d6ae7ac4e4e0b24fb0cece61929a5f61a1940b3ea30df119f9be0f6",
+      "prompt_sha256": "f7ed8846245a4d8d5677b603040d7ded775693f983403b93175509e2b28c4335",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 6,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "1d0450ecdd0dace5fe24081db1052ec3a032566af27d626cbd5ba1de9ad45315",
+      "prompt_sha256": "af8aaf7755c0546cf736626f9f1a954d7462cdfb18514d9362284a65d710109c",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 7,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "800de44bdc512ff707f6cc6f092fed8355f36fe71a06548864f87e73a453bca9",
+      "prompt_sha256": "d52f93bbf0ff8d5195ad31837a1b2b2d5951bc50803f6da3b7f7f25e51e3a354",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 8,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "c1556bf21ab78111fff4777c2f37a9620eb0ffcd6c5e7c602e340be5f72149e9",
+      "prompt_sha256": "48ba8fa23a342329df0fcfbdb9fc6760d7d730b878ccdea76260ee2af5144489",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 9,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "7fb27d62ba065f275efac6b3677bf7eb25aa4cb9b2ab53aaa0fec84d5e060225",
+      "prompt_sha256": "7725ca5de7acaa40086fab40b0cedbf36e62cb999f5cdac75e8edd99cf670f36",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 10,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "d4c830e09492a89fda79ea562a169068b25db67ffb098a6b32aa2574b4e77610",
+      "prompt_sha256": "663cfee32898168ca99bd9451e2ec3d360f375c0d86539a15b37edc818dcdd20",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 11,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "e95c45b87d0ed18c827a66d0941e632ed448740d0199e7777f1cb679f137e78b",
+      "prompt_sha256": "2aacdf4e7d3b63cf363c00b89393a1eab54bbc0300b7f6f8ec3472ff4bc2c10f",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 12,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "1791b2908f8047fa64f6b8304c96f3dc54ad7088189e2f675589f8d2325be563",
+      "prompt_sha256": "601c1f034067782e379b6489299527fc2844d4fbe718ec91109751c7c49fcce0",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 13,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "bfae00c9934a098d25a82a95e78e7acffc32fdf376a6eff7db0fb80c571fd442",
+      "prompt_sha256": "95746f2f63c696801f5e1208ac61a612c1369d517328150516526ea1c0c57645",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 14,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "64f1f964809f8615ffc479db885c957d8b208bc7e05391c9251f0b29afa13f13",
+      "prompt_sha256": "50ae78c2721ca23e79cc7ea6c3d227a1dcc2dfd97a231ea061c6a338e599f41d",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 15,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "12b33efa36f7208e865e8939d9bb32d00672d2a8bbfa4167c86ac2a20b7c9bce",
+      "prompt_sha256": "50a9d6a2d322fec70f3c3046c453fce4a0e7327969c9d8a3ca279fe0fbf4322b",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 16,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "820ae56c072cbf6e8c25bde11b456e3852fb67cf8d162ac10f9766b73c99c963",
+      "prompt_sha256": "b91fa04ca44c3f7d1c14a3f05ad17d75809298af4d5d61aea923722e04bae213",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 17,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "995920d08c59c7723788b8737ae2d6ea079837d036fd6b4519ccfee7a18dec31",
+      "prompt_sha256": "f88c350c988aa1322f161728e47bbad6ce2d02c71953f495653d7deb2da33677",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 18,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "92f9c8f6cca4a2d985c25afb0404620f3c81ba7472e795216523f993453272de",
+      "prompt_sha256": "79ad1de9d74f560f2a05a8e994b316c161c17185f07dc22c7c06642997e65118",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 19,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "91033c49981d488007b9a2a101f20d257145f27676582a931aed961368f2fb1f",
+      "prompt_sha256": "b80550313cc3d44a825565d449c36897b99c1b5a1ed685ce81589c3824448a13",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 20,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "ae53302abfbecd1082ade8697185aa80e7f623971571a2f5cb2f5dd9cb55f9d8",
+      "prompt_sha256": "d82fc78c90426ab7a51f4c7629a183d04fee7c0e35cdf7c6471b873118061978",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 21,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "c265b586b0843898434fa77985095ea6d766734ab9c73d60bf258f0eb1e967e4",
+      "prompt_sha256": "50a9d6a2d322fec70f3c3046c453fce4a0e7327969c9d8a3ca279fe0fbf4322b",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 22,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "3a7845dae4995ffab2b8b05418026da78125698ac719828e42d445eead29caf3",
+      "prompt_sha256": "f88c350c988aa1322f161728e47bbad6ce2d02c71953f495653d7deb2da33677",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 23,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "32eee227202ca65c46971f9fa0a7ef0f22a875a9a25e1121bee3bfdec21d608e",
+      "prompt_sha256": "5c15e445ea7796219424c7d979b944d93485fcd774032758e1ebcbc934286b3b",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 24,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "ad3db6967cfd7ba0c38bee2dd6c85a9b82ad4d75fee21793387974425ef2f540",
+      "prompt_sha256": "dbcd0de6fa22cc2777e4eccd84c6a61f5780732fa35d218b9fa791345ad07f15",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 25,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "c242097145cff52d30810544eee17e27e8a3b1c7d88560b3248d657cd520ca38",
+      "prompt_sha256": "48546f99880be5c37ad82e0621f46d3da55ea8f1e88e3887f86852bc45b86975",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 26,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "4de57c983251b97830345affa8cb2feab74c11b93bdf055c5f4e83f9a014e73b",
+      "prompt_sha256": "9eff8acb02f124c4c094b8e482f1212fb4777e0588bdbb49bff16cffab549960",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    },
+    {
+      "rid": 27,
+      "prompt_kind": "constructed_natural_text",
+      "source_sha256": "7c62b346856f809bd71e4f6eedfd01239b1b7b8f38c21c62693aa21c4cae8383",
+      "prompt_sha256": "5836847d2849dbe2dc4af5a5e80fba743097cdaca80ae4576f564a75ee2defcb",
+      "requested_prompt_len": 384,
+      "resolved_prompt_len": 384,
+      "expected_answer": null
+    }
+  ],
+  "tokenization_setup_us": 16772.997041698545,
+  "tokenizer_load_us": 152992.19702137634,
+  "tokenizer_sha256": {
+    "tokenizer.json": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+    "tokenizer_config.json": "a62ff0a2472a0fa1b8eaabcb57c59b58afa42a22831dc141400b6e0cf2b65ce3"
+  },
+  "sampling": "greedy_fixed_length_no_eos_stop",
+  "quality_setup_us": 0.0,
+  "quality_evaluation": null,
+  "policy_setup_runs": [
+    {
+      "stage": "initial",
+      "setup_us": 9647.898026742041,
+      "policies": [
+        {
+          "name": "heuristic",
+          "simulator_backend": null
+        },
+        {
+          "name": "table",
+          "simulator_backend": null
+        },
+        {
+          "name": "model",
+          "simulator_backend": {
+            "backend": "native_c",
+            "native_available": true,
+            "built_this_process": false,
+            "cache_hit": true,
+            "setup_us": 1243.5440439730883,
+            "compiler": [
+              "/usr/bin/cc"
+            ],
+            "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+            "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+            "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+            "error": null,
+            "compile_flags": [
+              "-O3",
+              "-std=c11",
+              "-shared",
+              "-fPIC",
+              "-fno-fast-math",
+              "-ffp-contract=off"
+            ],
+            "requested_backend": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "repeat_000",
+      "setup_us": 3943.5880025848746,
+      "policies": [
+        {
+          "name": "heuristic",
+          "simulator_backend": null
+        },
+        {
+          "name": "table",
+          "simulator_backend": null
+        },
+        {
+          "name": "model",
+          "simulator_backend": {
+            "backend": "native_c",
+            "native_available": true,
+            "built_this_process": false,
+            "cache_hit": true,
+            "setup_us": 1243.5440439730883,
+            "compiler": [
+              "/usr/bin/cc"
+            ],
+            "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+            "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+            "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+            "error": null,
+            "compile_flags": [
+              "-O3",
+              "-std=c11",
+              "-shared",
+              "-fPIC",
+              "-fno-fast-math",
+              "-ffp-contract=off"
+            ],
+            "requested_backend": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "repeat_001",
+      "setup_us": 3562.669036909938,
+      "policies": [
+        {
+          "name": "heuristic",
+          "simulator_backend": null
+        },
+        {
+          "name": "table",
+          "simulator_backend": null
+        },
+        {
+          "name": "model",
+          "simulator_backend": {
+            "backend": "native_c",
+            "native_available": true,
+            "built_this_process": false,
+            "cache_hit": true,
+            "setup_us": 1243.5440439730883,
+            "compiler": [
+              "/usr/bin/cc"
+            ],
+            "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+            "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+            "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+            "error": null,
+            "compile_flags": [
+              "-O3",
+              "-std=c11",
+              "-shared",
+              "-fPIC",
+              "-fno-fast-math",
+              "-ffp-contract=off"
+            ],
+            "requested_backend": "auto"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "repeat_002",
+      "setup_us": 3743.5039994306862,
+      "policies": [
+        {
+          "name": "heuristic",
+          "simulator_backend": null
+        },
+        {
+          "name": "table",
+          "simulator_backend": null
+        },
+        {
+          "name": "model",
+          "simulator_backend": {
+            "backend": "native_c",
+            "native_available": true,
+            "built_this_process": false,
+            "cache_hit": true,
+            "setup_us": 1243.5440439730883,
+            "compiler": [
+              "/usr/bin/cc"
+            ],
+            "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+            "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+            "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+            "error": null,
+            "compile_flags": [
+              "-O3",
+              "-std=c11",
+              "-shared",
+              "-fPIC",
+              "-fno-fast-math",
+              "-ffp-contract=off"
+            ],
+            "requested_backend": "auto"
+          }
+        }
+      ]
+    }
+  ],
+  "timing_instrumentation": "per-layer attention events, per-decode events, synchronized host token timestamps",
+  "limitations": [
+    "No network or production scheduler overhead",
+    "Step-based arrivals are not an open-loop SLA test",
+    "TPOT includes admission/prefill stalls and dispatch overhead",
+    "Constructed prompts are not production traffic or a validated language-quality dataset"
+  ],
+  "preflight": {
+    "python": "3.11.16",
+    "executable": "/home/skkai/AI_Accelerator/kernelscope-design/.venv/bin/python",
+    "packages": {
+      "torch": "2.8.0+cu128",
+      "flash-attn": "2.8.3.post1",
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "pyarrow": "25.0.1",
+      "safetensors": "0.8.0",
+      "tokenizers": "0.22.2"
+    },
+    "cuda_available": true,
+    "torch_cuda": "12.8",
+    "errors": [],
+    "gpu_processes": [
+      {
+        "pid": 861322,
+        "name": "/home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun",
+        "used_memory_mib": "394"
+      }
+    ],
+    "nvidia_smi_output": "861322, /home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun, 394",
+    "gpu_name": "NVIDIA GeForce RTX 4090",
+    "device_capability": [
+      8,
+      9
+    ],
+    "free_memory_bytes": 23669309440,
+    "total_memory_bytes": 25248530432,
+    "model_path": "/home/skkai/.cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+    "model_config": {
+      "arch": "qwen3",
+      "n_layers": 36,
+      "hidden": 2560,
+      "intermediate": 9728,
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "head_dim": 128,
+      "vocab": 151936,
+      "rope_theta": 5000000.0,
+      "rope_scaling": null,
+      "rms_eps": 1e-06,
+      "tie_embeddings": true,
+      "qk_norm": true
+    },
+    "model_config_sha256": "5beea1a4a34c62782bfb2f911c606741a3bab8f92d80a118fa053c28af12e8ba",
+    "weight_files": [
+      {
+        "name": "model-00001-of-00003.safetensors",
+        "size": 3957900840
+      },
+      {
+        "name": "model-00002-of-00003.safetensors",
+        "size": 3987450520
+      },
+      {
+        "name": "model-00003-of-00003.safetensors",
+        "size": 99630640
+      }
+    ],
+    "ready": true
+  },
+  "git": {
+    "commit": "a308ed48db126384e6a86dfe1fdbae74422e7391",
+    "status": "M .gitignore\n M README.md\n M docs/STATUS.md\n M kernelscope/cli.py\n M kernelscope/model/simulate.py\n M pyproject.toml\n?? .streamlit/\n?? Makefile\n?? dashboard/\n?? demo_data/\n?? docs/demo.md\n?? docs/experiments/\n?? docs/graduation.md\n?? docs/img/\n?? docs/plan/2026-09-22-model-validation.md\n?? env/requirements-demo.txt\n?? env/requirements-serve.txt\n?? kernelscope/dashboard/\n?? kernelscope/model/_simulate_backend.py\n?? kernelscope/model/_simulate_native.c\n?? kernelscope/serve/\n?? models/\n?? scenarios/\n?? scripts/\n?? tests/test_dashboard_app.py\n?? tests/test_dashboard_data.py\n?? tests/test_dashboard_figures.py\n?? tests/test_dashboard_research.py\n?? tests/test_followup_campaign.py\n?? tests/test_model_simulate_native.py\n?? tests/test_policy_numerics.py\n?? tests/test_serve_cli.py\n?? tests/test_serve_dispatch.py\n?? tests/test_serve_engine.py\n?? tests/test_serve_equivalence.py\n?? tests/test_serve_generate.py\n?? tests/test_serve_hf.py\n?? tests/test_serve_kvcache.py\n?? tests/test_serve_model.py\n?? tests/test_serve_quality.py\n?? tests/test_serve_report.py\n?? tests/test_serve_scenarios.py"
+  },
+  "source_sha256": {
+    "kernelscope/serve/__init__.py": "b5d3e400a05c4cbf21f06475e7307ede90a6829fe5bd45b559b8ff59be94b584",
+    "kernelscope/serve/cli.py": "726de6b3256350eace39c3431233e9d9528dc3bb680bcffd5a5f97f3b8b75cbc",
+    "kernelscope/serve/dispatch.py": "ebdb4099bacf5c8cba2130807ddadd29b71053620a95a257a5e538eaabcf0206",
+    "kernelscope/serve/engine.py": "3e6214636051869e916c55b8ea4a58fa34418b9027aed9c8038fbe88863a1336",
+    "kernelscope/serve/equivalence.py": "3dcf346b2a6f88b6c89f1f614c2ff8e262647dc225b6755c5de3ed7a42e07b01",
+    "kernelscope/serve/generate.py": "3ddfa9ae10a6eee68853cd8f58703ba556c43357d1a7f88b3b32a576238aa231",
+    "kernelscope/serve/hf.py": "ce679784215e20f6164a62503c0831da78a11dafcd8d9a30d7d6d39ed196f1db",
+    "kernelscope/serve/kvcache.py": "374c756dc60e767c9921bcb4b74f6e314a11a0eef42e27fe114f90d373872371",
+    "kernelscope/serve/model.py": "4926f0bbf9231afd9518a2c59d5d3be987002fc4953b4839bfcc409696d18f8b",
+    "kernelscope/serve/quality.py": "ac87843aa4997fdbf3f8e414ff215d667dee3418d1b2c133917bb1d570cd857d",
+    "kernelscope/serve/report.py": "da2c2892f9015ebeca163b46712cc95ebac71fcbc752f37ef87cd59df7cb44ca",
+    "kernelscope/serve/scenarios.py": "1f85639a5b94675788bc2e5b3bbe6d61ccb14e73ff707d3d34154a770a7753b9",
+    "kernelscope/model/__init__.py": "11b8e331124f6837d0d82e299582b9e903401c69aaf58c77c976fc021e421af2",
+    "kernelscope/model/_simulate_backend.py": "5c90bfe4fca8ccf9464df86d4371b0801af4e1856b34843e6d04614260f8ead9",
+    "kernelscope/model/_simulate_native.c": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+    "kernelscope/model/fit.py": "b09fc4daf519bcdcfebaf7bfcbb4f6a93af562ec61509b83c118ce31122efb37",
+    "kernelscope/model/geometry.py": "3532cf3d5eb364637dfed838a01d369684570483147fd4f299d605671737db13",
+    "kernelscope/model/machine.py": "47e3b5137bcea6f66265a10f595f5b01bcd5155145e70c514d3b7b1653acda64",
+    "kernelscope/model/params.py": "654eca2863e7619e1e98c8afc4e936693322b14d1e074603e4e03a06df258c22",
+    "kernelscope/model/predict.py": "75f0320bf41576bc12e7b33045c4224594fd1a33c6bab5408497cb97f8414fb3",
+    "kernelscope/model/simulate.py": "bf4c24c8e701ba955ae1bf873b4ddf387b08e7b611e34da0eed194fc4aa1cb5e",
+    "kernelscope/model/validate.py": "d5e7b5b42f6af5ce1611f240ed1337927d10f47ae21c37f7da99bfcbb9c40427"
+  },
+  "order": [
+    [
+      "heuristic",
+      "table",
+      "model"
+    ],
+    [
+      "table",
+      "model",
+      "heuristic"
+    ],
+    [
+      "model",
+      "heuristic",
+      "table"
+    ]
+  ],
+  "policy_inputs": {
+    "/home/skkai/AI_Accelerator/kernelscope-design/machines/rtx4090.json": "ca91a6a13f8f46a583957a9c70873a30b459807e4c3c76bcb3aa4bdb7e262edd",
+    "/home/skkai/AI_Accelerator/kernelscope-design/models/rtx4090.json": "327ea55d9cab05e2d04230b3aa36dd62a7e645f914882d734f4e1984e5224e3d",
+    "/home/skkai/AI_Accelerator/kernelscope-design/demo_data/dispatch_paged_cold.csv": "6b775f09c93c20dfdced00fc47c66d33a2a286333a2e3a7d703ab52837016d6d"
+  },
+  "tokens_equivalent": false,
+  "independent_reference_validation": "not_performed_by_this_command",
+  "completed_at": "2026-09-22T08:15:31.162971+00:00"
+}

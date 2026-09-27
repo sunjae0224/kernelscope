@@ -74,6 +74,16 @@ def test_trace_command_warms_up_then_traces_one_run_in_the_profiler_window():
     assert argv[argv.index("--plugin") + 1] == "fa2"
 
 
+def test_real_subprocess_failure_and_stderr_reach_the_parser(tmp_path):
+    from kernelscope.backends.accelsim.stats import parse_sim_stdout
+    sweep, _ = _sweep(tmp_path)
+    argv = [sys.executable, "-c", "import sys; print('ERROR: undefined instruction : ADA_NEW', file=sys.stderr); sys.exit(2)"]
+    stdout, wall = sweep._run_simulate(argv, tmp_path / "failure.log")
+    assert wall >= 0
+    assert "KERNELSCOPE_SIM_PROCESS_FAILED returncode=2" in stdout
+    assert parse_sim_stdout(stdout)["unsupported_opcode"] == "ADA_NEW"
+
+
 def test_postprocess_and_simulate_commands_follow_the_gate_report(tmp_path):
     p = AccelSimPaths(tmp_path)
     assert postprocess_command(p, tmp_path / "cell" / "traces", jobs=8) == [
@@ -95,6 +105,33 @@ def test_cell_traces_once_and_simulates_every_variant(tmp_path):
     cyc = df[(df.backend == "sim:base") & (df.metric == "gpu_tot_sim_cycle")]
     assert cyc["value"].item() == 11333
     assert (df[df.backend == "trace"].set_index("metric")["value"]["warp_insts"]) == 524288
+
+
+def test_parallel_variants_share_one_trace_and_isolate_simulator_artifacts(tmp_path):
+    import threading
+    sweep, calls = _sweep(tmp_path, variants=("base", "l2_x2"), sim_jobs=2)
+    barrier = threading.Barrier(2)
+    directories = []
+
+    def simulate(argv, log_path):
+        directories.append(log_path.parent)
+        (log_path.parent / "auxiliary-stats").write_text(log_path.name)
+        barrier.wait(timeout=10)  # fails if the supposedly parallel calls serialize
+        log_path.write_text(SIM_LOG)
+        return SIM_LOG, 0.1
+
+    sweep._simulate = simulate
+    summary = sweep.run_cell("faithful_cpu", W)
+    assert summary["sim"] == {"base": "ok", "l2_x2": "ok"}
+    assert len(calls["trace"]) == len(calls["post"]) == 1
+    assert len(set(directories)) == 2
+    assert {p.name for p in directories} == {"base", "l2_x2"}
+    assert set(sweep.store.load().backend) >= {"sim:base", "sim:l2_x2"}
+
+
+def test_duplicate_variants_are_rejected_before_they_can_clobber_logs(tmp_path):
+    with pytest.raises(ValueError, match="unique"):
+        _sweep(tmp_path, variants=("base", "base"), sim_jobs=2)
 
 
 def test_variant_config_files_are_materialized_per_cell(tmp_path):
@@ -158,7 +195,7 @@ def test_kernelslist_is_filtered_to_regex_matching_kernels_before_simulating(tmp
 
 
 def test_budget_skips_simulation_but_keeps_trace_stats(tmp_path):
-    sweep, calls = _sweep(tmp_path, max_sim_s=1.0)   # est = 524288/27500 ≈ 19 s > 1
+    sweep, calls = _sweep(tmp_path, max_sim_s=1.0)   # 524288 / host planning rate > 1 s
     s = sweep.run_cell("faithful_cpu", W)
     assert s["status"] == "skipped_budget"
     assert s["est_sim_s"] > 1.0

@@ -2,9 +2,9 @@
 
 Each variant scales exactly one knob of the baseline config so a sensitivity is
 attributable to one resource:
-  l2_*  -gpgpu_cache:dl2  S:<sets>:...   (sets per sub-partition; 40 ch x 4 = 160 sub-partitions)
-  bw_*  -gpgpu_clock_domains core:icnt:l2:DRAM   (DRAM clock -> HBM bandwidth)
-  sm_*  -gpgpu_n_clusters                 (1 SM per cluster on A100)
+  l2_*  -gpgpu_cache:dl2  S:<sets>:...   (sets per memory sub-partition)
+  bw_*  -gpgpu_clock_domains core:icnt:l2:DRAM   (DRAM clock -> memory bandwidth)
+  sm_*  -gpgpu_n_clusters                 (SM count when cores per cluster = 1)
 """
 import re
 from functools import partial
@@ -38,7 +38,7 @@ def _scale_l2_sets(v: str, f: float) -> str:
 
 def _scale_dram_clock(v: str, f: float) -> str:
     d = v.split(":")                # core:icnt:l2:dram
-    d[3] = str(int(int(d[3]) * f))
+    d[3] = format(float(d[3]) * f, "g")
     return ":".join(d)
 
 

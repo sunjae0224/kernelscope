@@ -1,0 +1,7 @@
+policy,reference,steps_compared,max_abs_logit_diff,token_agreement,tokens_compared,token_mismatches,missing_tokens,schedule_match,logits_checked,logits_finite,tokens_identical,passed,first_mismatch,repeat
+table,heuristic,0,,1.0,896,0,0,True,False,,True,True,,0
+model,heuristic,0,,1.0,896,0,0,True,False,,True,True,,0
+table,heuristic,0,,1.0,896,0,0,True,False,,True,True,,1
+model,heuristic,0,,1.0,896,0,0,True,False,,True,True,,1
+model,heuristic,0,,1.0,896,0,0,True,False,,True,True,,2
+table,heuristic,0,,1.0,896,0,0,True,False,,True,True,,2

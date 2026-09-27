@@ -37,6 +37,8 @@ class TritonTutorialAttn(KernelPlugin):
     kernel_regex = r"_attn_fwd"
 
     def supports(self, w: Workload) -> bool:
+        if w.is_ragged:
+            return False
         return (w.phase == "prefill" and w.L_q == w.L_kv and w.d in (16, 32, 64, 128, 256)
                 and w.dtype in ("float16", "bfloat16"))
 

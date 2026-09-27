@@ -23,6 +23,7 @@ import os
 import re
 import sys
 
+from kernelscope.backends.realhw.cache import CACHE_STATES, MARKER_REGEX, IterationHooks
 from kernelscope.backends.realhw.latency import measure_latency
 from kernelscope.check import check_plugin
 from kernelscope.plugins.base import KernelPlugin
@@ -79,26 +80,36 @@ def launched_kernels(plugin, inputs, device: str) -> list[str]:
     return names
 
 
-def profile_launches(plugin, inputs, device: str, iters: int) -> dict:
+def profile_launches(plugin, inputs, device: str, iters: int, hooks=None, pad: int = 0) -> dict:
     """torch.profiler over ``iters`` runs -> per-launch median duration + geometry, and
-    which launches match the plugin's kernel_regex (counter-free, DCGM-proof)."""
+    which launches match the plugin's kernel_regex (counter-free, DCGM-proof).
+
+    With active ``hooks``, ``pad`` extra warm-up-inside-the-window iterations run first (each
+    preceded by ``hooks.between()``) so the trace can drop iterations the profiler mis-recorded
+    while still summarising exactly ``iters`` of them."""
     import tempfile
     from torch.profiler import ProfilerActivity, profile
     from kernelscope.backends.realhw.kprofile import (
-        kernel_events_from_chrome_trace, occupancy_estimate, props_from_torch, summarize_launches)
+        kernel_events_from_chrome_trace, occupancy_estimate, props_from_torch, require_kernel_events,
+        summarize_launches)
+    active = hooks is not None and hooks.active
+    runs = iters + (pad if active else 0)
     activities = [ProfilerActivity.CPU]
     if device.startswith("cuda"):
         activities.append(ProfilerActivity.CUDA)
     with profile(activities=activities) as prof:
-        for _ in range(iters):
+        for _ in range(runs):
+            if active:
+                hooks.between()
             plugin.run(inputs)
         _sync(device)
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
         path = tmp.name
     prof.export_chrome_trace(path)
     events = kernel_events_from_chrome_trace(path)
+    require_kernel_events(events, device)
     os.unlink(path)
-    summary = summarize_launches(events, plugin.kernel_regex, iters)
+    summary = summarize_launches(events, plugin.kernel_regex, iters, marker_regex=MARKER_REGEX if active else None)
     props = props_from_torch(device) if device.startswith("cuda") else None
     if props:
         for l in summary["launches"]:
@@ -117,6 +128,8 @@ def main(argv=None):
     ap.add_argument("--atol", type=float, default=1e-2)
     ap.add_argument("--registry", default=DEFAULT_REGISTRY, help="module:attr of a PluginRegistry")
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--cache-state", choices=CACHE_STATES, default="warm")
+    ap.add_argument("--pad", type=int, default=5)
     args = ap.parse_args(argv)
 
     registry = load_registry(args.registry)
@@ -130,16 +143,18 @@ def main(argv=None):
     if not plugin.supports(w):
         _die(f"{plugin.name} does not support phase {w.phase!r} (supports {sorted(plugin.phases)})", 3)
 
-    base = {"mode": args.mode, "plugin": plugin.name, "workload_key": w.key()}
+    base = {"mode": args.mode, "plugin": plugin.name, "workload_key": w.key(), "cache_state": args.cache_state}
 
     if args.mode == "check":
         print(json.dumps({**base, **check_plugin(plugin, w, atol=args.atol)}))
         return
 
     inputs = plugin.build_inputs(w)
+    hooks = IterationHooks(args.device, args.cache_state)
 
     if args.mode == "latency":
-        res = measure_latency(lambda: plugin.run(inputs), warmup=args.warmup, iters=args.iters)
+        before = (lambda: (hooks.between(), _sync(args.device))) if args.cache_state == "cold" else None
+        res = measure_latency(lambda: plugin.run(inputs), warmup=args.warmup, iters=args.iters, before=before)
         res.pop("samples_s")
         print(json.dumps({**base, **res}))
         return
@@ -155,9 +170,10 @@ def main(argv=None):
 
     if args.mode == "profile":
         for _ in range(args.warmup):
+            hooks.between()
             plugin.run(inputs)
         _sync(args.device)
-        summary = profile_launches(plugin, inputs, args.device, args.iters)
+        summary = profile_launches(plugin, inputs, args.device, args.iters, hooks=hooks, pad=args.pad)
         print(json.dumps({**base, "kernel_regex": plugin.kernel_regex, "iters": args.iters, **summary}))
         return
 

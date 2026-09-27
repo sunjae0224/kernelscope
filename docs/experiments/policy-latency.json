@@ -1,0 +1,1477 @@
+{
+  "evidence_kind": "cpu_policy_latency",
+  "measured_at_utc": "2026-09-22T07:54:32.493070+00:00",
+  "backend_setup_fresh_build": {
+    "backend": "native_c",
+    "native_available": true,
+    "built_this_process": true,
+    "cache_hit": false,
+    "setup_us": 55683.07300563902,
+    "compiler": [
+      "/usr/bin/cc"
+    ],
+    "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+    "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+    "cache_path": "/tmp/kernelscope-build-probe-f45nyw6z/simulate_46eafe1048aaa97286b6d120.so",
+    "error": null,
+    "compile_flags": [
+      "-O3",
+      "-std=c11",
+      "-shared",
+      "-fPIC",
+      "-fno-fast-math",
+      "-ffp-contract=off"
+    ],
+    "requested_backend": "native",
+    "cache_is_ephemeral_probe": true
+  },
+  "backend_setup_existing_cache": {
+    "backend": "native_c",
+    "native_available": true,
+    "built_this_process": false,
+    "cache_hit": true,
+    "setup_us": 1537.0019827969372,
+    "compiler": [
+      "/usr/bin/cc"
+    ],
+    "compiler_version_sha256": "a2c6f19b6698aa4249442367c19c93accd1bb85cfcd901fce4c02116f30da891",
+    "source_sha256": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+    "cache_path": "/home/skkai/AI_Accelerator/kernelscope-design/.cache/kernelscope/simulator/simulate_46eafe1048aaa97286b6d120.so",
+    "error": null,
+    "compile_flags": [
+      "-O3",
+      "-std=c11",
+      "-shared",
+      "-fPIC",
+      "-fno-fast-math",
+      "-ffp-contract=off"
+    ],
+    "requested_backend": "native"
+  },
+  "machine_sha256": "ca91a6a13f8f46a583957a9c70873a30b459807e4c3c76bcb3aa4bdb7e262edd",
+  "model_params_sha256": "327ea55d9cab05e2d04230b3aa36dd62a7e645f914882d734f4e1984e5224e3d",
+  "source_sha256": {
+    "kernelscope/model/simulate.py": "bf4c24c8e701ba955ae1bf873b4ddf387b08e7b611e34da0eed194fc4aa1cb5e",
+    "kernelscope/model/_simulate_native.c": "f8896e88c7c75f8b9208734f2435499af397af26bbe60f81f5beff3789715a8b",
+    "kernelscope/model/_simulate_backend.py": "5c90bfe4fca8ccf9464df86d4371b0801af4e1856b34843e6d04614260f8ead9",
+    "kernelscope/serve/dispatch.py": "ebdb4099bacf5c8cba2130807ddadd29b71053620a95a257a5e538eaabcf0206",
+    "/home/skkai/AI_Accelerator/kernelscope-design/scripts/benchmark_policy_latency.py": "3eb193ff635cd00c9c8332d4552d3a9f1f32bf69818d49bf6adf7ed9fac77050"
+  },
+  "python": "3.11.16 (main, Sep  2 2026, 23:39:52) [GCC 15.3.0]",
+  "numpy": "2.4.6",
+  "platform": "Linux-5.15.0-139-generic-x86_64-with-glibc2.31",
+  "load_average_at_end": [
+    2.11,
+    2.21,
+    1.83
+  ],
+  "repeats": 5,
+  "hot_calls_per_sample": 100,
+  "protocol": "Fresh policy per cold choice; backend setup/constructor excluded and disclosed separately; hot latency is mean of repeated hits; backend order alternates each repeat. Inputs are old campaign page configurations, never held-out future scenarios.",
+  "tolerance": {
+    "relative": 1e-12,
+    "absolute_us": 1e-09
+  },
+  "all_selected_splits_identical": true,
+  "all_rankings_identical": true,
+  "all_predictions_within_tolerance": true,
+  "cases": [
+    {
+      "name": "uniform_step0",
+      "scenario": "uniform",
+      "step": 0,
+      "lens": [
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513
+      ],
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "source": "demo_data/serve_4090/graduation_20260922/uniform/heuristic/repeat_000/steps.parquet",
+      "source_sha256": "b77ffa86fb9c84ccef2a98f774bf94a0cdae43ff957c9ecaedfd3c81e4161af0",
+      "rankings": {
+        "python": {
+          "splits": 1,
+          "ranked": [
+            [
+              "fa2_paged",
+              75.05281671305143
+            ],
+            [
+              "flashdecoding_paged",
+              75.05281671305143
+            ],
+            [
+              "fd_s2_paged",
+              96.28068880565031
+            ],
+            [
+              "fd_s4_paged",
+              98.72988596339658
+            ],
+            [
+              "fd_s8_paged",
+              102.75914638221579
+            ],
+            [
+              "fd_s16_paged",
+              112.40443199956982
+            ],
+            [
+              "fd_s32_paged",
+              131.9532386648208
+            ],
+            [
+              "fd_s64_paged",
+              171.61807535318763
+            ],
+            [
+              "fd_s128_paged",
+              255.18117530589018
+            ]
+          ]
+        },
+        "native": {
+          "splits": 1,
+          "ranked": [
+            [
+              "fa2_paged",
+              75.05281671305143
+            ],
+            [
+              "flashdecoding_paged",
+              75.05281671305143
+            ],
+            [
+              "fd_s2_paged",
+              96.28068880565031
+            ],
+            [
+              "fd_s4_paged",
+              98.72988596339658
+            ],
+            [
+              "fd_s8_paged",
+              102.75914638221579
+            ],
+            [
+              "fd_s16_paged",
+              112.40443199956982
+            ],
+            [
+              "fd_s32_paged",
+              131.9532386648208
+            ],
+            [
+              "fd_s64_paged",
+              171.61807535318763
+            ],
+            [
+              "fd_s128_paged",
+              255.18117530589018
+            ]
+          ]
+        }
+      },
+      "selected_splits_identical": true,
+      "ranking_order_identical": true,
+      "predictions_within_tolerance": true,
+      "max_abs_prediction_diff_us": 0.0,
+      "timing": {
+        "python": {
+          "cold_us": {
+            "median": 1068880.943,
+            "min": 1053780.075,
+            "max": 1076742.926,
+            "p10": 1056224.7202,
+            "p90": 1074016.732,
+            "samples": [
+              1076742.926,
+              1059891.688,
+              1053780.075,
+              1068880.943,
+              1069927.441
+            ]
+          },
+          "hot_us": {
+            "median": 5.21841,
+            "min": 5.18003,
+            "max": 5.26901,
+            "p10": 5.18241,
+            "p90": 5.26669,
+            "samples": [
+              5.26321,
+              5.18598,
+              5.18003,
+              5.21841,
+              5.26901
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "native": {
+          "cold_us": {
+            "median": 18926.229,
+            "min": 18895.686,
+            "max": 19052.104,
+            "p10": 18898.792,
+            "p90": 19019.3044,
+            "samples": [
+              18970.105,
+              18926.229,
+              18903.451,
+              18895.686,
+              19052.104
+            ]
+          },
+          "hot_us": {
+            "median": 5.18149,
+            "min": 5.11967,
+            "max": 5.223590000000001,
+            "p10": 5.12781,
+            "p90": 5.217714,
+            "samples": [
+              5.14002,
+              5.11967,
+              5.223590000000001,
+              5.18149,
+              5.2089
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        }
+      },
+      "cold_decision_speedup": 56.47617087376466
+    },
+    {
+      "name": "ragged_step0",
+      "scenario": "ragged",
+      "step": 0,
+      "lens": [
+        32769,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513
+      ],
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "source": "demo_data/serve_4090/graduation_20260922/ragged/heuristic/repeat_000/steps.parquet",
+      "source_sha256": "4368979070e85a9a8c3959795a6ed6854dcbc957eeda188aa075bc59f543d702",
+      "rankings": {
+        "python": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              240.70902794968015
+            ],
+            [
+              "fd_s16_paged",
+              251.10488665013145
+            ],
+            [
+              "fd_s32_paged",
+              273.67206391647443
+            ],
+            [
+              "fd_s64_paged",
+              322.7213483328219
+            ],
+            [
+              "fd_s4_paged",
+              346.234297153017
+            ],
+            [
+              "fd_s128_paged",
+              403.2700082475417
+            ],
+            [
+              "fd_s2_paged",
+              614.1789114334963
+            ],
+            [
+              "fa2_paged",
+              1146.1760702643435
+            ],
+            [
+              "flashdecoding_paged",
+              1146.1760702643435
+            ]
+          ]
+        },
+        "native": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              240.70902794968015
+            ],
+            [
+              "fd_s16_paged",
+              251.10488665013145
+            ],
+            [
+              "fd_s32_paged",
+              273.67206391647443
+            ],
+            [
+              "fd_s64_paged",
+              322.7213483328219
+            ],
+            [
+              "fd_s4_paged",
+              346.234297153017
+            ],
+            [
+              "fd_s128_paged",
+              403.2700082475417
+            ],
+            [
+              "fd_s2_paged",
+              614.1789114334963
+            ],
+            [
+              "fa2_paged",
+              1146.1760702643435
+            ],
+            [
+              "flashdecoding_paged",
+              1146.1760702643435
+            ]
+          ]
+        }
+      },
+      "selected_splits_identical": true,
+      "ranking_order_identical": true,
+      "predictions_within_tolerance": true,
+      "max_abs_prediction_diff_us": 0.0,
+      "timing": {
+        "python": {
+          "cold_us": {
+            "median": 842600.417,
+            "min": 838383.179,
+            "max": 850044.911,
+            "p10": 838591.7334,
+            "p90": 847481.1146,
+            "samples": [
+              843635.42,
+              838904.565,
+              838383.179,
+              850044.911,
+              842600.417
+            ]
+          },
+          "hot_us": {
+            "median": 5.23309,
+            "min": 5.193490000000001,
+            "max": 5.396470000000001,
+            "p10": 5.201334,
+            "p90": 5.332374000000001,
+            "samples": [
+              5.396470000000001,
+              5.193490000000001,
+              5.236230000000001,
+              5.23309,
+              5.2131
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "native": {
+          "cold_us": {
+            "median": 14292.599,
+            "min": 14155.195,
+            "max": 14561.896,
+            "p10": 14209.293,
+            "p90": 14535.0272,
+            "samples": [
+              14292.599,
+              14290.44,
+              14494.724,
+              14155.195,
+              14561.896
+            ]
+          },
+          "hot_us": {
+            "median": 5.19497,
+            "min": 5.18501,
+            "max": 5.23677,
+            "p10": 5.185794,
+            "p90": 5.222902,
+            "samples": [
+              5.19497,
+              5.18501,
+              5.202100000000001,
+              5.18697,
+              5.23677
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        }
+      },
+      "cold_decision_speedup": 58.953617673034834
+    },
+    {
+      "name": "arrivals_step0",
+      "scenario": "arrivals",
+      "step": 0,
+      "lens": [
+        16385,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513
+      ],
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "source": "demo_data/serve_4090/graduation_20260922/arrivals/heuristic/repeat_000/steps.parquet",
+      "source_sha256": "469682cd2b6fa39fff12163529867714597c8baf929a5257ec5c8fd2c796fe0d",
+      "rankings": {
+        "python": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              129.98762879555196
+            ],
+            [
+              "fd_s16_paged",
+              133.64573789105842
+            ],
+            [
+              "fd_s32_paged",
+              146.32890858554077
+            ],
+            [
+              "fd_s64_paged",
+              172.17569428205522
+            ],
+            [
+              "fd_s4_paged",
+              180.76997076999822
+            ],
+            [
+              "fd_s128_paged",
+              215.26285409056638
+            ],
+            [
+              "flashdecoding_paged",
+              318.1053694944516
+            ],
+            [
+              "fd_s2_paged",
+              318.1053694944516
+            ],
+            [
+              "fa2_paged",
+              574.2219901765129
+            ]
+          ]
+        },
+        "native": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              129.98762879555196
+            ],
+            [
+              "fd_s16_paged",
+              133.64573789105842
+            ],
+            [
+              "fd_s32_paged",
+              146.32890858554077
+            ],
+            [
+              "fd_s64_paged",
+              172.17569428205522
+            ],
+            [
+              "fd_s4_paged",
+              180.76997076999822
+            ],
+            [
+              "fd_s128_paged",
+              215.26285409056638
+            ],
+            [
+              "flashdecoding_paged",
+              318.1053694944516
+            ],
+            [
+              "fd_s2_paged",
+              318.1053694944516
+            ],
+            [
+              "fa2_paged",
+              574.2219901765129
+            ]
+          ]
+        }
+      },
+      "selected_splits_identical": true,
+      "ranking_order_identical": true,
+      "predictions_within_tolerance": true,
+      "max_abs_prediction_diff_us": 0.0,
+      "timing": {
+        "python": {
+          "cold_us": {
+            "median": 348109.7,
+            "min": 336994.466,
+            "max": 352915.212,
+            "p10": 341167.9948,
+            "p90": 351169.63039999997,
+            "samples": [
+              347428.288,
+              348109.7,
+              352915.212,
+              348551.258,
+              336994.466
+            ]
+          },
+          "hot_us": {
+            "median": 3.1420600000000003,
+            "min": 2.9799200000000003,
+            "max": 3.20808,
+            "p10": 3.0352840000000003,
+            "p90": 3.192792,
+            "samples": [
+              3.20808,
+              3.16986,
+              3.1183300000000003,
+              3.1420600000000003,
+              2.9799200000000003
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "native": {
+          "cold_us": {
+            "median": 6468.357,
+            "min": 6207.759,
+            "max": 6606.134,
+            "p10": 6289.4358,
+            "p90": 6572.4784,
+            "samples": [
+              6521.995,
+              6411.951,
+              6468.357,
+              6606.134,
+              6207.759
+            ]
+          },
+          "hot_us": {
+            "median": 3.10372,
+            "min": 2.97676,
+            "max": 3.14103,
+            "p10": 2.977456,
+            "p90": 3.1269500000000003,
+            "samples": [
+              3.10583,
+              3.10372,
+              3.14103,
+              2.97676,
+              2.9785000000000004
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        }
+      },
+      "cold_decision_speedup": 53.81732950113916
+    },
+    {
+      "name": "arrivals_step8",
+      "scenario": "arrivals",
+      "step": 8,
+      "lens": [
+        16393,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        521,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513
+      ],
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "source": "demo_data/serve_4090/graduation_20260922/arrivals/heuristic/repeat_000/steps.parquet",
+      "source_sha256": "469682cd2b6fa39fff12163529867714597c8baf929a5257ec5c8fd2c796fe0d",
+      "rankings": {
+        "python": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              168.51156660576424
+            ],
+            [
+              "fd_s16_paged",
+              180.8403305399421
+            ],
+            [
+              "fd_s32_paged",
+              202.75356289690836
+            ],
+            [
+              "fd_s4_paged",
+              208.17336582005956
+            ],
+            [
+              "fd_s64_paged",
+              247.8904990349289
+            ],
+            [
+              "fd_s128_paged",
+              330.544219623428
+            ],
+            [
+              "fd_s2_paged",
+              337.47189092646886
+            ],
+            [
+              "fa2_paged",
+              592.7183409526979
+            ],
+            [
+              "flashdecoding_paged",
+              592.7183409526979
+            ]
+          ]
+        },
+        "native": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              168.51156660576424
+            ],
+            [
+              "fd_s16_paged",
+              180.8403305399421
+            ],
+            [
+              "fd_s32_paged",
+              202.75356289690836
+            ],
+            [
+              "fd_s4_paged",
+              208.17336582005956
+            ],
+            [
+              "fd_s64_paged",
+              247.8904990349289
+            ],
+            [
+              "fd_s128_paged",
+              330.544219623428
+            ],
+            [
+              "fd_s2_paged",
+              337.47189092646886
+            ],
+            [
+              "fa2_paged",
+              592.7183409526979
+            ],
+            [
+              "flashdecoding_paged",
+              592.7183409526979
+            ]
+          ]
+        }
+      },
+      "selected_splits_identical": true,
+      "ranking_order_identical": true,
+      "predictions_within_tolerance": true,
+      "max_abs_prediction_diff_us": 0.0,
+      "timing": {
+        "python": {
+          "cold_us": {
+            "median": 941590.548,
+            "min": 933862.677,
+            "max": 946185.792,
+            "p10": 936887.7702,
+            "p90": 946072.9916,
+            "samples": [
+              941590.548,
+              945903.791,
+              933862.677,
+              946185.792,
+              941425.41
+            ]
+          },
+          "hot_us": {
+            "median": 5.232749999999999,
+            "min": 5.159389999999999,
+            "max": 5.38227,
+            "p10": 5.175333999999999,
+            "p90": 5.33503,
+            "samples": [
+              5.232749999999999,
+              5.26417,
+              5.38227,
+              5.159389999999999,
+              5.199249999999999
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "native": {
+          "cold_us": {
+            "median": 15935.235,
+            "min": 15609.925,
+            "max": 16695.714,
+            "p10": 15698.081,
+            "p90": 16662.261599999998,
+            "samples": [
+              15830.315,
+              15609.925,
+              16612.083,
+              16695.714,
+              15935.235
+            ]
+          },
+          "hot_us": {
+            "median": 5.24053,
+            "min": 5.17989,
+            "max": 5.424009999999999,
+            "p10": 5.18465,
+            "p90": 5.417018,
+            "samples": [
+              5.19179,
+              5.17989,
+              5.424009999999999,
+              5.40653,
+              5.24053
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        }
+      },
+      "cold_decision_speedup": 59.08858877826401
+    },
+    {
+      "name": "arrivals_step23",
+      "scenario": "arrivals",
+      "step": 23,
+      "lens": [
+        16408,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528,
+        528
+      ],
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "source": "demo_data/serve_4090/graduation_20260922/arrivals/heuristic/repeat_000/steps.parquet",
+      "source_sha256": "469682cd2b6fa39fff12163529867714597c8baf929a5257ec5c8fd2c796fe0d",
+      "rankings": {
+        "python": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              133.55013037924863
+            ],
+            [
+              "fd_s16_paged",
+              137.748875024706
+            ],
+            [
+              "fd_s32_paged",
+              150.47380446515214
+            ],
+            [
+              "flashdecoding_paged",
+              156.5853332481032
+            ],
+            [
+              "fd_s64_paged",
+              179.43730997783805
+            ],
+            [
+              "fd_s4_paged",
+              181.75422478894865
+            ],
+            [
+              "fd_s128_paged",
+              223.21759349870092
+            ],
+            [
+              "fd_s2_paged",
+              318.70793936063734
+            ],
+            [
+              "fa2_paged",
+              575.5244477567205
+            ]
+          ]
+        },
+        "native": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              133.55013037924863
+            ],
+            [
+              "fd_s16_paged",
+              137.748875024706
+            ],
+            [
+              "fd_s32_paged",
+              150.47380446515214
+            ],
+            [
+              "flashdecoding_paged",
+              156.5853332481032
+            ],
+            [
+              "fd_s64_paged",
+              179.43730997783805
+            ],
+            [
+              "fd_s4_paged",
+              181.75422478894865
+            ],
+            [
+              "fd_s128_paged",
+              223.21759349870092
+            ],
+            [
+              "fd_s2_paged",
+              318.70793936063734
+            ],
+            [
+              "fa2_paged",
+              575.5244477567205
+            ]
+          ]
+        }
+      },
+      "selected_splits_identical": true,
+      "ranking_order_identical": true,
+      "predictions_within_tolerance": true,
+      "max_abs_prediction_diff_us": 0.0,
+      "timing": {
+        "python": {
+          "cold_us": {
+            "median": 372011.182,
+            "min": 369317.735,
+            "max": 379703.21,
+            "p10": 370250.9298,
+            "p90": 376975.24720000004,
+            "samples": [
+              372011.182,
+              379703.21,
+              372883.303,
+              371650.722,
+              369317.735
+            ]
+          },
+          "hot_us": {
+            "median": 3.23236,
+            "min": 3.11597,
+            "max": 3.31712,
+            "p10": 3.125694,
+            "p90": 3.306852,
+            "samples": [
+              3.2914499999999998,
+              3.31712,
+              3.23236,
+              3.11597,
+              3.14028
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "native": {
+          "cold_us": {
+            "median": 6807.725,
+            "min": 6612.968,
+            "max": 7151.224,
+            "p10": 6658.8044,
+            "p90": 7104.3272,
+            "samples": [
+              7151.224,
+              7033.982,
+              6807.725,
+              6612.968,
+              6727.559
+            ]
+          },
+          "hot_us": {
+            "median": 3.22654,
+            "min": 3.0937,
+            "max": 3.28009,
+            "p10": 3.105892,
+            "p90": 3.267954,
+            "samples": [
+              3.24975,
+              3.28009,
+              3.0937,
+              3.12418,
+              3.22654
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        }
+      },
+      "cold_decision_speedup": 54.64544792863988
+    },
+    {
+      "name": "arrivals_step24",
+      "scenario": "arrivals",
+      "step": 24,
+      "lens": [
+        16409,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        529,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513,
+        513
+      ],
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "source": "demo_data/serve_4090/graduation_20260922/arrivals/heuristic/repeat_000/steps.parquet",
+      "source_sha256": "469682cd2b6fa39fff12163529867714597c8baf929a5257ec5c8fd2c796fe0d",
+      "rankings": {
+        "python": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              171.43212175384804
+            ],
+            [
+              "fd_s16_paged",
+              184.50536016983574
+            ],
+            [
+              "fd_s32_paged",
+              206.47554219910103
+            ],
+            [
+              "fd_s4_paged",
+              210.8676701323075
+            ],
+            [
+              "fd_s64_paged",
+              253.29169454380917
+            ],
+            [
+              "fd_s2_paged",
+              337.8477077021033
+            ],
+            [
+              "fd_s128_paged",
+              338.1152077027851
+            ],
+            [
+              "fa2_paged",
+              593.5392238204389
+            ],
+            [
+              "flashdecoding_paged",
+              593.5392238204389
+            ]
+          ]
+        },
+        "native": {
+          "splits": 8,
+          "ranked": [
+            [
+              "fd_s8_paged",
+              171.43212175384804
+            ],
+            [
+              "fd_s16_paged",
+              184.50536016983574
+            ],
+            [
+              "fd_s32_paged",
+              206.47554219910103
+            ],
+            [
+              "fd_s4_paged",
+              210.8676701323075
+            ],
+            [
+              "fd_s64_paged",
+              253.29169454380917
+            ],
+            [
+              "fd_s2_paged",
+              337.8477077021033
+            ],
+            [
+              "fd_s128_paged",
+              338.1152077027851
+            ],
+            [
+              "fa2_paged",
+              593.5392238204389
+            ],
+            [
+              "flashdecoding_paged",
+              593.5392238204389
+            ]
+          ]
+        }
+      },
+      "selected_splits_identical": true,
+      "ranking_order_identical": true,
+      "predictions_within_tolerance": true,
+      "max_abs_prediction_diff_us": 0.0,
+      "timing": {
+        "python": {
+          "cold_us": {
+            "median": 962523.464,
+            "min": 956629.065,
+            "max": 969102.273,
+            "p10": 957196.3121999999,
+            "p90": 968711.0198,
+            "samples": [
+              969102.273,
+              958047.183,
+              956629.065,
+              968124.14,
+              962523.464
+            ]
+          },
+          "hot_us": {
+            "median": 5.573869999999999,
+            "min": 5.31804,
+            "max": 5.62069,
+            "p10": 5.347068,
+            "p90": 5.616441999999999,
+            "samples": [
+              5.62069,
+              5.390610000000001,
+              5.573869999999999,
+              5.31804,
+              5.6100699999999994
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "native": {
+          "cold_us": {
+            "median": 17212.995,
+            "min": 17095.376,
+            "max": 17278.227,
+            "p10": 17103.0372,
+            "p90": 17269.872199999998,
+            "samples": [
+              17212.995,
+              17114.529,
+              17257.34,
+              17095.376,
+              17278.227
+            ]
+          },
+          "hot_us": {
+            "median": 5.56686,
+            "min": 5.55957,
+            "max": 5.5849400000000005,
+            "p10": 5.5605020000000005,
+            "p90": 5.5801240000000005,
+            "samples": [
+              5.5729,
+              5.5619000000000005,
+              5.56686,
+              5.55957,
+              5.5849400000000005
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        }
+      },
+      "cold_decision_speedup": 55.91841884576159
+    },
+    {
+      "name": "arrivals_step47",
+      "scenario": "arrivals",
+      "step": 47,
+      "lens": [
+        16432
+      ],
+      "n_heads": 32,
+      "n_kv_heads": 8,
+      "source": "demo_data/serve_4090/graduation_20260922/arrivals/heuristic/repeat_000/steps.parquet",
+      "source_sha256": "469682cd2b6fa39fff12163529867714597c8baf929a5257ec5c8fd2c796fe0d",
+      "rankings": {
+        "python": {
+          "splits": 16,
+          "ranked": [
+            [
+              "fd_s16_paged",
+              88.94326381921147
+            ],
+            [
+              "flashdecoding_paged",
+              91.42404527108118
+            ],
+            [
+              "fd_s32_paged",
+              91.64065753611145
+            ],
+            [
+              "fd_s8_paged",
+              92.25830755442323
+            ],
+            [
+              "fd_s64_paged",
+              95.0048311068676
+            ],
+            [
+              "fd_s128_paged",
+              103.3350830762103
+            ],
+            [
+              "fd_s4_paged",
+              160.65258553891007
+            ],
+            [
+              "fd_s2_paged",
+              299.07677702346905
+            ],
+            [
+              "fa2_paged",
+              557.8652671359921
+            ]
+          ]
+        },
+        "native": {
+          "splits": 16,
+          "ranked": [
+            [
+              "fd_s16_paged",
+              88.94326381921147
+            ],
+            [
+              "flashdecoding_paged",
+              91.42404527108118
+            ],
+            [
+              "fd_s32_paged",
+              91.64065753611145
+            ],
+            [
+              "fd_s8_paged",
+              92.25830755442323
+            ],
+            [
+              "fd_s64_paged",
+              95.0048311068676
+            ],
+            [
+              "fd_s128_paged",
+              103.3350830762103
+            ],
+            [
+              "fd_s4_paged",
+              160.65258553891007
+            ],
+            [
+              "fd_s2_paged",
+              299.07677702346905
+            ],
+            [
+              "fa2_paged",
+              557.8652671359921
+            ]
+          ]
+        }
+      },
+      "selected_splits_identical": true,
+      "ranking_order_identical": true,
+      "predictions_within_tolerance": true,
+      "max_abs_prediction_diff_us": 0.0,
+      "timing": {
+        "python": {
+          "cold_us": {
+            "median": 4824.423,
+            "min": 4800.577,
+            "max": 4909.005,
+            "p10": 4806.051,
+            "p90": 4876.065,
+            "samples": [
+              4909.005,
+              4824.423,
+              4814.262,
+              4826.655,
+              4800.577
+            ]
+          },
+          "hot_us": {
+            "median": 0.90723,
+            "min": 0.8997700000000001,
+            "max": 1.2273399999999999,
+            "p10": 0.900274,
+            "p90": 1.0993119999999998,
+            "samples": [
+              0.90723,
+              1.2273399999999999,
+              0.90103,
+              0.8997700000000001,
+              0.90727
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        },
+        "native": {
+          "cold_us": {
+            "median": 518.827,
+            "min": 503.328,
+            "max": 551.088,
+            "p10": 505.48199999999997,
+            "p90": 544.0555999999999,
+            "samples": [
+              551.088,
+              508.713,
+              518.827,
+              503.328,
+              533.507
+            ]
+          },
+          "hot_us": {
+            "median": 0.9024500000000001,
+            "min": 0.8905,
+            "max": 0.9108700000000001,
+            "p10": 0.8916799999999999,
+            "p90": 0.910142,
+            "samples": [
+              0.9024500000000001,
+              0.90905,
+              0.89345,
+              0.8905,
+              0.9108700000000001
+            ]
+          },
+          "prediction_counts": [
+            9,
+            9,
+            9,
+            9,
+            9
+          ]
+        }
+      },
+      "cold_decision_speedup": 9.298712287525515
+    }
+  ],
+  "reference_profile": "         2042862 function calls in 1.249 seconds\n\n   Ordered by: cumulative time\n   List reduced from 97 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        1    0.000    0.000    1.249    1.249 dispatch.py:72(choose)\n        1    0.000    0.000    1.249    1.249 {built-in method builtins.sorted}\n       10    0.000    0.000    1.249    0.125 dispatch.py:80(<genexpr>)\n        9    0.000    0.000    1.249    0.139 predict.py:37(predict)\n        9    0.000    0.000    1.247    0.139 simulate.py:176(simulate_launch)\n        9    0.650    0.072    1.247    0.139 simulate.py:30(_simulate_launch_reference)\n    86532    0.039    0.000    0.183    0.000 fromnumeric.py:3149(min)\n   304367    0.159    0.000    0.159    0.000 {method 'reduce' of 'numpy.ufunc' objects}\n   174250    0.031    0.000    0.148    0.000 {method 'any' of 'numpy.ndarray' objects}\n    86532    0.062    0.000    0.143    0.000 fromnumeric.py:66(_wrapreduction)\n   174250    0.031    0.000    0.117    0.000 _methods.py:55(_any)\n    43558    0.033    0.000    0.106    0.000 numeric.py:679(flatnonzero)\n    43567    0.081    0.000    0.092    0.000 simulate.py:44(admit)\n    43567    0.009    0.000    0.041    0.000 {method 'sum' of 'numpy.ndarray' objects}\n    43558    0.011    0.000    0.035    0.000 fromnumeric.py:1993(nonzero)\n    43567    0.008    0.000    0.032    0.000 _methods.py:47(_sum)\n    43558    0.020    0.000    0.031    0.000 fromnumeric.py:1879(ravel)\n    86532    0.027    0.000    0.027    0.000 fromnumeric.py:67(<dictcomp>)\n    43567    0.013    0.000    0.025    0.000 fromnumeric.py:48(_wrapfunc)\n    87135    0.011    0.000    0.011    0.000 {built-in method builtins.min}\n   128457    0.010    0.000    0.010    0.000 multiarray.py:403(where)\n    43558    0.009    0.000    0.009    0.000 {method 'nonzero' of 'numpy.ndarray' objects}\n    86532    0.007    0.000    0.007    0.000 fromnumeric.py:3144(_min_dispatcher)\n    86532    0.006    0.000    0.006    0.000 {method 'items' of 'dict' objects}\n    43558    0.004    0.000    0.004    0.000 {method 'ravel' of 'numpy.ndarray' objects}\n\n\n",
+  "limitations": "CPU decision latency only, not serving speedup. Optional local C compiler; unavailable compiler uses explicit NumPy fallback. Existing page-key cache semantics are unchanged."
+}

@@ -68,3 +68,41 @@ def test_write_variant_config_creates_file_and_returns_path(tmp_path):
     out = write_variant_config(base, tmp_path / "variants", "bw_x2")
     assert out == tmp_path / "variants" / "bw_x2" / "gpgpusim.config"
     assert get_option(out.read_text(), "gpgpu_clock_domains") == "1410:1410:1410:3024"
+
+
+@pytest.mark.parametrize("name,flag,expected", [
+    ("base", None, None),
+    ("l2_x2", "gpgpu_cache:dl2", "S:2048:128:12,L:B:m:L:X,A:192:4,32:0,32"),
+    ("l2_half", "gpgpu_cache:dl2", "S:512:128:12,L:B:m:L:X,A:192:4,32:0,32"),
+    ("bw_x2", "gpgpu_clock_domains", "2520:2520:2520:10500"),
+    ("bw_half", "gpgpu_clock_domains", "2520:2520:2520:2625"),
+    ("sm_x2", "gpgpu_n_clusters", "256"),
+    ("sm_half", "gpgpu_n_clusters", "64"),
+])
+def test_sm89_variants_change_only_the_intended_option(name, flag, expected):
+    base = (Path(__file__).parent / "fixtures/SM89_RTX4090_gpgpusim.config").read_text()
+    out = derive_variant(base, name)
+    if flag is None:
+        assert out == base
+    else:
+        assert get_option(out, flag) == expected
+        assert set_option(out, flag, get_option(base, flag)) == base
+
+
+def test_sm89_capacity_and_bandwidth_match_4090():
+    base = (Path(__file__).parent / "fixtures/SM89_RTX4090_gpgpusim.config").read_text()
+    assert base == (Path(__file__).parents[1] / "docs/setup/SM89_RTX4090/gpgpusim.config").read_text()
+    channels = int(get_option(base, "gpgpu_n_mem"))
+    slices = int(get_option(base, "gpgpu_n_sub_partition_per_mchannel"))
+    sets, line, assoc = map(int, get_option(base, "gpgpu_cache:dl2").split(",")[0].split(":")[1:])
+    assert channels * slices * sets * line * assoc == 72 * 1024**2
+    width = int(get_option(base, "gpgpu_dram_buswidth"))
+    ratio = int(get_option(base, "dram_data_command_freq_ratio"))
+    dram_mhz = float(get_option(base, "gpgpu_clock_domains").split(":")[3])
+    assert channels * width * 8 == 384
+    assert channels * width * ratio * dram_mhz / 1000 == 1008
+
+
+def test_fractional_dram_clocks_are_scaled_without_truncation():
+    base = set_option(BASE, "gpgpu_clock_domains", "1132:1132:1132:3500.5")
+    assert get_option(derive_variant(base, "bw_half"), "gpgpu_clock_domains") == "1132:1132:1132:1750.25"

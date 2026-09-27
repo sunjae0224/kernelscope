@@ -3,14 +3,20 @@ import statistics
 from time import perf_counter
 
 
-def measure_latency(fn, warmup: int = 10, iters: int = 50, timer=None) -> dict:
+def measure_latency(fn, warmup: int = 10, iters: int = 50, timer=None, before=None) -> dict:
     if timer is None:
         timer, name = _default_timer()
     else:
         name = "custom"
+
+    def one():
+        if before is not None:
+            before()
+        return timer(fn)
+
     for _ in range(warmup):
-        timer(fn)
-    samples = [timer(fn) for _ in range(iters)]
+        one()
+    samples = [one() for _ in range(iters)]
     return {
         "median_s": statistics.median(samples),
         "min_s": min(samples),

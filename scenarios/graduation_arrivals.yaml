@@ -1,0 +1,6 @@
+# Logical-step arrivals; not an open-loop wall-clock load generator.
+requests:
+  - {count: 1, prompt_len: 16384, max_new_tokens: 64, arrival_step: 0}
+  - {count: 15, prompt_len: 512, max_new_tokens: 24, arrival_step: 0}
+  - {count: 16, prompt_len: 512, max_new_tokens: 24, arrival_step: 8}
+  - {count: 16, prompt_len: 512, max_new_tokens: 24, arrival_step: 24}

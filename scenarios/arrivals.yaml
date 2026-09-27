@@ -1,0 +1,10 @@
+requests:
+  - {count: 1, prompt_len: 16384, max_new_tokens: 128, arrival_step: 0}
+  - {count: 4, prompt_len: 1024, max_new_tokens: 128, arrival_step: 0}
+  - {count: 4, prompt_len: 1024, max_new_tokens: 128, arrival_step: 16}
+  - {count: 4, prompt_len: 1024, max_new_tokens: 128, arrival_step: 32}
+  - {count: 4, prompt_len: 1024, max_new_tokens: 128, arrival_step: 48}
+  - {count: 4, prompt_len: 1024, max_new_tokens: 128, arrival_step: 64}
+  - {count: 4, prompt_len: 1024, max_new_tokens: 128, arrival_step: 80}
+  - {count: 4, prompt_len: 1024, max_new_tokens: 128, arrival_step: 96}
+  - {count: 4, prompt_len: 1024, max_new_tokens: 128, arrival_step: 112}

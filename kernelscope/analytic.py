@@ -19,16 +19,24 @@ def attended_pairs(w: Workload) -> int:
     return w.L_q * (w.L_kv - w.L_q) + w.L_q * (w.L_q + 1) // 2
 
 
+def total_attended_pairs(w: Workload) -> int:
+    """(query, key) pairs over the whole batch. A ragged batch is decode with L_q=1, so each
+    sequence's single query attends to its whole live cache."""
+    if w.is_ragged:
+        return sum(w.lens())
+    return w.B * attended_pairs(w)
+
+
 def attention_flops(w: Workload) -> int:
     """QK^T and PV: 2 MACs per (pair, head, dim) = 4 FLOPs."""
-    return 4 * w.B * w.H_q * w.d * attended_pairs(w)
+    return 4 * w.H_q * w.d * total_attended_pairs(w)
 
 
 def attention_traffic(w: Workload, kv_heads_read: int | None = None) -> dict:
     s = DTYPE_BYTES[w.dtype]
     h_kv = kv_heads_read or w.H_kv
     q = w.B * w.L_q * w.H_q * w.d * s
-    kv = 2 * w.B * w.L_kv * h_kv * w.d * s
+    kv = 2 * sum(w.lens()) * h_kv * w.d * s
     return {"dtype_bytes": s, "q_bytes": q, "kv_bytes": kv, "o_bytes": q, "total_bytes": q + kv + q}
 
 

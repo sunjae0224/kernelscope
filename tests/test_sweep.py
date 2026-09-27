@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from kernelscope.backends.realhw.sweep import RealHWSweep, rows_from_ncu
+from kernelscope.backends.realhw.sweep import RealHWSweep, analytic_rows, rows_from_ncu
 from kernelscope.results.store import ResultStore
 from kernelscope.workload import Workload
 
@@ -71,7 +71,7 @@ def test_cell_records_check_latency_profile_and_analytic_rows_without_ncu(tmp_pa
 
 
 def test_profile_summary_is_flattened_into_rows_and_drives_analytic_rates(tmp_path, monkeypatch):
-    sweep = _sweep(tmp_path, ceilings={"hbm_copy_gbps": 1500.0, "fp16_matmul_tflops": 250.0})
+    sweep = _sweep(tmp_path, ceilings={"hbm_copy_gbps": 1500.0, "fp16_matmul_tflops": 250.0}, cache_state="cold")
     monkeypatch.setattr(sweep, "profile", lambda plugin, w: FAKE_PROFILE)
     summary = sweep.run_cell("faithful_cpu", W)
     assert summary["launches"] == 2
@@ -164,3 +164,23 @@ def test_run_grid_visits_every_supported_cell_and_returns_summaries(tmp_path):
     assert [s["workload_key"] for s in summaries] == [w.key() for w in ws]
     assert all(s["status"] == "ok" for s in summaries)
     assert set(sweep.store.load()["workload_key"]) == {w.key() for w in ws}
+
+
+def test_dram_util_is_only_reported_for_cold_measurements():
+    ceil = {"hbm_gbps": 1000.0, "fp16_matmul_tflops": 100.0}
+    warm = {r["metric"] for r in analytic_rows(W, "p", 2, 10.0, ceil, cache_state="warm")}
+    cold = {r["metric"] for r in analytic_rows(W, "p", 2, 10.0, ceil, cache_state="cold")}
+    assert "dram_util" not in warm and "achieved_gbps" in warm
+    assert "dram_util" in cold
+
+
+def test_sweep_passes_the_cache_state_to_subprocesses_and_records_it(tmp_path):
+    s = _sweep(tmp_path, cache_state="cold")
+    argv = s._run_kernel_argv("faithful_cpu", W, "profile")
+    assert argv[argv.index("--cache-state") + 1] == "cold"
+    assert s._extra()["cache_state"] == "cold"
+
+
+def test_executables_are_unsupported_in_cold_mode(tmp_path):
+    s = _sweep(tmp_path, cache_state="cold")
+    assert s.run_cell("fake_exec", W)["status"] == "unsupported"

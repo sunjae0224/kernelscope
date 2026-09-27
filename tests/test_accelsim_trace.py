@@ -47,6 +47,15 @@ def test_tracer_env_range_mode_starts_instrumenting_immediately(tmp_path):
     assert env["NVBIT_INSTRUMENTATION_ENABLED"] == "1"
 
 
+def test_tracer_uses_matching_cuda_disassembler_instead_of_system_tool(tmp_path):
+    cuda = tmp_path / "cuda"
+    (cuda / "bin").mkdir(parents=True)
+    (cuda / "bin/cuobjdump").touch()
+    env = tracer_env(AccelSimPaths(tmp_path), tmp_path / "trace", "flash_fwd",
+                     base_env={"ACCELSIM_CUDA_ROOT": str(cuda), "PATH": "/usr/bin"})
+    assert env["PATH"] == str(cuda / "bin") + ":/usr/bin"
+
+
 def test_filter_kernelslist_keeps_only_matching_kernels_and_all_memcpys(tmp_path):
     from kernelscope.backends.accelsim.trace import filter_kernelslist
     kl = tmp_path / "kernelslist.g"
@@ -78,9 +87,16 @@ def test_read_trace_stats_gives_warp_instruction_count_per_kernel():
     assert k["warp_insts"] == 524288
 
 
-def test_estimate_uses_planning_rate_of_27500_warp_insts_per_second():
-    assert estimate_sim_seconds(524288) == pytest.approx(524288 / 27_500)
+def test_estimate_uses_host_planning_rate_and_accepts_calibration():
+    assert estimate_sim_seconds(524288) == pytest.approx(524288 / 5_000)
+    assert estimate_sim_seconds(524288, rate=524288 / 33.07) == pytest.approx(33.07)
     assert estimate_sim_seconds(0) == 0
+
+
+@pytest.mark.parametrize("rate", [0, -1, float("nan"), float("inf")])
+def test_invalid_simulation_rates_fail_before_budgeting(rate):
+    with pytest.raises(ValueError, match="finite and positive"):
+        estimate_sim_seconds(100, rate)
 
 
 def test_find_kernelslist_locates_post_processed_list(tmp_path):
@@ -89,3 +105,10 @@ def test_find_kernelslist_locates_post_processed_list(tmp_path):
     assert find_kernelslist(tmp_path) is None
     (tmp_path / "traces" / "kernelslist.g").write_text("processed")
     assert find_kernelslist(tmp_path) == tmp_path / "traces" / "kernelslist.g"
+
+
+def test_real_rtx4090_trace_has_nonzero_instructions():
+    stats = read_trace_stats(FIX / "SM89_RTX4090_stats_ctx_vecadd")
+    assert len(stats) == 1
+    assert stats[0]["warp_insts"] == 524288
+    assert stats[0]["grid"] == (4096, 1, 1)

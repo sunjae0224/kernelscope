@@ -1,0 +1,7 @@
+# Uniform decode, DeepSeek-R1-Distill-Qwen-7B head geometry (spec shape S2)
+phase: decode
+B: [1, 2, 4, 8, 16, 32, 64]
+L: [512, 1024, 2048, 4096, 8192, 16384, 32768]
+H_q: 28
+H_kv: 4
+d: 128

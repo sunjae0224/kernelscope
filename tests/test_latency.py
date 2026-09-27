@@ -20,3 +20,11 @@ def test_default_timer_runs_on_cpu_without_cuda():
     result = measure_latency(lambda: sum(range(1000)), warmup=1, iters=3)
     assert result["median_s"] >= 0.0
     assert result["timer"] in ("cuda_event", "perf_counter")
+
+
+def test_before_hook_runs_outside_the_timed_region_before_every_call():
+    order = []
+    def timer(fn):
+        order.append("timed"); fn(); return 1.0
+    measure_latency(lambda: None, warmup=2, iters=3, timer=timer, before=lambda: order.append("before"))
+    assert order == ["before", "timed"] * 5

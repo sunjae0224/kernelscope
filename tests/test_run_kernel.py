@@ -129,6 +129,20 @@ def test_unsupported_phase_exits_nonzero(capsys):
     assert "decode" in capsys.readouterr().err
 
 
+def test_profile_and_latency_modes_report_the_cache_state(capsys):
+    for mode in ("latency", "profile"):
+        run_kernel.main(["--plugin", "faithful_cpu", "--workload", KEY, "--mode", mode, "--cache-state", "cold",
+                         "--warmup", "1", "--iters", "2", "--registry", REG, "--device", "cpu"])
+        out = json.loads(capsys.readouterr().out)
+        assert out["cache_state"] == "cold"
+
+
+def test_cache_state_is_validated():
+    with pytest.raises(SystemExit):
+        run_kernel.main(["--plugin", "faithful_cpu", "--workload", KEY, "--mode", "latency",
+                         "--cache-state", "lukewarm", "--registry", REG, "--device", "cpu"])
+
+
 def test_module_is_runnable_as_subprocess():
     proc = subprocess.run(
         [sys.executable, "-m", "kernelscope.run_kernel", "--plugin", "faithful_cpu",

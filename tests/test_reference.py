@@ -72,3 +72,21 @@ def test_decode_single_query_causal_equals_non_causal():
         reference_attention(q, k, v, causal=True),
         reference_attention(q, k, v, causal=False),
     )
+
+
+def test_ragged_reference_equals_uniform_reference_on_each_truncated_sequence():
+    torch.manual_seed(0)
+    q = torch.randn(3, 1, 4, 8)
+    k = torch.randn(3, 50, 2, 8)
+    v = torch.randn(3, 50, 2, 8)
+    lens = [50, 7, 23]
+    out = reference_attention(q, k, v, causal=True, kv_lens=lens)
+    for b, n in enumerate(lens):
+        ref_b = reference_attention(q[b:b + 1], k[b:b + 1, :n], v[b:b + 1, :n], causal=True)
+        assert torch.allclose(out[b:b + 1], ref_b, atol=1e-6)
+
+
+def test_kv_lens_none_keeps_the_old_behaviour():
+    torch.manual_seed(1)
+    q, k, v = torch.randn(2, 3, 4, 8), torch.randn(2, 9, 2, 8), torch.randn(2, 9, 2, 8)
+    assert torch.equal(reference_attention(q, k, v, True), reference_attention(q, k, v, True, kv_lens=None))
