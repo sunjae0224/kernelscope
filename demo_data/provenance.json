@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "recorded_measurement_bundle",
-  "packaged_at_utc": "2026-09-22T08:24:25.275045+00:00",
+  "packaged_at_utc": "2026-09-27T13:38:38.374736+00:00",
   "source_root": "/home/skkai/AI_Accelerator/kernelscope/results",
   "files": [
     {
@@ -103,6 +103,381 @@
       "path": "serve_4090/20260922_smoke/summary.csv",
       "bytes": 805,
       "sha256": "3123c3843368c65ac1a3279699d790328979f5268a26d3c1d2dfd516462e46e5"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/attention_steps.csv",
+      "bytes": 11159,
+      "sha256": "abdbb8b6c154757f8b6a9fa3d02bfaa19da358b78cc5113f8179b4fc55fb7604"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/consistency.csv",
+      "bytes": 306,
+      "sha256": "feca790bdd45ba57d064814bb12bd4964de8f0c92714fa5614956fc7a6345bfd"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/diagnosis.json",
+      "bytes": 22596,
+      "sha256": "56fcd88b4f05e595a27fa0db4e1af845f8516c7560fd357e32f09d4a204fbb30"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/control_000/meta.json",
+      "bytes": 617,
+      "sha256": "0003a20ad9d4a71166f69e855697a9ca0b62a2b357f6e6470e659215f41f6650"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/control_000/prefill.parquet",
+      "bytes": 7533,
+      "sha256": "b3c5b07a927d1e11fdab5fb97e8b8447df507c4ac5058763469f10dd0e752f56"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/control_000/steps.parquet",
+      "bytes": 11122,
+      "sha256": "cfbad44df640a2d1d1fc7b9cea3ab3dc6878c8238a22e29ad99a38f540e23780"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/control_000/tokens.parquet",
+      "bytes": 6318,
+      "sha256": "74affeaa3a5e7d13e92e781b448df9b0b922870f0e670387f1dba3b994820590"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/event_000/meta.json",
+      "bytes": 618,
+      "sha256": "3fa6a4e48dcaa1523932d7a65a303d9a15781c71c2fa1cbed18350c9e2f6c7de"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/event_000/ops.parquet",
+      "bytes": 38491,
+      "sha256": "829a8cacab1d7e3a17ab8b9d979870f9e8b39d0cf2f47ad5aa1a1e6306ba5ed2"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/event_000/prefill.parquet",
+      "bytes": 7525,
+      "sha256": "d0fa84eeabbfea8589be8b44e114edff4723788c22c3780ea6eb4caa8ee12a32"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/event_000/steps.parquet",
+      "bytes": 11133,
+      "sha256": "bd72457d19707cbe625ebd51aadd1bad9e89e7ee066b7cad5af536b6c96a584d"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/heuristic/event_000/tokens.parquet",
+      "bytes": 6318,
+      "sha256": "a31bfc71f50343370fa959b5be6ea8688f80ebc88a397d9b3065dedd49b7edb6"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/manifest.json",
+      "bytes": 26612,
+      "sha256": "aec96d1da2de3588c21ba33ae384f7c1a6acfb23e001ba34dff9fb36d6049f60"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/control_000/meta.json",
+      "bytes": 614,
+      "sha256": "deb8dcab9ad97002d2371d6c4b94a6fb4d0aef2d86e98bed011724875606dd69"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/control_000/prefill.parquet",
+      "bytes": 7525,
+      "sha256": "8690371474195e8556b3048ab9b90997a85e48054d5a86cb389b3f7f1ecca429"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/control_000/steps.parquet",
+      "bytes": 11109,
+      "sha256": "b4fbcb00379944f7a3ea61067b8927051c184daf76e95577dc13881199dfde12"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/control_000/tokens.parquet",
+      "bytes": 6318,
+      "sha256": "83e56694340589a112840f171267d1e343a76463b00e7a2b9757c25a03a27270"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/event_000/meta.json",
+      "bytes": 614,
+      "sha256": "1e7a08fe2d7a10424bc6036ab6f693953bb05eec36a7c4d2d448c32ddd4d5c69"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/event_000/ops.parquet",
+      "bytes": 37023,
+      "sha256": "2f26ed6a705966984edc49834bdac1f69561bd98a85384352fd3ce7586182b46"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/event_000/prefill.parquet",
+      "bytes": 7524,
+      "sha256": "8f65bfe6bfd794585911ccbf9e3510f3d8a179916ac7039b4c8787d1b4eaf62f"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/event_000/steps.parquet",
+      "bytes": 11123,
+      "sha256": "f1872bb349656272ba90f007bee9fca4361b58031ec698ed6ac7630e240ed1f4"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/model/event_000/tokens.parquet",
+      "bytes": 6318,
+      "sha256": "926bd98b60755ed3e4ac8d7bf47452bba4678a89e463ec4a043a67b21d3bf04e"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/ops.csv",
+      "bytes": 7402,
+      "sha256": "8ea31d286f060c993011ebb290b735cdd2fa99df7bb1a7db0fb831368d7ce1b7"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/prompts.jsonl",
+      "bytes": 138309,
+      "sha256": "71a585358f090cf51bd5e6a859c4f5cebb967544a1520bd8bd64f07284f8d65f"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/heldout_ragged/scenario.yaml",
+      "bytes": 2577,
+      "sha256": "b9cbf8b543e8cfa4e2f38d8580001625016b56a114f8e5d3f939b00e1d1e6b17"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/attention_steps.csv",
+      "bytes": 21832,
+      "sha256": "5570715a79bed8b4577e0ed3dc779aa683568a95873b6bfa3eec97d09d5c771f"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/consistency.csv",
+      "bytes": 308,
+      "sha256": "243ca970ff9b99babeed784e1dce1b075e2b16adec139f0e62e260884d8df530"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/diagnosis.json",
+      "bytes": 22241,
+      "sha256": "335dfa6dca27c052c4d8aa4bf7007ff1b99d9c8a2c0b79b691da6c7c30eeaa47"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/control_000/meta.json",
+      "bytes": 619,
+      "sha256": "ca41b56b7116e74c8f458daa70c3c26270611eba28f01cc5a46ad9d774e10f0a"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/control_000/prefill.parquet",
+      "bytes": 8049,
+      "sha256": "4c9f89f93d605cc1b7df0bc1675a9a8327e99f4429282b6237b7288dc3067a69"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/control_000/steps.parquet",
+      "bytes": 13312,
+      "sha256": "e367c78988532ca5f1c5cd8f7a98478a63fde2b6785839a52091b63e0843c43a"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/control_000/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "1f0c0e5d6d5233b40d63cc250b740af674f0612e55d97e49d2303f420cfea24b"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/event_000/meta.json",
+      "bytes": 619,
+      "sha256": "bfe304d34bd29e68bc9520d6829754abd23e8ad88325a43bd379c92e770b2a79"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/event_000/ops.parquet",
+      "bytes": 57124,
+      "sha256": "cc761c18c01c3f22c8fac595b1b4dc136a71864405cd71d660ea8f3662742c1d"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/event_000/prefill.parquet",
+      "bytes": 8048,
+      "sha256": "3ce522a9cb189306caefe17d3ad948f46f86a79fe242de807027c3f6f9cafd1a"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/event_000/steps.parquet",
+      "bytes": 13276,
+      "sha256": "ee51a2564fe599d7b68f579c564d804679ad629356f06ed12edfeba491eafce4"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/heuristic/event_000/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "3f90cc5a591f93bebf47f898067ffc953835e2da7b8e35048ff8b26d0c25b93d"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/manifest.json",
+      "bytes": 27898,
+      "sha256": "c9692567ecb58ddeea310919181ce9d2950bd5d7f26758d54b63d5ee10ae8c86"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/ops.csv",
+      "bytes": 7107,
+      "sha256": "49af45f45f7ba89df902714053accdb188a641ac0198c24289f00f35122df57e"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/prompts.jsonl",
+      "bytes": 361732,
+      "sha256": "2c528a8eadaa4dcc0351fc8c7b41df117a797331ea1e5fb87b92cd09508669d4"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/scenario.yaml",
+      "bytes": 219,
+      "sha256": "080d14984faf50946b6e9ca1d448ec071f709addc103b1bb4d13f3b7062045f2"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/control_000/meta.json",
+      "bytes": 615,
+      "sha256": "d287c4048fab64bd260009e66093f2e3faf15bd2f32bab1a26067023e8279b5b"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/control_000/prefill.parquet",
+      "bytes": 8045,
+      "sha256": "b3267177060c9ae181006ec239427333f4055ccf65911b2fa5f0b7cedc1c118c"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/control_000/steps.parquet",
+      "bytes": 13345,
+      "sha256": "f25bc2e22d4c3733b36f2105c91a0fae958e153d2e8b2149f2c84ca3fb239de4"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/control_000/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "dbc331668096df6a81447682700146939efb07fed753d1b0fb10b66f9f7398c7"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/event_000/meta.json",
+      "bytes": 616,
+      "sha256": "9636281e5022856f2751e41db491ca3ace6842f909ff60b205ba51cdd4f6c729"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/event_000/ops.parquet",
+      "bytes": 57411,
+      "sha256": "05986b11668aae8b7dd54a681a046e9dc6ff691ba9958fa9a2bdbf4cbe759a1b"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/event_000/prefill.parquet",
+      "bytes": 8052,
+      "sha256": "44379f30cf8e37634ac2dda63b3861b5d56d8e1e126588e2477f9846f5b09824"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/event_000/steps.parquet",
+      "bytes": 13343,
+      "sha256": "4df7b029ed093269ab144e923b072feea72c2b82a85c7fad60c1ca247749759e"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/ragged/table/event_000/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "f807c623214791d383a0ef77045fa7df83f71f879fff031b5e49d08d65fc240a"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/attention_steps.csv",
+      "bytes": 21130,
+      "sha256": "a46107de1d3a18c4d7aae34adb87fb5be526e5f5f819dc84bf0c800a34950bfa"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/consistency.csv",
+      "bytes": 308,
+      "sha256": "243ca970ff9b99babeed784e1dce1b075e2b16adec139f0e62e260884d8df530"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/diagnosis.json",
+      "bytes": 22169,
+      "sha256": "6a8f643b683276b7c05b26aa14af589338b788c39d835708d46639b4de3b41d3"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/control_000/meta.json",
+      "bytes": 620,
+      "sha256": "f732abf1658a1d49dece71bc3af1bb94c0f800c6f4f202d827b93887f847a168"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/control_000/prefill.parquet",
+      "bytes": 8042,
+      "sha256": "e37adff75625dab7cbf7a89e8d9ff5e5cf6036c74cdd4628aca04b26aab13087"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/control_000/steps.parquet",
+      "bytes": 13153,
+      "sha256": "51fe5ebc08341cf2f853a70f92da5a70ed646e2600aa6828c2a9cecfd7e61f07"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/control_000/tokens.parquet",
+      "bytes": 7619,
+      "sha256": "a7b5626b23b3a75b7f2abe973a97f628d856f4bef2b1c31fbb413849c29ca162"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/event_000/meta.json",
+      "bytes": 621,
+      "sha256": "518d948ba017404393359fbba9a853e5eaff752d39c9a39e6207ce5861015e81"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/event_000/ops.parquet",
+      "bytes": 42988,
+      "sha256": "72ae266c254b5e110f949057ac8faebea5b9c69e7c51f03bff05fc24f65225c7"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/event_000/prefill.parquet",
+      "bytes": 8035,
+      "sha256": "4fb7ea753be8c583559ea4e38119feda4d9ce8a636097a9d392da7c3b6b94b98"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/event_000/steps.parquet",
+      "bytes": 13152,
+      "sha256": "e6e28c8a6168f9a69184b52975b7722875f88f7651108ae72b2015b959493606"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/heuristic/event_000/tokens.parquet",
+      "bytes": 7619,
+      "sha256": "6c333f5e2a367265d3c36672133576da76b1c38b137833bd10fea90e44942038"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/manifest.json",
+      "bytes": 27893,
+      "sha256": "1eab2177e34ebde418a03b18a9f01519b046babea45ac3984a3f7d0439aa23ee"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/ops.csv",
+      "bytes": 7070,
+      "sha256": "38cde310a66ccb56531388d54efaaf0a867b13e034bfbdb5996a62e08cead06a"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/prompts.jsonl",
+      "bytes": 127103,
+      "sha256": "827888d17a4c1a44a7500c628424fbb2a23ab3fc12234e30a8a519efa706d59b"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/scenario.yaml",
+      "bytes": 158,
+      "sha256": "302e76b1fbacd3ea75255169e5007939e6776d5668f403b0ab0d7b6b0b207987"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/control_000/meta.json",
+      "bytes": 616,
+      "sha256": "c5b53f7668dfeea65e99418f3f98db95cadce005ccd7909e512da7c152cd2148"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/control_000/prefill.parquet",
+      "bytes": 8039,
+      "sha256": "439534ef8d3f0b9b180b980fcb17fb83ab770634dd0542fe9f46fed28bbc494a"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/control_000/steps.parquet",
+      "bytes": 13176,
+      "sha256": "3390ae6d9a4b303a06a0815927697f4d60f1a9bbc2562dea6c449b651bba2f2c"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/control_000/tokens.parquet",
+      "bytes": 7619,
+      "sha256": "ea3d8460f97f693576505781c174a1ae59cfaa46fb8ccc7d702ef7e5d5d0fbae"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/event_000/meta.json",
+      "bytes": 617,
+      "sha256": "9a82a579790dd65693992b750bd4b45fc720860af16ed8ff0f9258c901656ab1"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/event_000/ops.parquet",
+      "bytes": 43401,
+      "sha256": "ce40793a22d5dfa8f72ed275a82de71a3798acae56fba26917a9850c9974b23e"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/event_000/prefill.parquet",
+      "bytes": 8040,
+      "sha256": "3c963ae04fc86b7a65e73970181f1b063bbb2708e656305a50ead1963d0d715b"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/event_000/steps.parquet",
+      "bytes": 13207,
+      "sha256": "47215abf6514568185c476a655a3a11c508edcc879d6979309736fde06db1e3c"
+    },
+    {
+      "path": "serve_4090/diagnose_20260927/uniform/table/event_000/tokens.parquet",
+      "bytes": 7619,
+      "sha256": "009e4cf9a73adcff36ee7bbd9d333b8bc7ca7d3a3ea0bf642a123bff47a9a5bf"
     },
     {
       "path": "serve_4090/followup_20260922/campaign.json",
