@@ -331,6 +331,22 @@ def _doctor(args):
         raise SystemExit(1)
 
 
+def _diagnose(args):
+    from kernelscope.diagnose.run import run_diagnose
+    try:
+        return run_diagnose(args)
+    except (ValueError, RuntimeError, OSError, MemoryError) as error:
+        raise SystemExit(str(error)) from None
+
+
+def _diagnose_report(args):
+    from kernelscope.diagnose.run import run_report
+    try:
+        return run_report(args)
+    except (ValueError, OSError) as error:
+        raise SystemExit(str(error)) from None
+
+
 def _compare(args):
     from kernelscope.serve.report import oracle, summarize
     summary = summarize(args.results)
@@ -378,8 +394,9 @@ def register_parser(subparsers):
     doctor = sub.add_parser("doctor", help="check local model, GPU access, dependencies, and GPU contention")
     doctor.add_argument("--model", default="Qwen/Qwen3-4B-Instruct-2507")
     doctor.set_defaults(func=_doctor)
-    for name, handler in (("run", _run), ("demo", _demo), ("equivalence", _equivalence)):
-        parser = sub.add_parser(name)
+    parsers = {}
+    for name, handler in (("run", _run), ("demo", _demo), ("equivalence", _equivalence), ("diagnose", _diagnose)):
+        parser = parsers[name] = sub.add_parser(name)
         parser.add_argument("--model", default="Qwen/Qwen3-4B-Instruct-2507")
         parser.add_argument("--scenario", default="scenarios/demo.yaml" if name == "demo" else "scenarios/tiny.yaml")
         parser.add_argument("--policy", action="append")
@@ -400,6 +417,18 @@ def register_parser(subparsers):
             parser.add_argument("--warmup-runs", type=int, default=1)
             parser.add_argument("--warmup-steps", type=int, help="optional cap on generated warmup decode steps per request")
         parser.set_defaults(func=handler)
+    diag = parsers["diagnose"]
+    diag.add_argument("--table", default="demo_data/dispatch_paged_cold.csv", help="measured dispatch table for the attention row")
+    diag.add_argument("--data", default="demo_data", help="results root holding hw_4090/*_paged/summaries.jsonl")
+    diag.add_argument("--threshold", type=float, default=0.7, help="ceiling fraction that counts as bound")
+    report = sub.add_parser("diagnose-report", help="recompute diagnosis.json / ops.csv / figure from a recorded diagnose run (no GPU)")
+    report.add_argument("results")
+    report.add_argument("--machine", default="machines/rtx4090.json")
+    report.add_argument("--params")
+    report.add_argument("--table", default="demo_data/dispatch_paged_cold.csv")
+    report.add_argument("--data", default="demo_data")
+    report.add_argument("--threshold", type=float, default=0.7)
+    report.set_defaults(func=_diagnose_report)
     compare = sub.add_parser("compare")
     compare.add_argument("--results", required=True)
     compare.add_argument("--out")

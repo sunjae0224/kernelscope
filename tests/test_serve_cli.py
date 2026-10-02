@@ -55,3 +55,49 @@ def test_tokenizer_and_recipe_are_resolved_before_timing(monkeypatch):
     resolved, meta = cli._resolve_scenario(args, [Request(0, None, 2, prompt_text="A question")], {"id": "qa"}, 256)
     assert resolved[0].token_ids == tuple(map(ord, "A question"))
     assert meta["dataset_id"] == "qa" and meta["tokenizer_load_us"] >= 0
+
+
+def test_diagnose_cpu_tiny_writes_control_event_and_diagnosis(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    out = tmp_path / "diag"
+    args = parse(["serve", "diagnose", "--device", "cpu", "--model", "tiny-random", "--scenario", str(root / "scenarios/tiny.yaml"),
+                  "--policy", "heuristic", "--policy", "fa2", "--out", str(out), "--warmup-runs", "0", "--kv-gib", "0.002",
+                  "--table", str(root / "demo_data/dispatch_paged_cold.csv"), "--data", str(root / "demo_data")])
+    args.func(args)
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["status"] == "complete" and manifest["tokens_consistent"] is True
+    assert manifest["evidence_kind"] == "cpu_functional" and manifest["performance_claim"] is False
+    assert manifest["ops_mode_runs"] == ["control", "event"] and manifest["threshold"] == 0.7
+    for policy in ("heuristic", "fa2"):
+        assert (out / policy / "control_000/steps.parquet").is_file() and (out / policy / "event_000/ops.parquet").is_file()
+        assert not (out / policy / "control_000/ops.parquet").exists()
+        assert json.loads((out / policy / "event_000/meta.json").read_text())["ops_mode"] == "event"
+    diagnosis = json.loads((out / "diagnosis.json").read_text())
+    assert set(diagnosis["policies"]) == {"heuristic", "fa2"}
+    heuristic = diagnosis["policies"]["heuristic"]
+    assert len(heuristic["ops"]) == 8 and len(heuristic["prefill_ops"]) == 8
+    assert heuristic["attention"]["source"] == "unavailable"          # tiny head shape (4, 2) is not in the measured table
+    assert heuristic["unattributed_pct"] is not None
+    ops = pd.read_csv(out / "ops.csv")
+    assert len(ops) == 2 * 16 and (out / "op_breakdown.png").stat().st_size > 1000
+    assert pd.read_csv(out / "consistency.csv").passed.all()
+    with pytest.raises(SystemExit, match="already exists"):
+        args.func(args)
+
+
+def test_diagnose_report_regenerates_from_a_recorded_run(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    out = tmp_path / "diag"
+    run = parse(["serve", "diagnose", "--device", "cpu", "--model", "tiny-random", "--scenario", str(root / "scenarios/tiny.yaml"),
+                 "--policy", "heuristic", "--out", str(out), "--warmup-runs", "0", "--kv-gib", "0.002"])
+    run.func(run)
+    (out / "diagnosis.json").unlink()
+    report = parse(["serve", "diagnose-report", str(out), "--threshold", "0.5"])
+    report.func(report)
+    assert json.loads((out / "diagnosis.json").read_text())["ceilings"]["threshold"] == 0.5
+
+
+def test_diagnose_report_refuses_a_folder_without_manifest(tmp_path):
+    args = parse(["serve", "diagnose-report", str(tmp_path)])
+    with pytest.raises(SystemExit, match="manifest.json"):
+        args.func(args)
