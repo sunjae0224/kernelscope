@@ -53,6 +53,16 @@ bash scripts/campaign.sh
 .venv/bin/python -m kernelscope.cli serve demo --out results/serve/cpu_demo
 ```
 
+```bash
+# 연산 클래스 분해 진단(대조 실행 + 계측 실행, 성능 주장 아님)
+.venv/bin/python -m kernelscope.cli serve diagnose --model Qwen/Qwen3-4B-Instruct-2507 \
+  --scenario scenarios/graduation_ragged.yaml --policy heuristic --policy table:demo_data/dispatch_paged_cold.csv \
+  --kv-gib 10 --out ../kernelscope/results/serve_4090/diagnose_new/ragged
+.venv/bin/python -m kernelscope.cli serve diagnose-report demo_data/serve_4090/diagnose_20260927/ragged   # GPU 없이 재생성
+```
+
+decode step을 8개 연산 클래스로 나누어 CUDA event로 시간을 재고, 각 클래스를 DRAM/텐서코어 상한(측정 기반, θ=0.7)에 대어 memory_bound/compute_bound/launch_bound/parallelism_candidate/below_ceiling_unknown으로 판정합니다. 바이트/FLOP 비용 모델은 필수 트래픽만 세는 하한 추정이라 pct_dram·pct_tc도 하한 추정입니다. 결과와 재현 방법은 [연산 클래스 분해](docs/experiments/2026-09-27-op-breakdown.md)에 있습니다.
+
 성능 실험은 전체 사전학습 모델을 사용합니다. `graduation_*`은 합성 토큰 입력, `heldout_text_*`은 직접 작성한 자연어 문단을 길이에 맞춰 구성한 입력입니다. attention 시간, 전체 decode 시간, CPU 선택 비용, 요청별 TPOT, 반복별 결과와 생성 토큰 일치를 따로 기록합니다. `serve demo`의 작은 랜덤 CPU 모델은 실행 로직 확인용이며 GPU 성능 근거가 아닙니다. 기존 커널 실측으로 만든 선택표는 `demo_data/dispatch_paged_cold.csv`에 있습니다.
 
 모델 선택의 CPU 시뮬레이터는 로컬 C 컴파일러가 있으면 빠른 실행 경로를 사용하고, 없으면 NumPy 구현으로 돌아갑니다. 컴파일·로드 비용과 실행 경로는 별도로 기록하며 `KERNELSCOPE_SIMULATOR=python`으로 기준 구현을 강제할 수 있습니다. `.cache/`의 생성 라이브러리는 배포하지 않고 C 소스를 패키지에 포함합니다.

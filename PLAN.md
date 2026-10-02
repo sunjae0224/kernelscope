@@ -15,7 +15,7 @@ LLM 서빙에서 길이가 다른 요청이 한 배치에 섞이면 FlashAttenti
 | 단계 | 상태 | 근거 |
 |---|---|---|
 | ① 커널 실측 | 완료 | RTX 4090, 6,801조건, 균일 길이 손실 중앙값 0.72% vs 혼합 길이 최악 12.53배 |
-| ② 원인 설명·예측 | 진행 중 | CTA 작업량 분석(부하 불균형), 성능 모델(시간 오차 2.3~12.3%), Accel-Sim 4090(미보정, 1.05~3.06배), GPGPU-Sim 축소 커널로 기전 정성 재현(혼합 7.23배 vs 균일 2.25배) |
+| ② 원인 설명·예측 | 진행 중 | CTA 작업량 분석(부하 불균형), 성능 모델(시간 오차 2.3~12.3%), Accel-Sim 4090(미보정, 1.05~3.06배), GPGPU-Sim 축소 커널로 기전 정성 재현(혼합 7.23배 vs 균일 2.25배); step 연산 분해(`serve diagnose`, 2026-09-27): 혼합 길이 attention 비중 70.9%→37.5%(휴리스틱→테이블), 나머지 GEMM 클래스는 DRAM 상한의 63~90%(o_proj·mlp·lm_head는 memory_bound, qkv_proj 63%는 임계 0.7 미만)로 attention 외에는 커널 선택의 여지가 작음 |
 | ③ 선택 정책 | 완료 + 개선 | 휴리스틱/고정/테이블/모델 + **혼합 정책(δ=0.2)**: cold 검증 집합 최악 손실 1.97 / 7.54 / 10.90% (기준 15% 통과, GPU 없이 leave-one-out 평가) |
 | ④ 실제 LLM 검증 | 완료(1차) | Qwen3-4B 혼합 길이 TPOT 1.81배, 토큰 일치; 후속 108회, 두 모델 1.28배/1.18배 |
 | ⑤ 출력 보존 검증 | 원인 규명 | 불일치는 bf16 간격 1~2개 안의 로짓 동점에서만 발생(분기 사건 25건, 교사 강제 진단과 4/4 일치). 지표를 "분기 사건 수 + 동점 분류"로 교체 |
@@ -29,7 +29,7 @@ LLM 서빙에서 길이가 다른 요청이 한 배치에 섞이면 FlashAttenti
 4. **FlashInfer 비교** — [docs/plan/2026-09-26-plan-flashinfer-comparison.md](docs/plan/2026-09-26-plan-flashinfer-comparison.md). GPU 필요(연구실 4090 호스트).
 5. **최종 보고서·발표·데모** — 12월. 대시보드에 재현 검증 화면 추가.
 
-6. **step 연산 분해 진단(`serve diagnose`, 2026-09-27 시작)** — decode step을 8개 연산 클래스로 CUDA event 분해하고 DRAM/텐서코어 상한에 대어 판정, attention 행에 선택 변형·손실·Amdahl 상한. 정체성은 바꾸지 않는 원인 설명(§1 ②) 보강이며 "균일 배치에서 이득이 없는 이유"의 실측 근거가 목적. 스펙 [docs/plan/2026-09-27-design-op-breakdown-diagnose.md](docs/plan/2026-09-27-design-op-breakdown-diagnose.md), 계획 [docs/plan/2026-09-27-plan-op-breakdown-diagnose.md](docs/plan/2026-09-27-plan-op-breakdown-diagnose.md). Task 1~5(타이머·엔진·비용 모델·리포트) 완료, 6~9(그림·CLI·GPU 실행 D1~D3·verify/문서) 남음 — 이어서 할 순서는 [TODO.md](TODO.md).
+6. **step 연산 분해 진단(`serve diagnose`, 2026-09-27 시작)** — decode step을 8개 연산 클래스로 CUDA event 분해하고 DRAM/텐서코어 상한에 대어 판정, attention 행에 선택 변형·손실·Amdahl 상한. 정체성은 바꾸지 않는 원인 설명(§1 ②) 보강이며 "균일 배치에서 이득이 없는 이유"의 실측 근거가 목적. 스펙 [docs/plan/2026-09-27-design-op-breakdown-diagnose.md](docs/plan/2026-09-27-design-op-breakdown-diagnose.md), 계획 [docs/plan/2026-09-27-plan-op-breakdown-diagnose.md](docs/plan/2026-09-27-plan-op-breakdown-diagnose.md). Task 1~9 완료, 결과는 `demo_data/serve_4090/diagnose_20260927/`와 [docs/experiments/2026-09-27-op-breakdown.md](docs/experiments/2026-09-27-op-breakdown.md)에 있다.
 
 **중단 조건**: GPU 접근이 11월 중순까지 없으면 1·2·4는 "설계·도구 완료, 미실행"으로 보고하고 3(a)와 재현 검증을 데모의 중심으로 둔다.
 

@@ -183,6 +183,42 @@ def _sim_ratio_s1(repo, data):
     return at("ragged") / at("uniform")
 
 
+# ---- op-class step breakdown (demo_data/serve_4090/diagnose_20260927) -----------------------------
+
+DIAG = "diagnose_20260927"
+OPB = "docs/experiments/2026-09-27-op-breakdown.md"
+
+
+@lru_cache(maxsize=None)
+def _diagnosis(repo: Path, data: Path, scenario: str) -> dict:
+    """Recompute the op-class report from the recorded parquet files (never read diagnosis.json)."""
+    from kernelscope.diagnose.report import diagnose
+    from kernelscope.model.machine import MachineSpec
+    return diagnose(data / "serve_4090" / DIAG / scenario, MachineSpec.from_json(repo / "machines" / "rtx4090.json"),
+                    repo / "demo_data" / "dispatch_paged_cold.csv", data).summary
+
+
+def _diag_value(scenario, policy, *path):
+    def f(repo, data):
+        node = _diagnosis(repo, data, scenario)["policies"][policy]
+        for key in path:
+            node = node[key]
+        return float(node)
+    return f
+
+
+def _diag_op(scenario, policy, op_class, column, scale=1.0):
+    def f(repo, data):
+        ops = _diagnosis(repo, data, scenario)["policies"][policy]["ops"]
+        return scale * float(next(r for r in ops if r["op_class"] == op_class)[column])
+    return f
+
+
+def _diag_overhead_max(repo, data):
+    return max(p["timer_overhead_pct"] for s in ("ragged", "uniform", "heldout_ragged")
+               for p in _diagnosis(repo, data, s)["policies"].values())
+
+
 P0 = "docs/plan/2026-09-19-p0-campaign.md"
 HYB = "docs/experiments/2026-09-26-hybrid-policy.md"
 SIM = "docs/experiments/2026-09-26-gpgpusim-splitkv.md"
@@ -278,6 +314,21 @@ CHECKS = [
           0.0, 3.0, "%", _amdahl_error_pct("arrivals")),
     Check("consistency.amdahl_uniform", "균일 배치: attention 시간 변화만으로 예측한 step 시간과 실측의 차이(±3%)",
           0.0, 3.0, "%", _amdahl_error_pct("uniform")),
+
+    Check("diagnose.ragged_attention_share_heuristic", "혼합 길이 연산 분해(D1): 휴리스틱 step의 attention 비중",
+          70.9, 0.5, "%", _diag_op("ragged", "heuristic", "attention", "share", 100), OPB, "70.9%"),
+    Check("diagnose.ragged_attention_share_table", "혼합 길이 연산 분해(D1): 측정 테이블 정책 step의 attention 비중",
+          37.5, 0.5, "%", _diag_op("ragged", "table", "attention", "share", 100), OPB, "37.5%"),
+    Check("diagnose.ragged_unattributed_heuristic", "혼합 길이 연산 분해(D1): 미귀속 시간 비율(상한 10%, 5±5)",
+          5.0, 5.0, "%", _diag_value("ragged", "heuristic", "unattributed_pct")),
+    Check("diagnose.ragged_mlp_pct_dram_heuristic", "혼합 길이 연산 분해(D1): mlp 클래스의 DRAM 상한 대비 달성률(하한 추정)",
+          86.1, 1.0, "%", _diag_op("ragged", "heuristic", "mlp", "pct_dram"), OPB, "86.1%"),
+    Check("diagnose.ragged_amdahl_bound_heuristic", "혼합 길이 연산 분해(D1): attention만 최적으로 바꿀 때 step 상한 배율",
+          2.10, 0.01, "x", _diag_value("ragged", "heuristic", "attention", "amdahl_bound"), OPB, "2.10배"),
+    Check("diagnose.uniform_attention_share_heuristic", "균일 길이 연산 분해(D2): 휴리스틱 step의 attention 비중",
+          19.2, 0.5, "%", _diag_op("uniform", "heuristic", "attention", "share", 100), OPB, "19.2%"),
+    Check("diagnose.timer_overhead_max", "연산 분해 타이머 오버헤드 최댓값(세 실행, 상한 5%, 0±5)",
+          0.0, 5.0, "%", _diag_overhead_max),
 ]
 
 

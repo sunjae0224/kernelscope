@@ -61,3 +61,12 @@ def test_verify_command_exits_nonzero_on_a_failed_check(monkeypatch):
 def test_verify_command_rejects_a_group_that_matches_no_check():
     with pytest.raises(SystemExit, match="valid groups"):
         cli.main(["verify", "--only", "kernal"])
+
+
+def test_diagnose_checks_recompute_from_the_bundle():
+    from kernelscope import verify
+    repo = Path(__file__).resolve().parents[1]
+    checks = [c for c in verify.CHECKS if c.id.startswith("diagnose.")]
+    assert len(checks) == 7
+    t = verify.run_checks(checks, repo=repo, data=repo / "demo_data")
+    assert set(t.status) == {"PASS"}, t.to_string()
