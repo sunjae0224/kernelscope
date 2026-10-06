@@ -1,0 +1,131 @@
+{
+  "rows": [
+    {
+      "backend": "FLASH_ATTN",
+      "scenario": "ragged",
+      "lens": [
+        32768,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 78.08954991633072,
+      "decode_ms_per_step_min": -12.589067713512728,
+      "samples_ms": [
+        -12.589067713512728,
+        78.29426137031987,
+        78.08954991633072
+      ],
+      "tokens_identical": true,
+      "enforce_eager": true,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASH_ATTN",
+      "scenario": "uniform",
+      "lens": [
+        512,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 13.871897085725019,
+      "decode_ms_per_step_min": 0.8832310792058706,
+      "samples_ms": [
+        0.8832310792058706,
+        13.910477930524697,
+        13.871897085725019
+      ],
+      "tokens_identical": false,
+      "enforce_eager": true,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASH_ATTN",
+      "scenario": "arrivals_like",
+      "lens": [
+        16384,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 45.29415409779176,
+      "decode_ms_per_step_min": 32.538242416922,
+      "samples_ms": [
+        32.538242416922,
+        45.29415409779176,
+        45.326454165236406
+      ],
+      "tokens_identical": false,
+      "enforce_eager": true,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASHINFER",
+      "scenario": "ragged",
+      "lens": [
+        32768,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 77.9921687208116,
+      "decode_ms_per_step_min": -2.1358507685363293,
+      "samples_ms": [
+        -2.1358507685363293,
+        78.06750672170892,
+        77.9921687208116
+      ],
+      "tokens_identical": false,
+      "enforce_eager": true,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASHINFER",
+      "scenario": "uniform",
+      "lens": [
+        512,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 13.795247968907157,
+      "decode_ms_per_step_min": 0.6805311189964414,
+      "samples_ms": [
+        0.6805311189964414,
+        13.90891334740445,
+        13.795247968907157
+      ],
+      "tokens_identical": false,
+      "enforce_eager": true,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASHINFER",
+      "scenario": "arrivals_like",
+      "lens": [
+        16384,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 45.22634286355848,
+      "decode_ms_per_step_min": 32.20206309730808,
+      "samples_ms": [
+        32.20206309730808,
+        45.22634286355848,
+        45.56149654866507
+      ],
+      "tokens_identical": false,
+      "enforce_eager": true,
+      "short": 4,
+      "long": 64
+    }
+  ],
+  "model": "Qwen/Qwen3-4B-Instruct-2507"
+}

@@ -155,3 +155,9 @@ def test_default_mode_has_no_op_rows_and_accepts_the_old_double():
 def test_unknown_ops_mode_is_rejected():
     with pytest.raises(ValueError, match="ops_mode"):
         Engine(ArithmeticModel(), pool(), FixedPolicy(1)).run([Request(0, 3, 2)], 16, ops_mode="trace")
+
+
+def test_hybrid_policy_is_refused_outside_its_calibrated_head_shape():
+    hybrid = FixedPolicy(0, name="hybrid")          # the real HybridPolicy is calibrated for d=128 fp16/bf16 only
+    with pytest.raises(ValueError, match="calibrated for d=128"):
+        Engine(ArithmeticModel(), pool(), hybrid).run([Request(0, 3, 2)], 16)

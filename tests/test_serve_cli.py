@@ -101,3 +101,49 @@ def test_diagnose_report_refuses_a_folder_without_manifest(tmp_path):
     args = parse(["serve", "diagnose-report", str(tmp_path)])
     with pytest.raises(SystemExit, match="manifest.json"):
         args.func(args)
+
+
+class _CountingPolicy:
+    """Policy double with a cache like TablePolicy's: the first choose() for a page configuration misses."""
+    name = "counting"
+
+    def __init__(self):
+        self._seen = set()
+        self.last_cache_hit = None
+
+    def reset(self):
+        self._seen.clear()
+
+    def choose(self, lens, n_heads, n_kv_heads):
+        key = tuple((n + 255) // 256 for n in lens)
+        self.last_cache_hit = key in self._seen
+        self._seen.add(key)
+        return 0
+
+
+def _run_tiny(tmp_path, monkeypatch, cache):
+    import kernelscope.serve.cli as cli
+    monkeypatch.setattr(cli, "_policies", lambda args: [_CountingPolicy()])
+    root = Path(__file__).resolve().parents[1]
+    out = tmp_path / cache
+    args = parse(["serve", "run", "--device", "cpu", "--model", "tiny-random", "--scenario", str(root / "scenarios/tiny.yaml"),
+                  "--policy", "counting", "--repeats", "2", "--warmup-runs", "1", "--kv-gib", "0.002", "--policy-cache", cache,
+                  "--out", str(out)])
+    args.func(args)
+    hits = {repeat: pd.read_parquet(out / "counting" / f"repeat_{repeat:03d}" / "steps.parquet").policy_cache_hit.tolist()
+            for repeat in (0, 1)}
+    return json.loads((out / "manifest.json").read_text()), hits
+
+
+def test_policy_cache_kept_across_runs_turns_warmed_up_decisions_into_hits(tmp_path, monkeypatch):
+    manifest, hits = _run_tiny(tmp_path, monkeypatch, "keep")
+    assert manifest["policy_cache"] == "kept_across_runs"
+    assert all(hits[0]) and all(hits[1])                 # the warm-up run already saw every page configuration
+    assert len(manifest["policy_setup_runs"]) == 1       # policies were built once
+
+
+def test_policy_cache_fresh_for_each_run_keeps_the_first_decision_a_miss(tmp_path, monkeypatch):
+    manifest, hits = _run_tiny(tmp_path, monkeypatch, "fresh")
+    assert manifest["policy_cache"] == "fresh_for_each_measured_run"
+    assert hits[0][0] is False and hits[1][0] is False and all(hits[0][1:])
+    assert len(manifest["policy_setup_runs"]) == 3       # initial + one per measured repeat

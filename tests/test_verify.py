@@ -70,3 +70,12 @@ def test_diagnose_checks_recompute_from_the_bundle():
     assert len(checks) == 7
     t = verify.run_checks(checks, repo=repo, data=repo / "demo_data")
     assert set(t.status) == {"PASS"}, t.to_string()
+
+
+def test_hybrid_campaign_checks_recompute_from_the_bundle():
+    from kernelscope import verify
+    repo = Path(__file__).resolve().parents[1]
+    checks = [c for c in verify.CHECKS if c.id.startswith(("hybrid.", "divergence.", "flashinfer.", "vllm."))]
+    assert len(checks) == 64
+    t = verify.run_checks(checks, repo=repo, data=repo / "demo_data")
+    assert set(t.status) == {"PASS"}, t.to_string()

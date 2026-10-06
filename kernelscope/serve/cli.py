@@ -177,6 +177,10 @@ def run_experiment(args):
     _validate_args(args)
     requests, dataset = load_scenario(args.scenario)
     args.policy = args.policy or ["heuristic", "fa2", "fixed:8"]
+    # "keep" reuses the policy objects built here for the warm-up and every measured repeat, so a page
+    # configuration seen once is a cache hit afterwards (a server's steady state); "fresh" rebuilds them
+    # per measured repeat so every first decision is paid and recorded.
+    keep_policies = getattr(args, "policy_cache", "fresh") == "keep"
     policies, policy_setup = _policy_setup(args, "initial")
     status = preflight(args.model, require_cuda=args.device == "cuda")
     if not status["ready"]:
@@ -210,7 +214,8 @@ def run_experiment(args):
                 "requests": [_request_metadata(request) for request in requests], "policy_specs": args.policy,
                 "seed": args.seed, "max_batch": args.max_batch, "kv_bytes": kv_bytes,
                 "warmup_runs": args.warmup_runs, "warmup_steps": args.warmup_steps, "repeats": args.repeats,
-                "policy_order": "rotate_each_repeat", "policy_cache": "fresh_for_each_measured_run",
+                "policy_order": "rotate_each_repeat",
+                "policy_cache": "kept_across_runs" if keep_policies else "fresh_for_each_measured_run",
                 "prefill": "serial_per_request", "arrival_mode": "logical_decode_step",
                 **prompt_metadata, "sampling": "greedy_fixed_length_no_eos_stop",
                 "quality_setup_us": quality_setup_us,
@@ -250,8 +255,9 @@ def run_experiment(args):
                 print(f"Warmup {policy.name}", flush=True)
                 run(policy, warm_requests)
         for repeat in range(args.repeats):
-            policies, setup = _policy_setup(args, f"repeat_{repeat:03d}")  # retain measured policy cache misses
-            manifest["policy_setup_runs"].append(setup)
+            if not keep_policies:
+                policies, setup = _policy_setup(args, f"repeat_{repeat:03d}")  # retain measured policy cache misses
+                manifest["policy_setup_runs"].append(setup)
             order = policies[repeat % len(policies):] + policies[:repeat % len(policies)]
             manifest["order"].append([policy.name for policy in order])
             results = {}
@@ -416,6 +422,9 @@ def register_parser(subparsers):
             parser.add_argument("--repeats", type=int, default=3)
             parser.add_argument("--warmup-runs", type=int, default=1)
             parser.add_argument("--warmup-steps", type=int, help="optional cap on generated warmup decode steps per request")
+            parser.add_argument("--policy-cache", choices=("fresh", "keep"), default="fresh",
+                                help="fresh: rebuild policies for every measured repeat (every first decision is paid); "
+                                     "keep: reuse the policies built before warm-up across repeats (steady-state cache hits)")
         parser.set_defaults(func=handler)
     diag = parsers["diagnose"]
     diag.add_argument("--table", default="demo_data/dispatch_paged_cold.csv", help="measured dispatch table for the attention row")

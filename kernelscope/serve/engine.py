@@ -82,7 +82,7 @@ class Engine:
                 prompt_ids(request, vocab, seed)  # Reject invalid explicit tokens before timing/allocation.
         prompt_kinds = {r.prompt_kind or ("explicit_token_ids" if r.token_ids is not None else "seeded_synthetic_token_ids")
                         for r in requests}
-        if getattr(self.policy, "name", None) in {"model", "table"} and (
+        if getattr(self.policy, "name", None) in {"model", "table", "hybrid"} and (
                 cfg.head_dim != 128 or self.model.dtype not in (torch.float16, torch.bfloat16)):
             raise ValueError("model/table policies are calibrated for d=128 fp16/bf16 only")
         pending = sorted(requests, key=lambda r: (r.arrival_step, r.rid))

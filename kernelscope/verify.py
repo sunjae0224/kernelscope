@@ -219,6 +219,246 @@ def _diag_overhead_max(repo, data):
                for p in _diagnosis(repo, data, s)["policies"].values())
 
 
+# ---- hybrid-policy generation campaign and divergence classification (demo_data/serve_4090/hybrid_20261002) ----
+
+HYBRID_RUN = "hybrid_20261002"
+HYBV = "docs/experiments/2026-10-02-hybrid-validation.md"
+REQUESTED = ("ragged", "uniform", "arrivals")
+INVESTIGATE = ("clear", "unclassified", "not_reproduced", "missing_tokens", "mismatches_outside_events")
+
+
+@lru_cache(maxsize=None)
+def _hybrid_summary(data: Path, scenario: str) -> pd.DataFrame:
+    """Recompute the serving summary from the recorded parquet files (never read summary.csv)."""
+    from kernelscope.serve.report import summarize
+    return summarize(data / "serve_4090" / HYBRID_RUN / scenario).set_index("policy")
+
+
+def _hybrid_serve(scenario, policy, column):
+    return lambda repo, data: float(_hybrid_summary(data, scenario).loc[policy, column])
+
+
+@lru_cache(maxsize=None)
+def _recorded_splits(data: Path, scenario: str, policy: str) -> tuple:
+    root = data / "serve_4090" / HYBRID_RUN / scenario / policy
+    runs = sorted(root.glob("repeat_*/steps.parquet"))
+    if not runs:
+        raise FileNotFoundError(root)
+    return tuple(tuple(int(n) for n in pd.read_parquet(p).num_splits) for p in runs)
+
+
+def _steps_differing(scenarios, per_repeat=False):
+    """Decode steps on which hybrid recorded another num_splits than table: the sum over scenarios and repeats,
+    or the per-repeat count when every repeat agrees."""
+    def f(repo, data):
+        counts = [sum(a != b for a, b in zip(x, y)) for s in scenarios
+                  for x, y in zip(_recorded_splits(data, s, "hybrid"), _recorded_splits(data, s, "table"))]
+        if per_repeat:
+            if len(set(counts)) != 1:
+                raise ValueError(f"repeats disagree: {counts}")
+            return float(counts[0])
+        return float(sum(counts))
+    return f
+
+
+@lru_cache(maxsize=None)
+def _campaign_events(data: Path) -> pd.DataFrame:
+    """Divergence events recomputed from the token histories and the teacher-forced diagnostics (never divergence.csv)."""
+    from kernelscope.serve.divergence import campaign_events
+    return campaign_events(data / "serve_4090" / HYBRID_RUN)
+
+
+def _divergence(columns, scenarios, agg="sum"):
+    """Sum of summary columns over the (scenario, policy) rows of ``scenarios``; ``agg="same"`` requires every row
+    to hold the same value and returns it."""
+    def f(repo, data):
+        from kernelscope.serve.divergence import summarize_campaign_events
+        s = summarize_campaign_events(_campaign_events(data))
+        s = s[s.scenario.isin(scenarios)]
+        if s.empty:
+            raise KeyError(scenarios)
+        values = s[[columns] if isinstance(columns, str) else list(columns)].sum(axis=1)
+        if agg == "same":
+            if values.nunique() != 1:
+                raise ValueError(f"rows disagree: {values.tolist()}")
+            return float(values.iloc[0])
+        return float(values.sum())
+    return f
+
+
+def _clear_margin_ulps(scenario):
+    def f(repo, data):
+        ev = _campaign_events(data)
+        rows = ev[(ev.scenario == scenario) & (ev.tie_class == "clear")].drop_duplicates(["policy", "rid", "first_position"])
+        if len(rows) != 1:
+            raise ValueError(f"expected exactly one clear event in {scenario}, found {len(rows)}")
+        return float(rows.margin_ulps.iloc[0])
+    return f
+
+
+@lru_cache(maxsize=None)
+def _teacher(data: Path, scenario: str) -> pd.DataFrame:
+    return pd.read_csv(data / "serve_4090" / HYBRID_RUN / "numerics" / scenario / "teacher_forced_logits.csv")
+
+
+def _teacher_flips(scenarios):
+    return lambda repo, data: float(sum(int((~_teacher(data, s).argmax_equal).sum()) for s in scenarios))
+
+
+def _teacher_max_diff(scenario):
+    return lambda repo, data: float(_teacher(data, scenario).max_abs_logit_diff.max())
+
+
+def _teacher_identical_pct(scenario):
+    return lambda repo, data: 100 * float((_teacher(data, scenario).max_abs_logit_diff == 0).mean())
+
+
+def _cache_misses(scenarios, policy="hybrid"):
+    """Policy-cache misses (cold decisions) per repeat, summed over scenarios; every repeat must agree."""
+    def f(repo, data):
+        per_repeat = None
+        for s in scenarios:
+            runs = sorted((data / "serve_4090" / HYBRID_RUN / s / policy).glob("repeat_*/steps.parquet"))
+            if not runs:
+                raise FileNotFoundError(data / "serve_4090" / HYBRID_RUN / s / policy)
+            misses = [int((pd.read_parquet(r).policy_cache_hit == False).sum()) for r in runs]  # noqa: E712
+            per_repeat = misses if per_repeat is None else [a + b for a, b in zip(per_repeat, misses)]
+        if len(set(per_repeat)) != 1:
+            raise ValueError(f"repeats disagree: {per_repeat}")
+        return float(per_repeat[0])
+    return f
+
+
+def _reproducibility_pct(repo, data):
+    """Largest |TPOT change| of heuristic/table between graduation_20260922 and hybrid_20261002 (same scenarios)."""
+    worst = 0.0
+    for s in REQUESTED:
+        before = _summary(data, s)
+        after = _hybrid_summary(data, s)
+        for policy in ("heuristic", "table"):
+            worst = max(worst, abs(100 * (after.loc[policy, "tpot_ms_mean"] / before.loc[policy, "tpot_ms_mean"] - 1)))
+    return worst
+
+
+def _probe(data: Path, name: str) -> pd.DataFrame:
+    return pd.read_csv(data / "serve_4090" / HYBRID_RUN / "numerics" / "control_uniform_fixed8" / "kernel_probe" / name)
+
+
+def _probe_kernel_err(repo, data):
+    """Largest |kernel output - float32 reference| over all layers, both splits, at the clear event's step."""
+    t = _probe(data, "attention_vs_fp32.csv")
+    return float(t[t.variant.isin(["split1", "split8"])].max_abs_err.max())
+
+
+def _probe_split_diff(repo, data):
+    return float(_probe(data, "attention_vs_fp32.csv").split1_vs_split8_max.max())
+
+
+def _probe_single_step_logit_diff_rid8(repo, data):
+    t = _probe(data, "single_step_logits.csv")
+    return float(t[t.rid == 8].max_abs_logit_diff.iloc[0])
+
+
+def _probe_single_step_argmax_changes(repo, data):
+    t = _probe(data, "single_step_logits.csv")
+    return float((t.ref_top1 != t.cand_top1).sum())
+
+
+KEEP_RUN = "hybrid_keepcache_20261006"
+
+
+@lru_cache(maxsize=None)
+def _keep_summary(data: Path, scenario: str) -> pd.DataFrame:
+    from kernelscope.serve.report import summarize
+    return summarize(data / "serve_4090" / KEEP_RUN / scenario).set_index("policy")
+
+
+def _keep_serve(scenario, policy, column):
+    return lambda repo, data: float(_keep_summary(data, scenario).loc[policy, column])
+
+
+def _keep_cache_misses(scenario, policy):
+    def f(repo, data):
+        runs = sorted((data / "serve_4090" / KEEP_RUN / scenario / policy).glob("repeat_*/steps.parquet"))
+        if not runs:
+            raise FileNotFoundError(data / "serve_4090" / KEEP_RUN / scenario / policy)
+        return float(sum(int((pd.read_parquet(r).policy_cache_hit == False).sum()) for r in runs))  # noqa: E712
+    return f
+
+
+def _keep_divergence(repo, data):
+    from kernelscope.serve.divergence import campaign_events, summarize_campaign_events
+    s = summarize_campaign_events(campaign_events(data / "serve_4090" / KEEP_RUN))
+    if s.empty:
+        raise FileNotFoundError(data / "serve_4090" / KEEP_RUN)
+    return float(s.tie_1ulp.sum()) if float(s[list(INVESTIGATE)].sum().sum()) == 0 else float("nan")
+
+
+# ---- FlashInfer vs the best FlashAttention-2 split per kernel cell (demo_data/hw_4090/*_flashinfer*) ---------------
+
+FI_GROUPS = ("ragged_s1_paged", "ragged_s1_flashinfer", "ragged_s1_flashinfer_cudacore",
+             "uniform_s1_paged", "uniform_s1_flashinfer", "uniform_s1_flashinfer_cudacore")
+FI_HEADLINE = "decode_B32_Lq1_Lkv32768+512x31_Hq32_Hkv8_d128_float16_causal"
+
+
+@lru_cache(maxsize=None)
+def _flashinfer_table(data: Path) -> pd.DataFrame:
+    """Per cold cell: best FA2 paged variant, the library heuristic and both FlashInfer variants (medians of the records)."""
+    from kernelscope.analysis.dispatch import FAMILIES
+    from kernelscope.dashboard.data import load_index
+    from kernelscope.workload import Workload
+    dirs = [data / "hw_4090" / g for g in FI_GROUPS]
+    missing = [d for d in dirs if not (d / "summaries.jsonl").exists()]
+    if missing:
+        raise FileNotFoundError(missing[0] / "summaries.jsonl")
+    index = load_index(dirs)
+    sel = index[(index.cache_state == "cold") & (index.kernel.str.match(FAMILIES["paged"]["members"]) | index.kernel.str.startswith("flashinfer"))]
+    med = sel.groupby(["workload_key", "kernel"]).kernel_time_us.median().unstack("kernel")
+    fa2 = med[[c for c in med.columns if not c.startswith("flashinfer")]]
+    t = pd.DataFrame({"best_fa2": fa2.min(axis=1), "heuristic": med[FAMILIES["paged"]["heuristic"]],
+                      "tensorcore": med["flashinfer_paged"], "cudacore": med["flashinfer_paged_cudacore"]}).dropna()
+    t["ragged"] = [Workload.from_key(k).is_ragged for k in t.index]
+    t["best_flashinfer"] = t[["tensorcore", "cudacore"]].min(axis=1)
+    return t
+
+
+def _fi_ratio(ragged, numerator, denominator, agg):
+    def f(repo, data):
+        t = _flashinfer_table(data)
+        t = t[t.ragged == ragged]
+        if t.empty:
+            raise KeyError("ragged" if ragged else "uniform")
+        ratio = t[numerator] / t[denominator]
+        return float(getattr(ratio, agg)())
+    return f
+
+
+def _fi_cells(ragged):
+    return lambda repo, data: float((_flashinfer_table(data).ragged == ragged).sum())
+
+
+def _fi_headline(column):
+    return lambda repo, data: float(_flashinfer_table(data).loc[FI_HEADLINE, column])
+
+
+# ---- vLLM reproduction (docs/experiments/vllm/*.json; separate vLLM environment, measurement only) ---------------
+
+def _vllm_rows(repo: Path, run: str) -> pd.DataFrame:
+    rows = json.loads((repo / "docs" / "experiments" / "vllm" / f"{run}_20261006.json").read_text())["rows"]
+    return pd.DataFrame(rows).set_index(["backend", "mode", "scenario"])
+
+
+def _vllm_step_ms(run, backend, mode, scenario):
+    return lambda repo, data: float(_vllm_rows(repo, run).loc[(backend, mode, scenario), "decode_ms_per_step_median"])
+
+
+def _vllm_ratio(run, numerator, denominator):
+    def f(repo, data):
+        t = _vllm_rows(repo, run).decode_ms_per_step_median
+        return float(t.loc[numerator] / t.loc[denominator])
+    return f
+
+
 P0 = "docs/plan/2026-09-19-p0-campaign.md"
 HYB = "docs/experiments/2026-09-26-hybrid-policy.md"
 SIM = "docs/experiments/2026-09-26-gpgpusim-splitkv.md"
@@ -329,6 +569,140 @@ CHECKS = [
           19.2, 0.5, "%", _diag_op("uniform", "heuristic", "attention", "share", 100), OPB, "19.2%"),
     Check("diagnose.timer_overhead_max", "연산 분해 타이머 오버헤드 최댓값(세 실행, 상한 5%, 0±5)",
           0.0, 5.0, "%", _diag_overhead_max),
+
+    Check("hybrid.ragged_tpot_heuristic", "혼합 정책 실생성 검증(2026-10-02), 혼합 길이: 기본 휴리스틱 TPOT",
+          61.11, 0.005, "ms", _hybrid_serve("ragged", "heuristic", "tpot_ms_mean"), HYBV, "61.11 → 34.09ms"),
+    Check("hybrid.ragged_tpot_hybrid", "혼합 길이: 혼합 정책(δ=0.2) TPOT",
+          34.09, 0.005, "ms", _hybrid_serve("ragged", "hybrid", "tpot_ms_mean"), HYBV, "61.11 → 34.09ms"),
+    Check("hybrid.ragged_tpot_table", "혼합 길이: 측정 테이블 정책 TPOT(같은 실행)",
+          33.82, 0.005, "ms", _hybrid_serve("ragged", "table", "tpot_ms_mean"), HYBV, "33.82ms"),
+    Check("hybrid.ragged_speedup_hybrid", "혼합 길이: 혼합 정책의 TPOT 개선 배율",
+          1.793, 0.0005, "x", _hybrid_serve("ragged", "hybrid", "speedup_vs_heuristic"), HYBV, "1.793배"),
+    Check("hybrid.ragged_speedup_table", "혼합 길이: 측정 테이블 정책의 TPOT 개선 배율(같은 실행)",
+          1.807, 0.0005, "x", _hybrid_serve("ragged", "table", "speedup_vs_heuristic"), HYBV, "1.807배"),
+    Check("hybrid.uniform_speedup_hybrid", "균일 길이: 혼합 정책의 TPOT 배율(선택 비용만큼 손해)",
+          0.993, 0.0005, "x", _hybrid_serve("uniform", "hybrid", "speedup_vs_heuristic"), HYBV, "0.993배"),
+    Check("hybrid.arrivals_speedup_hybrid", "요청 도착: 혼합 정책의 TPOT 개선 배율",
+          1.146, 0.0005, "x", _hybrid_serve("arrivals", "hybrid", "speedup_vs_heuristic"), HYBV, "1.146배"),
+    Check("hybrid.arrivals_speedup_table", "요청 도착: 측정 테이블 정책의 TPOT 개선 배율(같은 실행)",
+          1.164, 0.0005, "x", _hybrid_serve("arrivals", "table", "speedup_vs_heuristic"), HYBV, "1.164배"),
+    Check("hybrid.requested_steps_differing_from_table", "요청한 3조건 × 3회: 혼합 정책과 테이블 정책의 분할 수가 다른 decode step 수",
+          0, 0, "steps", _steps_differing(REQUESTED), HYBV, "0/567"),
+    Check("hybrid.ragged_policy_us_hybrid", "혼합 길이: 혼합 정책의 step당 선택 비용(실행마다 정책 캐시를 비움)",
+          245.8, 0.05, "µs", _hybrid_serve("ragged", "hybrid", "policy_us_per_step"), HYBV, "245.8"),
+    Check("hybrid.arrivals_policy_us_hybrid", "요청 도착: 혼합 정책의 step당 선택 비용",
+          751.8, 0.05, "µs", _hybrid_serve("arrivals", "hybrid", "policy_us_per_step"), HYBV, "751.8"),
+    Check("hybrid.heldout_steps_differing_from_table", "held-out 자연어 요청 도착: 55 step 중 혼합 정책이 테이블과 다르게 고른 step 수(3회 동일)",
+          12, 0, "steps", _steps_differing(("heldout_arrivals",), per_repeat=True), HYBV, "12/55"),
+    Check("hybrid.heldout_attn_heuristic", "held-out 요청 도착: step당 attention 시간(휴리스틱)",
+          4.85, 0.005, "ms", _hybrid_serve("heldout_arrivals", "heuristic", "attn_ms_per_step"), HYBV, "4.85"),
+    Check("hybrid.heldout_attn_table", "held-out 요청 도착: step당 attention 시간(측정 테이블)",
+          3.31, 0.005, "ms", _hybrid_serve("heldout_arrivals", "table", "attn_ms_per_step"), HYBV, "3.31"),
+    Check("hybrid.heldout_attn_hybrid", "held-out 요청 도착: step당 attention 시간(혼합 정책)",
+          3.00, 0.005, "ms", _hybrid_serve("heldout_arrivals", "hybrid", "attn_ms_per_step"), HYBV, "3.00"),
+    Check("hybrid.heldout_attn_model", "held-out 요청 도착: step당 attention 시간(모델 정책)",
+          2.93, 0.005, "ms", _hybrid_serve("heldout_arrivals", "model", "attn_ms_per_step"), HYBV, "2.93"),
+    Check("hybrid.heldout_speedup_table", "held-out 요청 도착: 측정 테이블 정책의 TPOT 배율",
+          1.085, 0.0005, "x", _hybrid_serve("heldout_arrivals", "table", "speedup_vs_heuristic"), HYBV, "1.085배"),
+    Check("hybrid.heldout_speedup_hybrid", "held-out 요청 도착: 혼합 정책의 TPOT 배율",
+          1.020, 0.0005, "x", _hybrid_serve("heldout_arrivals", "hybrid", "speedup_vs_heuristic"), HYBV, "1.020배"),
+    Check("hybrid.heldout_speedup_model", "held-out 요청 도착: 모델 정책의 TPOT 배율",
+          1.028, 0.0005, "x", _hybrid_serve("heldout_arrivals", "model", "speedup_vs_heuristic"), HYBV, "1.028배"),
+    Check("hybrid.heldout_policy_us_hybrid", "held-out 요청 도착: 혼합 정책의 step당 선택 비용",
+          1561.1, 0.05, "µs", _hybrid_serve("heldout_arrivals", "hybrid", "policy_us_per_step"), HYBV, "1561.1"),
+
+    Check("hybrid.requested_cache_misses", "요청한 3조건: 실행당 정책 캐시 미스(첫 결정) 횟수 합(혼합 1 + 균일 1 + 요청 도착 5, 3회 동일)",
+          7, 0, "misses", _cache_misses(REQUESTED), HYBV, "1·1·5회"),
+    Check("hybrid.heldout_cache_misses", "held-out 요청 도착: 실행당 정책 캐시 미스 횟수(3회 동일)",
+          13, 0, "misses", _cache_misses(("heldout_arrivals",)), HYBV, "13회"),
+    Check("hybrid.reproducibility_max_change_pct", "2026-09-22 캠페인 대비 휴리스틱·테이블 TPOT의 최대 변화율(3조건)",
+          1.25, 0.005, "%", _reproducibility_pct, HYBV, "1.25%"),
+
+    Check("hybrid.keep_heldout_speedup_table", "held-out 요청 도착, 정책 캐시 유지 규약(2026-10-06): 측정 테이블 정책의 TPOT 배율",
+          1.086, 0.0005, "x", _keep_serve("heldout_arrivals", "table", "speedup_vs_heuristic"), HYBV, "1.086배"),
+    Check("hybrid.keep_heldout_speedup_hybrid", "held-out 요청 도착, 캐시 유지: 혼합 정책의 TPOT 배율",
+          1.090, 0.0005, "x", _keep_serve("heldout_arrivals", "hybrid", "speedup_vs_heuristic"), HYBV, "1.090배"),
+    Check("hybrid.keep_heldout_speedup_model", "held-out 요청 도착, 캐시 유지: 모델 정책의 TPOT 배율",
+          1.091, 0.0005, "x", _keep_serve("heldout_arrivals", "model", "speedup_vs_heuristic"), HYBV, "1.091배"),
+    Check("hybrid.keep_heldout_tpot_hybrid", "held-out 요청 도착, 캐시 유지: 혼합 정책 TPOT",
+          31.62, 0.005, "ms", _keep_serve("heldout_arrivals", "hybrid", "tpot_ms_mean"), HYBV, "31.62ms"),
+    Check("hybrid.keep_heldout_policy_us_hybrid", "held-out 요청 도착, 캐시 유지: 혼합 정책의 step당 선택 비용",
+          14.95, 0.005, "µs", _keep_serve("heldout_arrivals", "hybrid", "policy_us_per_step"), HYBV, "14.95"),
+    Check("hybrid.keep_heldout_cache_misses", "held-out 요청 도착, 캐시 유지: 세 반복의 혼합 정책 캐시 미스 합(warm-up이 전부 흡수)",
+          0, 0, "misses", _keep_cache_misses("heldout_arrivals", "hybrid"), HYBV, "캐시 미스 0회"),
+
+    Check("flashinfer.ragged_cells", "FlashInfer 비교, 혼합 길이 격자(cold): 두 FlashInfer 변형과 FA2 변형이 모두 측정된 셀 수",
+          162, 0, "cells", _fi_cells(True), HYBV, "162셀"),
+    Check("flashinfer.uniform_cells", "FlashInfer 비교, 균일 길이 격자(cold): 측정 셀 수",
+          49, 0, "cells", _fi_cells(False), HYBV, "49셀"),
+    Check("flashinfer.ragged_cudacore_over_best_fa2_median", "혼합 길이: FlashInfer CUDA-core 변형 시간 / 최선 FA2 분할 시간의 중앙값",
+          0.977, 0.0005, "x", _fi_ratio(True, "cudacore", "best_fa2", "median"), HYBV, "0.977배"),
+    Check("flashinfer.ragged_cudacore_over_best_fa2_max", "혼합 길이: FlashInfer CUDA-core / 최선 FA2의 최댓값",
+          1.003, 0.0005, "x", _fi_ratio(True, "cudacore", "best_fa2", "max"), HYBV, "1.003배"),
+    Check("flashinfer.ragged_tensorcore_over_best_fa2_median", "혼합 길이: FlashInfer tensor-core 변형 / 최선 FA2의 중앙값",
+          0.998, 0.0005, "x", _fi_ratio(True, "tensorcore", "best_fa2", "median"), HYBV, "0.998배"),
+    Check("flashinfer.ragged_tensorcore_over_best_fa2_max", "혼합 길이: FlashInfer tensor-core 변형 / 최선 FA2의 최댓값",
+          2.401, 0.0005, "x", _fi_ratio(True, "tensorcore", "best_fa2", "max"), HYBV, "2.401배"),
+    Check("flashinfer.ragged_heuristic_over_best_flashinfer_max", "혼합 길이: 라이브러리 휴리스틱 / 더 빠른 FlashInfer 변형의 최댓값",
+          4.11, 0.005, "x", _fi_ratio(True, "heuristic", "best_flashinfer", "max"), HYBV, "4.11배"),
+    Check("flashinfer.uniform_best_over_best_fa2_median", "균일 길이: 더 빠른 FlashInfer 변형 / 최선 FA2의 중앙값",
+          0.998, 0.0005, "x", _fi_ratio(False, "best_flashinfer", "best_fa2", "median"), HYBV, "0.998배"),
+    Check("flashinfer.uniform_cudacore_over_best_fa2_max", "균일 길이: FlashInfer CUDA-core / 최선 FA2의 최댓값",
+          1.181, 0.0005, "x", _fi_ratio(False, "cudacore", "best_fa2", "max"), HYBV, "1.181배"),
+    Check("flashinfer.headline_cudacore_us", "최악 셀(32K×1 + 512×31, 페이지 KV): FlashInfer CUDA-core 시간",
+          269.9, 0.05, "µs", _fi_headline("cudacore"), HYBV, "269.9"),
+    Check("flashinfer.headline_tensorcore_us", "최악 셀: FlashInfer tensor-core 시간",
+          670.9, 0.05, "µs", _fi_headline("tensorcore"), HYBV, "670.9"),
+
+    Check("divergence.keep_heldout_tie_1ulp", "held-out 요청 도착, 캐시 유지 규약: 세 정책 사건 합(전부 tie_1ulp, 조사 항목 0)",
+          6, 0, "events", _keep_divergence, HYBV, "캐시를 유지해도 사건 6건 모두 `tie_1ulp`"),
+
+    Check("divergence.requested_events", "요청한 3조건: 테이블·혼합 정책의 분기 사건 수(서로 다른 위치)",
+          0, 0, "events", _divergence("distinct_positions", REQUESTED), HYBV, "분기 사건 0건"),
+    Check("divergence.requested_teacher_flips", "요청한 3조건: 교사 강제 진단에서 argmax가 뒤바뀐 위치 수",
+          0, 0, "positions", _teacher_flips(REQUESTED), HYBV, "뒤바뀐 위치 0개"),
+    Check("divergence.heldout_events_per_policy", "held-out 요청 도착: 정책별 분기 사건 수(table·hybrid·model 모두 같음)",
+          2, 0, "events", _divergence("distinct_positions", ("heldout_arrivals",), agg="same"), HYBV, "정책별 2건"),
+    Check("divergence.heldout_tie_1ulp", "held-out 요청 도착: 세 정책 사건 6건 중 tie_1ulp",
+          6, 0, "events", _divergence("tie_1ulp", ("heldout_arrivals",)), HYBV, "6건이 모두 `tie_1ulp`"),
+    Check("divergence.heldout_needs_investigation", "held-out 요청 도착: clear·미분류·미재현·토큰 누락·사건 밖 불일치의 합",
+          0, 0, "events", _divergence(INVESTIGATE, ("heldout_arrivals",))),
+    Check("divergence.control_events", "대조군(균일, fixed:8): 분기 사건 수",
+          6, 0, "events", _divergence("distinct_positions", ("control_uniform_fixed8",)), HYBV, "분기 사건 6건"),
+    Check("divergence.control_tie_1ulp", "대조군: tie_1ulp 사건 수",
+          5, 0, "events", _divergence("tie_1ulp", ("control_uniform_fixed8",)), HYBV, "5건"),
+    Check("divergence.control_clear", "대조군: clear 사건 수",
+          1, 0, "events", _divergence("clear", ("control_uniform_fixed8",)), HYBV, "`clear` 1건"),
+    Check("divergence.control_clear_margin_ulps", "대조군 clear 사건: 기준 1위 로짓과 후보가 고른 토큰의 로짓 차이(bf16 간격 단위)",
+          70, 0, "ulp", _clear_margin_ulps("control_uniform_fixed8"), HYBV, "70"),
+    Check("divergence.ragged_max_logit_diff", "혼합 길이 교사 강제 진단: 정책 간 로짓 최대 차이(32K 요청의 뒤 단계)",
+          5.41, 0.005, "", _teacher_max_diff("ragged"), HYBV, "5.41"),
+    Check("divergence.ragged_rows_identical_pct", "혼합 길이 교사 강제 진단: 로짓이 완전히 같은 위치의 비율",
+          96.9, 0.05, "%", _teacher_identical_pct("ragged"), HYBV, "96.9%"),
+    Check("divergence.control_max_logit_diff", "대조군 교사 강제 진단: 정책 간 로짓 최대 차이(clear 사건 위치)",
+          22.625, 0.0005, "", _teacher_max_diff("control_uniform_fixed8"), HYBV, "22.625"),
+    Check("divergence.control_probe_kernel_err", "대조군 clear 사건 step, 같은 KV 상태: 분할 1·8 attention 출력과 float32 참조의 최대 차이(36층)",
+          0.134, 0.0005, "", _probe_kernel_err, HYBV, "0.134"),
+    Check("divergence.control_probe_split_diff", "같은 KV 상태: 분할 1 출력과 분할 8 출력의 최대 차이(36층)",
+          0.0625, 0, "", _probe_split_diff, HYBV, "0.0625"),
+    Check("divergence.control_probe_single_step_logit_diff_rid8", "같은 KV 상태에서 한 step만 분할 8로 계산한 요청 8의 로짓 최대 차이",
+          1.08, 0.005, "", _probe_single_step_logit_diff_rid8, HYBV, "1.08"),
+    Check("divergence.control_probe_single_step_argmax_changes", "같은 KV 상태에서 한 step만 분할 8로 계산할 때 argmax가 바뀐 요청 수(32개 중)",
+          0, 0, "requests", _probe_single_step_argmax_changes, HYBV, "바뀐 요청 0개"),
+    Check("vllm.ragged_step_ms_flash_attn_eager", "vLLM 0.31 재현(eager, 기본 블록 16): FLASH_ATTN 백엔드, 혼합 길이 32K×1+512×31 배치의 step당 decode 시간",
+          80.52, 0.005, "ms", _vllm_step_ms("repro2", "FLASH_ATTN", "eager", "ragged"), HYBV, "80.52"),
+    Check("vllm.ragged_step_ms_flashinfer_eager", "vLLM 재현(eager): FLASHINFER 백엔드, 혼합 길이 step당 decode 시간",
+          80.27, 0.005, "ms", _vllm_step_ms("repro2", "FLASHINFER", "eager", "ragged"), HYBV, "80.27"),
+    Check("vllm.uniform_step_ms_flash_attn_eager", "vLLM 재현(eager): FLASH_ATTN 백엔드, 균일 512×32 배치의 step당 decode 시간",
+          14.74, 0.005, "ms", _vllm_step_ms("repro2", "FLASH_ATTN", "eager", "uniform"), HYBV, "14.74"),
+    Check("vllm.ragged_over_uniform_flash_attn_eager", "vLLM 재현(eager, FLASH_ATTN): 혼합 길이 / 균일 길이 step 시간 비",
+          5.46, 0.005, "x", _vllm_ratio("repro2", ("FLASH_ATTN", "eager", "ragged"), ("FLASH_ATTN", "eager", "uniform")), HYBV, "5.46배"),
+    Check("vllm.ragged_flashinfer_over_flash_attn_eager", "vLLM 재현(eager): 혼합 길이에서 FLASHINFER / FLASH_ATTN step 시간 비(백엔드 무관)",
+          0.997, 0.0005, "x", _vllm_ratio("repro2", ("FLASHINFER", "eager", "ragged"), ("FLASH_ATTN", "eager", "ragged")), HYBV, "0.997배"),
+    Check("vllm.ragged_step_ms_flash_attn_cudagraph", "vLLM 재현(CUDA Graph 모드, 분할 수 고정 경로): FLASH_ATTN 혼합 길이 step 시간",
+          78.94, 0.005, "ms", _vllm_step_ms("repro3", "FLASH_ATTN", "cudagraph", "ragged"), HYBV, "78.94"),
+    Check("vllm.ragged_step_ms_flash_attn_eager_block256", "vLLM 재현(eager, KV 블록 256): FLASH_ATTN 혼합 길이 step 시간",
+          81.27, 0.005, "ms", _vllm_step_ms("repro4", "FLASH_ATTN", "eager", "ragged"), HYBV, "81.27"),
 ]
 
 

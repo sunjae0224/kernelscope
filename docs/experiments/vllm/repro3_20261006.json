@@ -1,0 +1,101 @@
+{
+  "rows": [
+    {
+      "backend": "FLASH_ATTN",
+      "mode": "cudagraph",
+      "scenario": "ragged",
+      "lens": [
+        32768,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 78.93538967085381,
+      "decode_ms_per_step_min": 78.3702641337489,
+      "samples_ms": [
+        78.3702641337489,
+        79.64400534983724,
+        78.93538967085381
+      ],
+      "tokens_identical": true,
+      "enforce_eager": false,
+      "prefix_caching": false,
+      "block_size": null,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASH_ATTN",
+      "mode": "cudagraph",
+      "scenario": "uniform",
+      "lens": [
+        512,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 14.115269031996528,
+      "decode_ms_per_step_min": 13.277190085500479,
+      "samples_ms": [
+        13.277190085500479,
+        14.115269031996528,
+        14.210213565578064
+      ],
+      "tokens_identical": false,
+      "enforce_eager": false,
+      "prefix_caching": false,
+      "block_size": null,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASHINFER",
+      "mode": "cudagraph",
+      "scenario": "ragged",
+      "lens": [
+        32768,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 79.37492689816281,
+      "decode_ms_per_step_min": 77.12001717106129,
+      "samples_ms": [
+        77.12001717106129,
+        80.69923604683329,
+        79.37492689816281
+      ],
+      "tokens_identical": false,
+      "enforce_eager": false,
+      "prefix_caching": false,
+      "block_size": null,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASHINFER",
+      "mode": "cudagraph",
+      "scenario": "uniform",
+      "lens": [
+        512,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 13.90192685260748,
+      "decode_ms_per_step_min": 13.144732266664505,
+      "samples_ms": [
+        13.144732266664505,
+        13.90192685260748,
+        13.986534415744245
+      ],
+      "tokens_identical": false,
+      "enforce_eager": false,
+      "prefix_caching": false,
+      "block_size": null,
+      "short": 4,
+      "long": 64
+    }
+  ],
+  "model": "Qwen/Qwen3-4B-Instruct-2507"
+}
