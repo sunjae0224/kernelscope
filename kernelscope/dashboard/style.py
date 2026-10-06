@@ -38,3 +38,40 @@ def layout(fig, theme: str, title: str, left: int = 45, right: int = 35):
     fig.update_xaxes(gridcolor=GRID[theme], zeroline=False, linecolor=GRID[theme], automargin=True)
     fig.update_yaxes(gridcolor=GRID[theme], zeroline=False, linecolor=GRID[theme], automargin=True)
     return fig
+
+
+PAGE_CSS = """<style>
+  .block-container { max-width: 1440px; padding-top: 2.4rem; padding-bottom: 3rem; }
+  h1 { letter-spacing: -0.065em; font-weight: 750 !important; }
+  h2,h3 { letter-spacing: -0.025em; }
+  [data-testid="stMetric"] { border: 1px solid #b8bfcc55; border-radius: 14px; padding: 17px 20px; }
+  [data-testid="stMetricLabel"] { font-size: .84rem; }
+  [data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; }
+  [data-testid="stTabs"] button { font-weight: 650; padding-left: 18px; padding-right: 18px; }
+  .eyebrow { font-size: .73rem; letter-spacing: .18em; font-weight: 750; color: #56729b; margin-bottom: 10px; }
+  .hero-note { max-width: 850px; font-size: 1.07rem; line-height: 1.7; opacity: .78; margin-bottom: 22px; }
+  .evidence { display: inline-block; border: 1px solid #8b97aa55; border-radius: 999px;
+     padding: 5px 11px; font-size: .75rem; margin: 0 6px 8px 0; }
+  .footnote { font-size: .78rem; opacity: .66; line-height: 1.6; }
+</style>"""
+
+
+def current_theme(default: str = "light") -> str:
+    """The theme the browser reports, else the configured base; ``default`` outside Streamlit.
+
+    Streamlit may report the browser's default light scheme on the first render, before it
+    receives the configured app colors, so the first call in a session returns the configured base."""
+    try:
+        import streamlit as st
+    except ImportError:
+        return default
+    configured = st.get_option("theme.base") or default
+    try:
+        theme = st.context.theme.type or configured
+    except (AttributeError, KeyError):
+        theme = configured
+    theme = theme if theme in ("light", "dark") else configured
+    if not st.session_state.get("_dashboard_theme_initialized"):
+        theme = configured
+        st.session_state["_dashboard_theme_initialized"] = True
+    return theme

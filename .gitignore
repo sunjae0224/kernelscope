@@ -39,3 +39,4 @@ hf_cache/
 .vscode/
 .idea/
 *.swp
+.gstack/

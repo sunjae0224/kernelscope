@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<style>
+  :root { --bg: #fcfcfb; --ink: #0b0b0b; --muted: #52514e; --grid: #e8e7e3; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 Inter, "Noto Sans KR", sans-serif; }
+  .bar { display: flex; gap: 8px; align-items: center; margin: 2px 0 12px; }
+  .bar .label { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+  button { font: inherit; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--grid); background: transparent; color: var(--ink); cursor: pointer; }
+  button.active { border-color: var(--ink); font-weight: 650; }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pane { border: 1px solid var(--grid); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+  .pane h3 { margin: 0 0 8px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+  .stats { display: flex; gap: 22px; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .stats div span { display: block; font-size: 11px; letter-spacing: .08em; color: var(--muted); }
+  .stats div b { font-size: 22px; font-weight: 700; }
+  .grid { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; margin: 6px 0 10px; }
+  .cell { height: 7px; background: var(--grid); border-radius: 2px; overflow: hidden; }
+  .cell i { display: block; height: 100%; width: 0; }
+  .text { border-left: 3px solid var(--grid); padding-left: 10px; margin: 6px 0; min-height: 60px; max-height: 118px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+  .text small { display: block; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+  .strip { display: flex; gap: 1px; height: 30px; align-items: flex-end; margin-top: 8px; }
+  .strip i { flex: 1; background: var(--grid); min-height: 2px; }
+  .strip i.on { background: var(--series); }
+  .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .flag { min-height: 22px; margin-top: 6px; font-weight: 700; }
+  .foot { margin-top: 12px; font-size: 13px; }
+</style></head>
+<body>
+<div class="bar">
+  <button id="play">▶ 재생</button><button id="reset">↺ 처음부터</button>
+  <span style="color:var(--muted)">속도</span>
+  <button data-speed="0.25">0.25×</button><button data-speed="0.5" class="active">0.5×</button><button data-speed="1">1×</button>
+  <span class="label" id="label"></span>
+</div>
+<div class="wrap" id="wrap"></div>
+<div class="foot" id="foot"></div>
+<script>
+const P = __PAYLOAD__;
+const root = document.documentElement;
+for (const [k, v] of Object.entries(P.colors || {})) root.style.setProperty("--" + k, v);
+const fmtMs = (ms) => ms.toLocaleString("en-US", {maximumFractionDigits: 0}) + " ms";
+const maxAttn = Math.max(1e-6, ...P.policies.flatMap(p => p.steps.map(s => s.attn_ms)));
+const totalEnd = Math.max(...P.policies.map(p => p.end_ms));
+const maxTokens = Math.max(1, P.scenario.max_new_tokens);
+
+const panes = P.policies.map((policy, idx) => {
+  const el = document.createElement("div"); el.className = "pane"; el.style.setProperty("--series", policy.color);
+  const featured = policy.requests.filter(r => r.featured);
+  el.innerHTML = `
+    <h3><span class="dot" style="background:${policy.color}"></span>${policy.label}</h3>
+    <div class="stats"><div><span>경과</span><b class="clock">0 ms</b></div><div><span>TOKENS / S</span><b class="rate">0</b></div>
+      <div><span>분할 수</span><b class="splits">–</b></div></div>
+    <div class="grid">${policy.requests.map(() => '<div class="cell"><i style="background:' + policy.color + '"></i></div>').join("")}</div>
+    ${featured.map(r => `<div class="text" data-rid="${r.rid}"><small>요청 ${r.rid} · 프롬프트 ${r.prompt_len.toLocaleString()} tokens</small><span></span></div>`).join("")}
+    <div class="strip">${policy.steps.map(() => '<i></i>').join("")}</div>
+    <div class="meta"><span>step별 분할 수 · attention 시간(실측)</span><span>${policy.steps.length} steps</span></div>
+    <div class="flag"></div>`;
+  document.getElementById("wrap").appendChild(el);
+  const events = [];
+  policy.requests.forEach((r, i) => r.tokens.forEach(t => events.push({t: t.t_ms, i, text: t.text, rid: r.rid})));
+  events.sort((a, b) => a.t - b.t);
+  const strip = [...el.querySelectorAll(".strip i")];
+  policy.steps.forEach((s, k) => { strip[k].style.height = Math.max(6, 100 * s.attn_ms / maxAttn) + "%"; strip[k].title = `step ${s.step} · 분할 ${s.num_splits} · attention ${s.attn_ms.toFixed(2)} ms`; });
+  return {policy, el, events, cursor: 0, counts: new Array(policy.requests.length).fill(0), shown: 0,
+          cells: [...el.querySelectorAll(".cell i")], texts: Object.fromEntries([...el.querySelectorAll(".text")].map(d => [d.dataset.rid, d.querySelector("span")])),
+          clock: el.querySelector(".clock"), rate: el.querySelector(".rate"), splits: el.querySelector(".splits"), strip, flag: el.querySelector(".flag"), finished: false};
+});
+
+let elapsed = 0, speed = 0.5, playing = false, last = null;
+function reset() {
+  elapsed = 0; last = null;
+  for (const pane of panes) {
+    pane.cursor = 0; pane.shown = 0; pane.counts.fill(0); pane.finished = false;
+    pane.cells.forEach(c => c.style.width = "0");
+    Object.values(pane.texts).forEach(s => { s.textContent = ""; s.parentElement.scrollTop = 0; });
+    pane.strip.forEach(i => i.classList.remove("on"));
+    pane.clock.textContent = "0 ms"; pane.rate.textContent = "0"; pane.splits.textContent = "–"; pane.flag.textContent = "";
+  }
+  draw();
+}
+function draw() {
+  for (const pane of panes) {
+    const ev = pane.events;
+    while (pane.cursor < ev.length && ev[pane.cursor].t <= elapsed) {
+      const e = ev[pane.cursor++];
+      pane.counts[e.i] += 1; if (e.t > 0) pane.shown += 1;
+      pane.cells[e.i].style.width = Math.min(100, 100 * pane.counts[e.i] / maxTokens) + "%";
+      if (pane.texts[e.rid] !== undefined) {
+        pane.texts[e.rid].textContent += e.text;
+        pane.texts[e.rid].parentElement.scrollTop = pane.texts[e.rid].parentElement.scrollHeight;
+      }
+    }
+    const shownMs = Math.min(elapsed, pane.policy.end_ms);
+    pane.clock.textContent = fmtMs(shownMs);
+    pane.rate.textContent = shownMs > 0 ? (1000 * pane.shown / shownMs).toFixed(0) : "0";
+    let current = null;
+    pane.policy.steps.forEach((s, k) => { if (s.t_ms <= elapsed) { pane.strip[k].classList.add("on"); current = s; } });
+    if (current) pane.splits.textContent = current.num_splits === 0 ? "라이브러리" : String(current.num_splits);
+    if (!pane.finished && elapsed >= pane.policy.end_ms) {
+      pane.finished = true;
+      const tpot = pane.policy.tpot_ms != null ? ` · TPOT ${pane.policy.tpot_ms.toFixed(1)} ms` : "";
+      pane.flag.textContent = `완료 · ${fmtMs(pane.policy.end_ms)}${tpot}`;
+    }
+  }
+  document.getElementById("label").textContent = `${fmtMs(Math.min(elapsed, totalEnd))} / ${fmtMs(totalEnd)} · 재생 ${speed}× · 순차 측정, 동시 재생`;
+}
+function frame(now) {
+  if (!playing) return;
+  if (last !== null) elapsed = Math.min(totalEnd + 400, elapsed + (now - last) * speed);
+  last = now; draw();
+  if (elapsed >= totalEnd + 400) { playing = false; document.getElementById("play").textContent = "▶ 다시 재생"; return; }
+  requestAnimationFrame(frame);
+}
+document.getElementById("play").addEventListener("click", () => {
+  if (elapsed >= totalEnd + 400) reset();
+  playing = !playing; last = null;
+  document.getElementById("play").textContent = playing ? "⏸ 일시정지" : "▶ 재생";
+  if (playing) requestAnimationFrame(frame);
+});
+document.getElementById("reset").addEventListener("click", () => { playing = false; document.getElementById("play").textContent = "▶ 재생"; reset(); });
+document.querySelectorAll("[data-speed]").forEach(b => b.addEventListener("click", () => {
+  speed = parseFloat(b.dataset.speed); document.querySelectorAll("[data-speed]").forEach(x => x.classList.toggle("active", x === b)); draw();
+}));
+const A = P.agreement || {};
+const foot = document.getElementById("foot");
+if (A.requests_total) {
+  foot.textContent = A.identical ? `생성 토큰 일치 · ${A.requests_equal}/${A.requests_total} 요청 — 두 정책의 출력이 같습니다.`
+    : `생성 토큰 불일치 · ${A.first_divergence.length}건 (요청 ${A.first_divergence.slice(0, 4).map(d => d.rid + "@" + d.position).join(", ")})`;
+}
+if (!P.scenario.natural_text) foot.textContent += "  합성 토큰 기록이라 글 대신 토큰 수만 채웁니다.";
+reset();
+</script>
+</body></html>
