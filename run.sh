@@ -20,6 +20,7 @@ STAMP="${DEMO_STAMP:-$(date +%Y%m%d_%H%M%S)}"
 OUT="${DEMO_OUT:-$KERNELSCOPE_RESULTS/demo_runs/$STAMP}"
 MODEL="${DEMO_MODEL:-Qwen/Qwen3-4B-Instruct-2507}"
 TABLE=demo_data/dispatch_paged_cold.csv
+TABLE_ANY=demo_data/dispatch_paged_cold_any.csv
 HYBRID="hybrid:$TABLE:0.2"
 MODEL_INPUTS=(--machine machines/rtx4090.json --params models/rtx4090.json)
 WORST=decode_B32_Lq1_Lkv32768+512x31_Hq32_Hkv8_d128_float16_causal
@@ -34,7 +35,9 @@ KernelScope 시연 실행기 — ./run.sh <명령>
   GPU 없이 (노트북에서도 됨)
     check        환경 점검: 파이썬·패키지·기록 번들·GPU 상태(있으면)
     dashboard    저장된 실측으로 대시보드 실행 → http://localhost:8501  (PORT=8502 ./run.sh dashboard)
-    verify       문서의 수치 111개를 원본 기록에서 다시 계산해 대조 (--tests 를 붙이면 CPU 테스트도)
+    verify       문서의 수치를 원본 기록에서 다시 계산해 대조 (--tests 를 붙이면 CPU 테스트도)
+    traffic      공개 요청 트레이스(Azure conv)를 연속 배치로 재생해 "실제 트래픽에서 얼마나 자주" 를 숫자로 (RATE_SCALE=2 로 부하 조절)  ~1분
+    defaults     FA2 휴리스틱 · FlashInfer 기본값 · 본 작품 선택기의 손실 표(32K·64K 격자, 번들에서)
 
   GPU 필요 (연구실 RTX 4090, 다른 GPU 프로세스가 없을 때)
     kernel       최악 셀(32K×1 + 512×31, 페이지 KV) 하나에서 커널 변형 비교: 휴리스틱 / 분할 8·16 / FlashInfer   ~30초
@@ -49,7 +52,7 @@ KernelScope 시연 실행기 — ./run.sh <명령>
     1) ./run.sh check  2) ./run.sh dashboard (첫 화면 Demo: 결론 → 경주 → 왜 → 어떻게 → 검증; Q&A는 Lab 페이지의 01~05 탭)  3) 시간이 되면 ./run.sh gpu-all 로 라이브 측정
     4) ./run.sh verify 로 "문서의 숫자는 기록에서 다시 계산된다"를 보여 주고 마무리
 
-  환경 변수: KERNELSCOPE_RESULTS(결과 루트), DEMO_OUT(이번 시연 결과 폴더), REPEATS(serve 반복 기본 1 · demo-record 기본 3), PORT(대시보드)
+  환경 변수: KERNELSCOPE_RESULTS(결과 루트), DEMO_OUT(이번 시연 결과 폴더), REPEATS(serve 반복 기본 1 · demo-record 기본 3), PORT(대시보드), RATE_SCALE·EVERY(traffic)
 USAGE
 }
 
@@ -209,8 +212,41 @@ cmd_demo_record() {
   note "번들에 넣으려면: $PY scripts/package_demo.py --results $KERNELSCOPE_RESULTS"
 }
 
+cmd_traffic() {  # 공개 트레이스 재생(GPU 없이): 실제 요청 흐름에서 분할 휴리스틱이 손해 보는 step 비율
+  local scale="${RATE_SCALE:-1}" traces="$KERNELSCOPE_RESULTS/traces" name="AzureLLMInferenceTrace_conv.csv"
+  mkdir -p "$traces"
+  if [[ ! -s "$traces/$name" ]]; then
+    say "Azure LLM 추론 트레이스(conv, 2023, 0.7 MB) 내려받기 → $traces/$name"
+    curl -L --fail -o "$traces/$name" "https://raw.githubusercontent.com/Azure/AzurePublicDataset/master/data/$name"
+  fi
+  say "트레이스 재생: 연속 배치(배치 64, KV 10 GiB, step 30 ms), 도착 간격 ×1/$scale, step ${EVERY:-10}개마다 채점 → $OUT/traffic"
+  PYTHONPATH="$ROOT" CUDA_VISIBLE_DEVICES= "$PY" -m scripts.traffic_replay --trace "$traces/$name" --rate-scale "$scale" \
+    --every "${EVERY:-10}" --out "$OUT/traffic/azure_conv_x$scale"
+  say "기록된 값(docs/experiments/2026-10-06-problem-scope.md §1): ×1에서 step의 13.5%가 1.25배 이상 손실, attention 시간 비 1.119"
+}
+
+cmd_defaults() {  # 두 라이브러리의 정적 기본값 손실(GPU 없이, 번들에서): FA2 휴리스틱 · FlashInfer tensor-core/CUDA-core · 본 작품 선택기
+  say "정적 기본값 손실 — 32K 격자(211셀)와 64K 격자(20셀), 손실 = 기본값 시간 / 전체 최선 시간"
+  PYTHONPATH="$ROOT" CUDA_VISIBLE_DEVICES= "$PY" - <<'PYEOF'
+from pathlib import Path
+import pandas as pd
+from kernelscope.results.store import load_dirs
+from kernelscope.analysis.dispatch import static_default_losses, static_default_summary
+pd.set_option("display.width", 200)
+d = Path("demo_data/hw_4090")
+for label, groups in (("32K", ("ragged_s1", "uniform_s1")), ("64K", ("ragged_s1_64k", "uniform_s1_64k"))):
+    dirs = [d / f"{g}_{v}" for g in groups for v in ("paged", "flashinfer", "flashinfer_cudacore")]
+    if not all((x / "summaries.jsonl").exists() for x in dirs):
+        print(f"{label}: 번들 없음"); continue
+    s = static_default_summary(static_default_losses(load_dirs(dirs), "cold"))
+    print(f"== {label} ==\n" + s[s.cells != "all"].round(3).to_string(index=False))
+PYEOF
+}
+
 case "${1:-help}" in
   check) cmd_check ;;
+  traffic) cmd_traffic ;;
+  defaults) cmd_defaults ;;
   dashboard) cmd_dashboard ;;
   verify) cmd_verify "${2:-}" ;;
   kernel) cmd_kernel ;;

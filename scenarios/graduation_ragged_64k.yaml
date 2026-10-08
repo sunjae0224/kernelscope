@@ -1,0 +1,5 @@
+# graduation_ragged with the long request doubled to 64K (2026-10-06): the same batch size and
+# output length, one 64K request among 31 short ones. Needs about 13 GiB of KV for Qwen3-4B.
+requests:
+  - {count: 1, prompt_len: 65536, max_new_tokens: 64, arrival_step: 0}
+  - {count: 31, prompt_len: 512, max_new_tokens: 64, arrival_step: 0}

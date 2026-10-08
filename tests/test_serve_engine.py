@@ -161,3 +161,77 @@ def test_hybrid_policy_is_refused_outside_its_calibrated_head_shape():
     hybrid = FixedPolicy(0, name="hybrid")          # the real HybridPolicy is calibrated for d=128 fp16/bf16 only
     with pytest.raises(ValueError, match="calibrated for d=128"):
         Engine(ArithmeticModel(), pool(), hybrid).run([Request(0, 3, 2)], 16)
+
+
+def test_engine_hands_the_policy_attention_backend_to_the_model_and_counts_plan_time_as_selection_cost():
+    class BackendModel(ArithmeticModel):
+        seen = []
+        last_plan_us = 250.0
+
+        def decode(self, seq_ids, tokens, pool, num_splits=0, timer=None, attention="fa2"):
+            self.seen.append(attention)
+            return super().decode(seq_ids, tokens, pool, num_splits, timer)
+
+    policy = FixedPolicy(0, name="flashinfer_cudacore", attention="flashinfer_cudacore")
+    result = Engine(BackendModel(), pool(), policy).run([Request(0, 3, 3)], 16)
+    assert BackendModel.seen == ["flashinfer_cudacore"] * 2
+    assert (result.steps.policy_us >= 250.0).all() and (result.steps.policy == "flashinfer_cudacore").all()
+    plain = Engine(ArithmeticModel(), pool(), FixedPolicy(0)).run([Request(0, 3, 3)], 16)   # no backend kwarg for FA2
+    assert (plain.steps.policy_us < 250.0).all()
+
+
+class AttentionModel(ArithmeticModel):
+    """Scheduler double whose decode records the backend and split count it was handed."""
+    cfg = SimpleNamespace(vocab=16, n_heads=2, n_kv_heads=1, head_dim=8, n_layers=5)
+
+    def __init__(self):
+        self.seen = []
+
+    def decode(self, seq_ids, tokens, pool, num_splits=0, timer=None, attention="fa2"):
+        self.seen.append((attention, num_splits))
+        return super().decode(seq_ids, tokens, pool, num_splits, timer)
+
+
+class AlternatingPolicy:
+    """Picks a split count and a backend per step, the way a library-agnostic table does."""
+    name, last_cache_hit, n_layers = "alternating", False, None
+
+    def __init__(self):
+        self.attention, self.calls = "fa2", 0
+
+    def choose(self, lens, n_heads, n_kv_heads):
+        self.calls += 1
+        self.attention = "flashinfer_cudacore" if self.calls % 2 == 0 else "fa2"
+        return 0 if self.attention != "fa2" else 8
+
+
+def test_step_rows_record_the_backend_each_step_ran_on():
+    assert STEP_COLUMNS.index("attention") == STEP_COLUMNS.index("num_splits") + 1
+    plain = Engine(AttentionModel(), pool(), FixedPolicy(4)).run([Request(0, 3, 3)], 16)
+    assert list(plain.steps.columns) == STEP_COLUMNS
+    assert plain.steps.attention.tolist() == ["fa2"] * 2 and plain.steps.num_splits.tolist() == [4, 4]
+    model = AttentionModel()
+    fixed = Engine(model, pool(), FixedPolicy(0, name="flashinfer", attention="flashinfer")).run([Request(0, 3, 3)], 16)
+    assert fixed.steps.attention.tolist() == ["flashinfer"] * 2 == [a for a, _ in model.seen]
+
+
+def test_step_attention_follows_a_policy_that_changes_backend_between_steps():
+    model, policy = AttentionModel(), AlternatingPolicy()
+    result = Engine(model, pool(), policy).run([Request(0, 3, 5)], 16)
+    assert [a for a, _ in model.seen] == ["fa2", "flashinfer_cudacore", "fa2", "flashinfer_cudacore"]
+    assert result.steps.attention.tolist() == [a for a, _ in model.seen]
+    assert result.steps.num_splits.tolist() == [n for _, n in model.seen] == [8, 0, 8, 0]
+
+
+def test_engine_fills_n_layers_only_when_the_policy_asks_for_it():
+    asking, preset, plain = AlternatingPolicy(), AlternatingPolicy(), FixedPolicy(0)
+    preset.n_layers = 12
+    for policy in (asking, preset, plain):
+        Engine(AttentionModel(), pool(), policy)
+    assert asking.n_layers == 5 and preset.n_layers == 12 and not hasattr(plain, "n_layers")
+
+
+def test_table_any_policies_are_refused_outside_their_calibrated_head_shape():
+    for name in ("table_any", "table_any_p400"):
+        with pytest.raises(ValueError, match="calibrated for d=128"):
+            Engine(ArithmeticModel(), pool(), FixedPolicy(0, name=name)).run([Request(0, 3, 2)], 16)

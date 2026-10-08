@@ -1,0 +1,12 @@
+# Ragged decode with a 64K long side (2026-10-06): does the heuristic's loss keep growing with context
+# length past the 32K edge of grids/ragged_s1.yaml? Same S1 head geometry; B >= 26 is past the
+# heuristic's no-split threshold, so every cell here is one the library runs without splitting.
+phase: decode
+H_q: 32
+H_kv: 8
+d: 128
+ragged:
+  B: [26, 32, 64]
+  n_long: [1, 2]
+  L_long: [65536]
+  L_short: [512, 1024, 2048]

@@ -16,8 +16,8 @@ from kernelscope.serve.kvcache import PAGE
 from kernelscope.serve.model import AttentionTimer, OpTimer
 from kernelscope.serve.scenarios import prompt_ids
 
-STEP_COLUMNS = ["step", "policy", "B", "len_max", "len_sum", "n_long", "num_splits", "attn_us",
-                "step_us", "policy_us", "policy_cache_hit", "decode_wall_us", "seq_ids", "lens"]
+STEP_COLUMNS = ["step", "policy", "B", "len_max", "len_sum", "n_long", "num_splits", "attention",
+                "attn_us", "step_us", "policy_us", "policy_cache_hit", "decode_wall_us", "seq_ids", "lens"]
 TOKEN_COLUMNS = ["rid", "step", "position", "token", "t_us", "phase"]
 PREFILL_COLUMNS = ["rid", "prompt_len", "prefill_us", "arrival_us", "admitted_us", "first_token_us", "prompt_sha256"]
 OPS_COLUMNS = ["phase", "step", "rid", "layer", "op_class", "gpu_us"]
@@ -62,6 +62,8 @@ class Engine:
         if not isinstance(max_batch, int) or max_batch < 1:
             raise ValueError("max_batch must be a positive integer")
         self.model, self.pool, self.policy, self.max_batch = model, pool, policy, max_batch
+        if getattr(policy, "n_layers", "absent") is None:      # table policies price a per-step cost per layer
+            policy.n_layers = model.cfg.n_layers
 
     @torch.inference_mode()
     def run(self, requests, vocab, record_logits_steps=0, seed=0, ops_mode=None) -> RunResult:
@@ -82,7 +84,8 @@ class Engine:
                 prompt_ids(request, vocab, seed)  # Reject invalid explicit tokens before timing/allocation.
         prompt_kinds = {r.prompt_kind or ("explicit_token_ids" if r.token_ids is not None else "seeded_synthetic_token_ids")
                         for r in requests}
-        if getattr(self.policy, "name", None) in {"model", "table", "hybrid"} and (
+        name = getattr(self.policy, "name", None) or ""
+        if (name in {"model", "table", "hybrid"} or name.startswith("table_any")) and (
                 cfg.head_dim != 128 or self.model.dtype not in (torch.float16, torch.bfloat16)):
             raise ValueError("model/table policies are calibrated for d=128 fp16/bf16 only")
         pending = sorted(requests, key=lambda r: (r.arrival_step, r.rid))
@@ -164,9 +167,13 @@ class Engine:
                 attention = OpTimer(device=device) if ops_mode == "event" else AttentionTimer(device=device)
                 timer = _CallTimer(device)
                 timer.start()
+                backend = getattr(self.policy, "attention", "fa2")
                 output = self.model.decode(seq_ids, [last_tok[rid] for rid in seq_ids], self.pool,
-                                           num_splits=splits, timer=attention)
+                                           num_splits=splits, timer=attention,
+                                           **({"attention": backend} if backend != "fa2" else {}))
                 step_us = timer.stop()
+                # A FlashInfer backend plans the batch's schedule itself; that is its selection cost.
+                selection_us += float(getattr(self.model, "last_plan_us", 0.0) or 0.0)
                 if ops_mode == "event":
                     ops_rows.extend({"phase": "decode", "step": step, "rid": "", **row} for row in attention.rows())
                 next_tokens = output.argmax(-1).tolist()
@@ -180,8 +187,8 @@ class Engine:
                     produced[rid] += 1
                 steps.append(dict(step=step, policy=self.policy.name, B=len(seq_ids), len_max=max(lens),
                                   len_sum=sum(lens), n_long=sum(n >= 4096 for n in lens), num_splits=splits,
-                                  attn_us=attention.total_us(), step_us=step_us, policy_us=selection_us,
-                                  policy_cache_hit=getattr(self.policy, "last_cache_hit", None),
+                                  attention=backend, attn_us=attention.total_us(), step_us=step_us,
+                                  policy_us=selection_us, policy_cache_hit=getattr(self.policy, "last_cache_hit", None),
                                   decode_wall_us=wall_us, seq_ids=json.dumps(seq_ids), lens=json.dumps(lens)))
                 if len(logits) < record_logits_steps:
                     logits.append(output.detach().float().cpu().clone())

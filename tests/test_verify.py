@@ -79,3 +79,32 @@ def test_hybrid_campaign_checks_recompute_from_the_bundle():
     assert len(checks) == 64
     t = verify.run_checks(checks, repo=repo, data=repo / "demo_data")
     assert set(t.status) == {"PASS"}, t.to_string()
+
+
+def test_problem_scope_checks_recompute_from_the_bundle():
+    # 2026-10-06 problem-scope note: trace replays, two libraries' static defaults, the 64K long side.
+    from kernelscope.verify import CHECKS, run_checks
+    checks = [c for c in CHECKS if c.id.startswith(("traffic.", "defaults.", "longctx."))]
+    assert len(checks) == 63
+    table = run_checks(checks, REPO, REPO / "demo_data")
+    assert table.status.tolist() == ["PASS"] * len(checks), table[table.status != "PASS"].to_string()
+
+
+def test_fiengine_checks_recompute_from_the_bundle():
+    # 2026-10-08 FlashInfer-in-the-engine campaign (note 2026-10-06-problem-scope.md §4): needs the packaged
+    # demo_data/serve_4090/flashinfer_20261006 (scripts/package_demo.py); MISSING until the bundle holds it.
+    from kernelscope.verify import CHECKS, run_checks
+    checks = [c for c in CHECKS if c.id.startswith("fiengine.")]
+    assert len(checks) == 148
+    table = run_checks(checks, REPO, REPO / "demo_data")
+    assert table.status.tolist() == ["PASS"] * len(checks), table[table.status != "PASS"].to_string()
+
+
+def test_anytable_checks_recompute_from_the_bundle():
+    # 2026-10-08 library-agnostic table campaign (note 2026-10-06-problem-scope.md §5): needs the packaged
+    # demo_data/serve_4090/anytable_20261008 and demo_data/dispatch_paged_cold_any.csv (scripts/package_demo.py).
+    from kernelscope.verify import CHECKS, run_checks
+    checks = [c for c in CHECKS if c.id.startswith("anytable.")]
+    assert len(checks) == 185
+    table = run_checks(checks, REPO, REPO / "demo_data")
+    assert table.status.tolist() == ["PASS"] * len(checks), table[table.status != "PASS"].to_string()
