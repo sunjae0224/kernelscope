@@ -1,0 +1,16 @@
+{
+  "campaign": "../kernelscope/results/serve_4090/flashinfer_20261006",
+  "run": "ragged",
+  "target_step": 40,
+  "target_rid": 8,
+  "candidate_backend": "flashinfer",
+  "candidate_splits": null,
+  "kv_gib": 10.0,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "out": "../kernelscope/results/serve_4090/flashinfer_20261006/numerics/ragged/kernel_probe_flashinfer",
+  "dtype": "torch.bfloat16",
+  "flash_attn": "2.8.3.post1",
+  "torch": "2.8.0+cu128",
+  "claim": "Diagnostic only: per-layer kernel outputs vs a float32 reference on identical inputs, and the single-step logit difference of the default decode and the candidate on the identical KV state.",
+  "flashinfer": "0.6.13"
+}

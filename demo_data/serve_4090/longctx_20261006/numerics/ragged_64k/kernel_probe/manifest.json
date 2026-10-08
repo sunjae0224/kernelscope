@@ -1,0 +1,14 @@
+{
+  "campaign": "../kernelscope/results/serve_4090/longctx_20261006",
+  "run": "ragged_64k",
+  "target_step": 26,
+  "target_rid": 0,
+  "candidate_splits": 8,
+  "kv_gib": 13.0,
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "out": "../kernelscope/results/serve_4090/longctx_20261006/numerics/ragged_64k/kernel_probe",
+  "dtype": "torch.bfloat16",
+  "flash_attn": "2.8.3.post1",
+  "torch": "2.8.0+cu128",
+  "claim": "Diagnostic only: per-layer kernel outputs vs a float32 reference on identical inputs, and the single-step logit difference of the two splits on the identical KV state."
+}

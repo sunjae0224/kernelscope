@@ -1,0 +1,10 @@
+policy,reference,steps_compared,max_abs_logit_diff,token_agreement,tokens_compared,token_mismatches,missing_tokens,schedule_match,logits_checked,logits_finite,tokens_identical,passed,first_mismatch,repeat
+table,heuristic,0,,1.0,1192,0,0,True,False,,True,True,,0
+table_any,heuristic,0,,0.9672818791946308,1192,39,0,True,False,,False,False,"rid=2, position=10, reference=18, candidate=20",0
+table_any_p371,heuristic,0,,1.0,1192,0,0,True,False,,True,True,,0
+table,heuristic,0,,1.0,1192,0,0,True,False,,True,True,,1
+table_any,heuristic,0,,0.9672818791946308,1192,39,0,True,False,,False,False,"rid=2, position=10, reference=18, candidate=20",1
+table_any_p371,heuristic,0,,1.0,1192,0,0,True,False,,True,True,,1
+table_any,heuristic,0,,0.9672818791946308,1192,39,0,True,False,,False,False,"rid=2, position=10, reference=18, candidate=20",2
+table_any_p371,heuristic,0,,1.0,1192,0,0,True,False,,True,True,,2
+table,heuristic,0,,1.0,1192,0,0,True,False,,True,True,,2

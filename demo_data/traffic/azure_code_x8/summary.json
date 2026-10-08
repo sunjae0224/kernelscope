@@ -1,0 +1,70 @@
+{
+  "trace": {
+    "source": "/tmp/claude-1000/-home-skkai-AI-Accelerator/7dab8d0c-1b49-473b-9b21-3bfe2cac64c9/scratchpad/traces/AzureLLMInferenceTrace_code.csv",
+    "sha256": "54e9a6d2a4bd06ba1e060304b900abbc74cbea53de96506e60fe5bb4f2277fb6",
+    "kind": "azure",
+    "model": null,
+    "window_s": null,
+    "prompt_scale": 1.0,
+    "rows": 8819,
+    "dropped": 0,
+    "requests": 8819,
+    "too_large": 0,
+    "span_s": 3435.948056,
+    "prompt_tokens_p50": 1469.0,
+    "prompt_tokens_max": 7437,
+    "output_tokens_p50": 13.0
+  },
+  "config": {
+    "max_batch": 64,
+    "kv_tokens": 72817,
+    "step_s": 0.03,
+    "rate_scale": 8.0,
+    "page": 256
+  },
+  "heads": {
+    "n_heads": 32,
+    "n_kv_heads": 8
+  },
+  "machine": "machines/rtx4090.json",
+  "params": "models/rtx4090.json",
+  "cache_state": "cold",
+  "inputs_sha256": {
+    "machines/rtx4090.json": "ca91a6a13f8f46a583957a9c70873a30b459807e4c3c76bcb3aa4bdb7e262edd",
+    "models/rtx4090.json": "327ea55d9cab05e2d04230b3aa36dd62a7e645f914882d734f4e1984e5224e3d"
+  },
+  "steps": 13356,
+  "steps_with_long_request": 9533,
+  "batch_mean_all_steps": 17.750598981731056,
+  "losses": {
+    "steps_sampled": 13356,
+    "batch_mean": 17.750598981731056,
+    "batch_p90": 34.0,
+    "len_max_mean": 5568.13679245283,
+    "no_split_frac": 0.3502545672356993,
+    "loss_median": 1.0657246399990044,
+    "loss_p90": 1.2303675765276811,
+    "loss_max": 1.5922463753716813,
+    "attention_time_ratio": 1.110850712008857,
+    "loss_ge_1.1_frac": 0.37586103623839473,
+    "attention_share_loss_ge_1.1": 0.5125928394845739,
+    "loss_ge_1.25_frac": 0.08003893381251871,
+    "attention_share_loss_ge_1.25": 0.12999767917188373,
+    "loss_ge_1.5_frac": 0.0008984725965858042,
+    "attention_share_loss_ge_1.5": 0.0015584681806158325,
+    "loss_ge_2.0_frac": 0.0,
+    "attention_share_loss_ge_2.0": 0.0,
+    "every": 1,
+    "predictions": 5994,
+    "candidates": [
+      "flashdecoding_paged",
+      "fd_s2_paged",
+      "fd_s4_paged",
+      "fd_s8_paged",
+      "fd_s16_paged"
+    ]
+  },
+  "elapsed_s": 15.383418106008321,
+  "what_if": [],
+  "claim": "GPU-free replay with the fitted surrogate; prefill instantaneous, constant step time"
+}
