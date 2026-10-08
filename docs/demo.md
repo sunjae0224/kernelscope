@@ -1,7 +1,7 @@
 # 5분 발표 시나리오 — Demo 페이지 순서
 
 실행: 프로젝트 루트에서 `./run.sh dashboard` → <http://localhost:8501>. 첫 화면이 **Demo**(고정 순서 다섯 장면), 사이드바의 **Lab**이 기존 다섯 탭(01 Diagnose · 02 Kernel map · 03 What-if · 04 Serving · 05 Policy lab)이다. 발표는 Demo를 위에서 아래로 넘기고, 질문이 나오면 Lab으로 내려간다.
-발표 노트북에서는 연구실 4090 호스트의 Streamlit을 SSH 포트 포워딩으로 띄운다(`ssh -L 8501:127.0.0.1:8501 <host>` 뒤 호스트에서 `./run.sh dashboard`). 그러면 라이브 측정·플러그인 벤치 버튼이 동작하고, 연결이 끊겨도 기록 재생은 그대로 된다. 발표 전 점검 `./run.sh check`, 레이스용 자연어 기록이 없으면 `./run.sh demo-record`(약 2분), 마무리는 Demo 4장면의 verify 버튼 또는 `./run.sh verify`.
+발표 노트북에서는 연구실 4090 호스트의 Streamlit을 SSH 포트 포워딩으로 띄운다(`ssh -L 8501:127.0.0.1:8501 <host>` 뒤 호스트에서 `./run.sh dashboard`). 그러면 라이브 측정·플러그인 벤치 버튼이 동작하고, 연결이 끊겨도 기록 재생은 그대로 된다. 발표 전 점검 `./run.sh check`, 레이스용 자연어 기록이 없으면 `./run.sh demo-record`(약 2분), 마무리는 Demo 4장면의 verify 버튼 또는 `./run.sh verify`. "실제 서비스에서 이런 배치가 얼마나 자주 나오나"라는 질문에는 `./run.sh traffic`(Azure 공개 트레이스 재생, GPU 없이 1분: step의 13.5%가 1.25배 이상 손실)과 `./run.sh defaults`(FlashInfer 기본값도 혼합 길이에서 틀린다는 표)로 답한다 — 근거는 [experiments/2026-10-06-problem-scope.md](experiments/2026-10-06-problem-scope.md).
 
 모든 수치는 화면이 기록에서 계산한다. 라벨 규칙: **실측**(GPU 기록), **재생**(실측 기록을 타임스탬프대로 재생), **계산**(길이·분할 수에서 구한 값), **예측**(성능 모델).
 

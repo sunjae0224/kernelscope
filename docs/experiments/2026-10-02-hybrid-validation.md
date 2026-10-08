@@ -133,7 +133,7 @@ done
   --out ../kernelscope/results/serve_4090/hybrid_new/numerics/ragged
 .venv/bin/python -m scripts.classify_divergence --campaign ../kernelscope/results/serve_4090/hybrid_new
 # clear 사건의 커널 수준 탐침(같은 KV 상태에서 층별 attention 출력 비교; 스크립트는 scripts/probe_split_kernel.py)
-.venv/bin/python -m scripts.probe_split_kernel ../kernelscope/results/serve_4090/hybrid_new
+.venv/bin/python -m scripts.probe_split_kernel --campaign ../kernelscope/results/serve_4090/hybrid_20261002   # 기본값 = control_uniform_fixed8, rid 8, step 40, 분할 8, KV 10 GiB
 ```
 
 원본은 `demo_data/serve_4090/hybrid_20261002/`(실행별 parquet, `numerics/<조건>/teacher_forced_logits.csv`, `divergence.csv`)에 있다.

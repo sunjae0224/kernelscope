@@ -68,6 +68,19 @@
 
 판정: 인계 프롬프트는 리포의 실제 상태와 **절차적으로 정확히 맞물려 있었다**(파일 목록·수치·명령이 모두 일치). 개연성이 약했던 곳은 두 군데다 — (1) 실험 설계가 "혼합 정책이 테이블과 갈리는 조건"을 포함하지 않았고, (2) 분류 도구의 전제(1위 로짓 기록)가 빠져 있었다. 둘 다 실행 전 GPU 없는 점검(재생·정적 확인)으로 잡을 수 있었던 종류이므로, 다음 인계 프롬프트에는 "실행 전 GPU 없는 사전 점검 항목"을 넣는다(TODO §3에 반영).
 
+## 5. 오후 보충(2026-10-06): §1·§2의 미비점에 대한 측정
+
+사용자의 질문 "문제가 너무 좁고 이득도 크지 않은데 의미가 있는가"에 대해 §1 3·4번과 §2를 실제로 재어 답했다. 결과 노트는 [docs/experiments/2026-10-06-problem-scope.md](../experiments/2026-10-06-problem-scope.md), 수치는 `kernelscope verify`의 `traffic.*`·`defaults.*`·`longctx.*`(63항목)가 번들에서 재계산한다.
+
+| 미비점 | 측정 | 결론 |
+|---|---|---|
+| §1 4번 "문제의 실무적 크기가 측정돼 있지 않다" | 공개 트레이스(Azure LLM Inference 2023 conv/code, BurstGPT v2)를 엔진과 같은 규칙의 연속 배치로 재생하고 매 decode step을 성능 모델로 채점(`scripts/traffic_replay.py`, GPU 없이) | Azure conv를 4090 한 장의 부하로 재생하면 step의 13.5%가 손실 ≥1.25배, attention 시간 10.6% 회수 가능; code 14.1%; BurstGPT(프롬프트 중앙값 502) 0.3%. 조건은 **배치 ≥ 26(휴리스틱의 분할 없음 임계) + 긴 프롬프트 비중**. 프롬프트 ×4 + KV 436K(80 GB급)에서는 39.5%·attention 시간 비 1.222 |
+| §1 1번 "대상이 FA2로 너무 좁다", §3 "FlashInfer가 상한" | 같은 격자에서 FlashInfer 두 변형을 포함한 전체 최선 대비 각 정적 기본값의 손실(`static_default_losses`) | FlashInfer의 GQA 기본값(tensor-core)도 혼합 길이 36/162셀에서 1.25배 초과, 최악 2.485배(64K 2.989배); 균일에서는 최악 1.053배. 즉 **두 라이브러리의 정적 기본값이 같은 방향으로 틀린다**. 본 작품의 FA2 분할 선택기는 전체 최선 대비 최악 1.063배 |
+| §2 "격차의 크기를 재지 않았다" | FlashInfer를 엔진 안에 넣어(`kernelscope/serve/attention.py`) 같은 실생성 규약으로 비교(`--policy flashinfer_cudacore`) | 노트 §4(캠페인 결과) |
+| 긴 문맥에서의 추세 | 64K 격자(18셀)와 32K 격자의 같은 조건 셀 비교 | 휴리스틱 손실 중앙값 8K 1.545 → 16K 1.933 → 32K 2.558 → 64K 2.839, 최악 5.183; FlashInfer tensor-core 1.126 → 1.634. 길수록 커진다 |
+
+PLAN §0의 한 줄 정의를 이 결론으로 고쳤다("두 라이브러리의 정적 기본값", "조건부 문제", 시뮬레이터는 설명용). 보고서 1·2장은 이 §0을 그대로 옮기면 된다.
+
 ## 출처
 
 - FlashInfer: Z. Ye et al., "FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving," MLSys 2025 — [arXiv 2501.01005](https://arxiv.org/abs/2501.01005), [MLSys 페이지](https://mlsys.org/virtual/2025/3259), [최우수 논문 소식](https://news.cs.washington.edu/2025/07/01/allen-school-researchers-receive-best-paper-award-for-speeding-up-llm-performance-with-flashinfer)
