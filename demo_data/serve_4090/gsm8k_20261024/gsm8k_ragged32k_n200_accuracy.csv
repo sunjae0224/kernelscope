@@ -1,0 +1,13 @@
+policy,repeat,questions,accuracy_last_number,accuracy_marker,marker_present,no_number
+fixed8,repeat_000,200,0.395,0.78,0.83,0
+fixed8,repeat_001,200,0.395,0.78,0.83,0
+fixed8,repeat_002,200,0.395,0.78,0.83,0
+flashinfer_cudacore,repeat_000,200,0.405,0.78,0.825,0
+flashinfer_cudacore,repeat_001,200,0.405,0.78,0.825,0
+flashinfer_cudacore,repeat_002,200,0.405,0.78,0.825,0
+heuristic,repeat_000,200,0.395,0.78,0.83,0
+heuristic,repeat_001,200,0.395,0.78,0.83,0
+heuristic,repeat_002,200,0.395,0.78,0.83,0
+table,repeat_000,200,0.395,0.78,0.83,0
+table,repeat_001,200,0.395,0.78,0.83,0
+table,repeat_002,200,0.395,0.78,0.83,0

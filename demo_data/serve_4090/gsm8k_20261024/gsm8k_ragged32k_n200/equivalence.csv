@@ -1,0 +1,10 @@
+policy,reference,steps_compared,max_abs_logit_diff,token_agreement,tokens_compared,token_mismatches,missing_tokens,schedule_match,logits_checked,logits_finite,tokens_identical,passed,first_mismatch,repeat
+table,heuristic,0,,0.9832993659420289,52992,885,0,True,False,,False,False,"rid=0, position=99, reference=6008, candidate=20123",0
+fixed8,heuristic,0,,0.9817708333333334,52992,966,0,True,False,,False,False,"rid=0, position=109, reference=16500, candidate=65644",0
+flashinfer_cudacore,heuristic,0,,0.6667987620772947,52992,17657,0,True,False,,False,False,"rid=0, position=119, reference=14198, candidate=3535",0
+table,heuristic,0,,0.9832993659420289,52992,885,0,True,False,,False,False,"rid=0, position=99, reference=6008, candidate=20123",1
+fixed8,heuristic,0,,0.9817708333333334,52992,966,0,True,False,,False,False,"rid=0, position=109, reference=16500, candidate=65644",1
+flashinfer_cudacore,heuristic,0,,0.6667987620772947,52992,17657,0,True,False,,False,False,"rid=0, position=119, reference=14198, candidate=3535",1
+fixed8,heuristic,0,,0.9817708333333334,52992,966,0,True,False,,False,False,"rid=0, position=109, reference=16500, candidate=65644",2
+flashinfer_cudacore,heuristic,0,,0.6667987620772947,52992,17657,0,True,False,,False,False,"rid=0, position=119, reference=14198, candidate=3535",2
+table,heuristic,0,,0.9832993659420289,52992,885,0,True,False,,False,False,"rid=0, position=99, reference=6008, candidate=20123",2
