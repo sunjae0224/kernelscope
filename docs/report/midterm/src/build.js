@@ -5,8 +5,9 @@ const {
   BorderStyle, VerticalAlign, Footer, PageNumber, HeightRule,
 } = require("docx");
 const L = require("./lib");
-const body1 = require("./content1");
-const body2 = require("./content2");
+const SUFFIX = process.env.REPORT_CONTENT || "";   // "" = v4 content, "_v5" = updated content
+const body1 = require(`./content1${SUFFIX}`);
+const body2 = require(`./content2${SUFFIX}`);
 
 const OUT = process.argv[2] || "report.docx";
 const TITLE = "GPU 프로파일링·시뮬레이션 기반 LLM 추론 attention 커널 동적 선택 시스템";
@@ -55,7 +56,7 @@ const cover = [
 
 // ---- second page: date and signature, guidance box removed ----
 const signature = [
-  t("2026 년   9 월   27 일", { size: 26, before: 2400, after: 1400 }),
+  t(process.env.REPORT_DATE || "2026 년   9 월   27 일", { size: 26, before: 2400, after: 1400 }),
   new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [
     ...L.runs("지도교수 : 민 동 문     ", { size: 26 }),
     new TextRun({ text: "서명                        ", size: 26, underline: {}, font: L.runFont }),

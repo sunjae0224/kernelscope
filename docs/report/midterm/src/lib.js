@@ -34,9 +34,9 @@ function p(text, opts = {}) {
   });
 }
 
-function h1(text) {
+function h1(text, o = {}) {
   return new Paragraph({ heading: HeadingLevel.HEADING_1, children: runs(text, { size: 28, bold: true }),
-    spacing: { before: 360, after: 160 }, keepNext: true });
+    spacing: { before: 360, after: 160 }, keepNext: true, pageBreakBefore: o.pageBreakBefore });
 }
 function h2(text) {
   return new Paragraph({ heading: HeadingLevel.HEADING_2, children: runs(text, { size: 23, bold: true }),

@@ -40,3 +40,4 @@ hf_cache/
 .idea/
 *.swp
 .gstack/
+docs/report/midterm/src/node_modules/
