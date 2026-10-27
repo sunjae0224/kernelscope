@@ -1,5 +1,18 @@
 # Status log
 
+## 2026-10-24~25 야간 — 최종 보고 근거 보강: 고정 분할 기준선, 부하 스윕, trace replay 실측 검증, 트레이스 e2e, vLLM step 분해, 64K 자연어, GSM8K (branch `design-1-3`, 미커밋)
+
+사용자가 잠든 동안 sonnet 작업자 6단계(P1a·P1b·P2a·P2e·P3·P3b)와 수리 2회, GPU 대기열 6항목(23:46~01:30, 다른 사용자 프로세스 간섭은 04 시도 1에만 있어 결론에서 제외)이 돌았고 P4(fable)가 수치를 독립 재계산해 검토했다. 노트 [2026-10-24-final-evidence.md](experiments/2026-10-24-final-evidence.md), 아침 보고서 [handoff/2026-10-25-overnight-report.md](handoff/2026-10-25-overnight-report.md). `make verify` 944/944 PASS(10월 8일 531 → +413), `make test` 718 passed.
+
+- **고정 분할 수 기준선(§1)**: 격자에서 단일 분할 8이 최선 FA2 분할 대비 211셀 중앙값 1.010·최악 1.127(휴리스틱 최악 3.981), warm 균일에서는 최악 1.712. 엔진 4시나리오 실생성: 고정 8·16의 TPOT 배율이 table의 ±1% 안(혼합 1.811/1.804 대 1.813; 고정 8 혼합 반복 1은 원인 불명 이상치 45.2 ms로 포함·제외 모두 기재), 균일에서 고정 8·16만 6곳 분기(table 0곳). 동적 선택의 실측 이점은 출력 보존이다.
+- **부하 스윕(§2, 모델 예측)**: conv regret≥1.25 비율은 평균 배치 26 문턱과 CTA 희석의 곱으로 봉우리(×1 13.5%가 꼭대기, 과부하 4%대), BurstGPT 0.3% 이하. 고정 8은 conv에서 격차의 71% 회수, BurstGPT에서 −5.7%.
+- **trace replay 채점의 실측 검증(§6)**: conv ×1 표본 100셀에서 step 비율 실측 8.9%(6.3–10.9%) 대 예측 13.5%(문턱 바로 아래 셀의 과대 예측), attention 시간 비 실측 1.144 > 예측 1.119, 순위 상관 0.959. 재시도 1회(parquet 파일명 255바이트 초과 → `store.py` 태그 120자 제한, 대기열 수리 예외).
+- **트레이스 구동 e2e(§7)**: Azure conv 요청 550..849(1,897 step, 평균 배치 26.9) — table 1.035배·+2.8% 처리량, attention 비 1.178(예측 1.187); model·hybrid는 캐시가 빈 첫 반복에서 결정 비용 6.5 ms/step로 0.86배. 분기 10곳 중 9곳 미분류(교사 강제 400 호출만).
+- **vLLM step 분해(§8)**: 혼합−균일 step 차이의 97.6%가 attention GPU 시간(FA2 67.7 ms/step, FlashInfer tensor-core 24.0 ms); 10월 6일 "백엔드 무관 0.997배"는 FLASHINFER 실행이 실제로 FLASH_ATTN이었으므로 근거 없음(철회는 사용자 결정). vLLM FA2 래퍼는 `num_splits` 0/1만.
+- **64K 자연어(§9)**: table 2.449배, 분기 0곳. **GSM8K(§10)**: 네 정책 정확도 0.780 동일, table·고정 8 토큰 동일, flashinfer_cudacore 답 변경 8문항(3/3, 순변화 0).
+- **관련 연구 초안·발표 배경 파트**: `docs/report/final/related_work_additions.md`(인용 19건, P4가 5건 arXiv 재확인), `docs/presentation/background/{story.md, fig_b1·b2·b3·b5}`. FlashInfer "GQA ≥ 4 tensor-core 권장"은 SGLang 규칙(vLLM은 항상 True) → 보고서·PLAN §0 문구 수정 제안.
+- 미실행: Mooncake(§3), 임계 표(§4), δ 민감도(§5) — 작업자 사용량 한도.
+
 ## 2026-10-08 — FlashInfer-in-engine campaign re-measured, kernel probes (64K and FlashInfer), library-agnostic table policy (branch `design-1-3`)
 
 - **FlashInfer inside the engine, re-measured** (TODO §1 item 1; the 2026-10-07 queue had deleted its result folders): `serve_4090/flashinfer_20261006/{ragged,uniform,arrivals}`, Qwen3-4B, `--policy-cache keep`, 3 repeats, KV 10 GiB, with the GPU test of the adapter (fixed 10-08) passing 10/10 before the runs and only the resident rerun viewer on the GPU. Ragged: heuristic 60.99 ms → table 33.70 (1.810×), `flashinfer_cudacore` 33.28 (**1.833×**; attention 8.69 vs 9.23 ms/step, plan() 370.8 µs/step), `flashinfer` tensor-core 48.51 (**1.257×**); uniform all four within ±1 % (plan() 291–338 µs/step outweighs the slightly faster kernels); arrivals cudacore 1.181× ≈ table 1.173×, tensor-core 1.092×. The 10-07 log summary matched. Outputs: FlashInfer policies are not token-identical to the FA2 heuristic (39–223 differing tokens); teacher-forced diagnostics for uniform/arrivals were added (16:28–16:33) so every event is classified — mostly tie_1ulp, 2 tie_2ulp (uniform cudacore) and a single clear position (rid 8, position 41, 70 ulp) in ragged and uniform for both backends, the same event as the 10-02 control (same prompt hash). Note [§4](experiments/2026-10-06-problem-scope.md), verify `fiengine.*` (148 checks).
