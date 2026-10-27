@@ -3,7 +3,7 @@ import json
 import pandas as pd
 import pytest
 
-from kernelscope.analysis.traffic import (ReplayConfig, heuristic_splits, load_trace, replay, step_losses,
+from kernelscope.analysis.traffic import (ReplayConfig, heuristic_splits, load_stats, load_trace, replay, step_losses,
                                           summarize_losses)
 
 
@@ -149,3 +149,32 @@ def test_page_reservation_matches_the_engine_which_never_writes_the_last_token()
     # prompt 200 + 57 tokens: the engine reserves ceil((200 + 57 - 1) / 256) = 1 page, so one page is enough.
     steps = replay(_trace([(0.0, 200, 57)]), ReplayConfig(step_s=0.03, kv_tokens=256))
     assert steps.attrs["too_large"] == 0 and len(steps) == 56
+
+
+def test_replay_records_queue_waits_and_load_stats():
+    # three requests at t=0 but only two fit in the batch: the third waits two decode steps (0.06 s)
+    trace = _trace([(0.0, 10, 3), (0.0, 10, 3), (0.0, 10, 3)])
+    cfg = ReplayConfig(step_s=0.03, kv_tokens=4096, max_batch=2)
+    steps = replay(trace, cfg)
+    assert steps.attrs["wait_s"] == pytest.approx([0.0, 0.0, 0.06])
+    stats = load_stats(steps, cfg)
+    assert stats["active_frac"] == pytest.approx(1.0) and stats["wait_max_s"] == pytest.approx(0.06)
+    assert stats["wait_gt_1s_frac"] == 0.0
+
+
+def test_fixed_split_columns_and_summary_leave_the_existing_losses_untouched():
+    from kernelscope.analysis.traffic import summarize_fixed
+    from kernelscope.model.machine import MachineSpec
+    from kernelscope.model.params import ModelParams
+    machine, params = MachineSpec.from_json("machines/rtx4090.json"), ModelParams.from_json("models/rtx4090.json")
+    steps = pd.DataFrame([{"step": 0, "t_s": 0.0, "B": 4, "len_max": 9000, "len_mean": 3000, "len_sum": 12000, "n_long": 1,
+                           "lens": json.dumps([9000, 1000, 1000, 1000])}])
+    base = step_losses(steps, machine, params)
+    fixed = step_losses(steps, machine, params, fixed=(8, 16))
+    assert fixed.loss.tolist() == base.loss.tolist() and fixed.best_us.tolist() == base.best_us.tolist()
+    assert {"fixed8_us", "fixed16_us"} <= set(fixed.columns) and "fixed8_us" not in base.columns
+    assert fixed.fixed8_us.iloc[0] >= fixed.best_us.iloc[0]                  # S=8 is a candidate, so never better than best
+    s = summarize_fixed(fixed, (8, 16))
+    assert s["s8.ratio_best"] == pytest.approx(fixed.fixed8_us.iloc[0] / fixed.best_us.iloc[0])
+    assert s["s8.ratio_heuristic"] == pytest.approx(fixed.fixed8_us.iloc[0] / fixed.heuristic_us.iloc[0])
+    assert "s8.ratio_best_b_lt_26" in s and "s8.ratio_best_b_ge_26" not in s    # B=4 only

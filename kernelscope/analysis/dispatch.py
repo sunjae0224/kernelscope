@@ -112,3 +112,70 @@ def static_default_summary(table: pd.DataFrame) -> pd.DataFrame:
                          "over_1.1": int((loss > 1.1).sum()), "over_1.25": int((loss > 1.25).sum()),
                          "over_2": int((loss > 2.0).sum())})
     return pd.DataFrame(rows, columns=SUMMARY_COLUMNS)
+
+
+# One fixed KV split count for every cell (s = 1 is ``fa2_paged``, s >= 2 is ``fd_s{s}_paged``): what a single
+# constant would lose against the per-cell best, i.e. the baseline a dynamic dispatcher has to beat.
+FIXED_SPLITS = (1, 2, 4, 8, 16, 32, 64, 128)
+FIXED_COLUMNS = (["workload_key", "B", "L_kv", "H_q", "H_kv", "ragged", "lens", "best_us", "fa2_best_us",
+                  "fa2_heuristic_us"] + [f"s{s}_us" for s in FIXED_SPLITS] + ["complete"])
+FIXED_SUMMARY_COLUMNS = ["policy", "n", "loss_median", "loss_p90", "loss_max", "over_1.1", "over_1.25", "over_2"]
+
+
+def _split_kernel(s: int) -> str:
+    return "fa2_paged" if s == 1 else f"fd_s{s}_paged"
+
+
+def fixed_split_table(df: pd.DataFrame, cache_state: str = "cold") -> pd.DataFrame:
+    """Per paged cell: the time of every fixed split count in ``FIXED_SPLITS``, of the FA2 heuristic, of the best FA2
+    variant (``fa2_best``) and of the best of every measured variant (FlashInfer included when ``df`` has it).
+    ``complete`` says the cell measured the heuristic and all fixed splits; a missing one keeps NaN."""
+    fam = FAMILIES["paged"]
+    states = df["cache_state"].fillna("warm") if "cache_state" in df.columns else pd.Series("warm", index=df.index)
+    sel = df[(df.backend == "profile") & (df.metric == "kernel_time_us") & (states == cache_state)
+             & (df.kernel.str.match(fam["members"]) | df.kernel.isin(FLASHINFER))]
+    if sel.empty:
+        return pd.DataFrame(columns=FIXED_COLUMNS)
+    t = sel.groupby(["workload_key", "kernel"])["value"].median().unstack("kernel")
+    rows = []
+    for key, r in t.iterrows():
+        r = r.dropna()
+        fa2 = r[[k for k in r.index if k not in FLASHINFER]]
+        if fa2.empty:
+            continue
+        w = Workload.from_key(key)
+        row = {"workload_key": key, "B": w.B, "L_kv": w.L_kv, "H_q": w.H_q, "H_kv": w.H_kv, "ragged": w.is_ragged,
+               "lens": format_lens(w.lens()), "best_us": float(r.min()), "fa2_best_us": float(fa2.min()),
+               "fa2_heuristic_us": float(r.get(fam["heuristic"], math.nan))}
+        for s in FIXED_SPLITS:
+            row[f"s{s}_us"] = float(r.get(_split_kernel(s), math.nan))
+        row["complete"] = all(math.isfinite(row[c]) for c in ["fa2_heuristic_us"] + [f"s{s}_us" for s in FIXED_SPLITS])
+        rows.append(row)
+    return pd.DataFrame(rows, columns=FIXED_COLUMNS).sort_values("workload_key", ignore_index=True)
+
+
+def fixed_split_summary(table: pd.DataFrame, against: str = "fa2_best") -> pd.DataFrame:
+    """Regret (time / reference time) quantiles of each fixed split, the FA2 heuristic and ``fa2_best`` over the complete
+    cells of ``table``. ``against`` is ``fa2_best`` (best FA2 split count) or ``best`` (best of every variant)."""
+    ref = table[f"{against}_us"]
+    scored = table[table.complete.astype(bool)] if "complete" in table else table
+    rows = []
+    policies = [(f"fixed:{s}", f"s{s}_us") for s in FIXED_SPLITS] + [("fa2_heuristic", "fa2_heuristic_us"),
+                                                                       ("fa2_best", "fa2_best_us")]
+    for name, col in policies:
+        loss = (scored[col] / ref.loc[scored.index]).dropna()
+        rows.append({"policy": name, "n": len(loss),
+                     "loss_median": float(loss.median()) if len(loss) else math.nan,
+                     "loss_p90": float(loss.quantile(.9)) if len(loss) else math.nan,
+                     "loss_max": float(loss.max()) if len(loss) else math.nan,
+                     "over_1.1": int((loss > 1.1).sum()), "over_1.25": int((loss > 1.25).sum()),
+                     "over_2": int((loss > 2.0).sum())})
+    return pd.DataFrame(rows, columns=FIXED_SUMMARY_COLUMNS)
+
+
+def best_fixed_split(table: pd.DataFrame, against: str = "fa2_best", criterion: str = "loss_max") -> int:
+    """The single split count in ``FIXED_SPLITS`` with the smallest ``criterion`` (``loss_max`` or ``loss_p90``;
+    ties go to the other of the two, then to the smaller count) over the complete cells of ``table``."""
+    s = fixed_split_summary(table, against).set_index("policy")
+    other = "loss_p90" if criterion == "loss_max" else "loss_max"
+    return min(FIXED_SPLITS, key=lambda n: (s.loc[f"fixed:{n}", criterion], s.loc[f"fixed:{n}", other], n))

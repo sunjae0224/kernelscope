@@ -100,14 +100,16 @@ def replay(trace: pd.DataFrame, cfg: ReplayConfig) -> pd.DataFrame:
         pending.append((float(row.arrival_s) / cfg.rate_scale, int(row.prompt_tokens), int(row.output_tokens), pages))
     pending.reverse()                                   # pop() from the end is the earliest arrival
     active, reserved, rows, t, step = [], 0, [], 0.0, 0
+    waits = []                                                  # admission time minus (scaled) arrival, per decoding request
     while pending or active:
         if not active and pending and pending[-1][0] > t:
             t = pending[-1][0]
         while pending and pending[-1][0] <= t and len(active) < cfg.max_batch and reserved + pending[-1][3] <= capacity:
-            _, prompt, output, pages = pending.pop()
+            arrived, prompt, output, pages = pending.pop()
             if output < 2:                                        # prefill only: its pages come and go within the step
                 continue
             reserved += pages
+            waits.append(t - arrived)
             active.append([prompt + 1, output - 1, pages])        # [live KV length at the next step, decode steps left, pages]
         if active:
             lens = [a[0] for a in active]
@@ -122,8 +124,24 @@ def replay(trace: pd.DataFrame, cfg: ReplayConfig) -> pd.DataFrame:
             step += 1
             t += cfg.step_s
     frame = pd.DataFrame(rows, columns=STEP_COLUMNS)
-    frame.attrs.update({"requests": len(trace) - too_large, "too_large": too_large, "config": cfg.__dict__.copy()})
+    frame.attrs.update({"requests": len(trace) - too_large, "too_large": too_large, "config": cfg.__dict__.copy(),
+                        "wait_s": waits})
     return frame
+
+
+def load_stats(steps: pd.DataFrame, cfg: ReplayConfig) -> dict:
+    """Load beyond the mean batch: Fraction of the replayed span with at least one request decoding (decode steps x step time over the span; not compute utilization, because the step time is a constant) and the
+    queueing delay between a request's arrival and its admission (it waits for a batch slot or KV pages)."""
+    if len(steps) == 0:
+        return {}
+    span = float(steps.t_s.iloc[-1]) + cfg.step_s - float(steps.t_s.iloc[0])
+    waits = np.asarray(steps.attrs.get("wait_s", []), dtype=float)
+    out = {"active_frac": len(steps) * cfg.step_s / span, "span_s": span}
+    if len(waits):
+        out.update({"wait_mean_s": float(waits.mean()), "wait_p50_s": float(np.quantile(waits, .5)),
+                    "wait_p99_s": float(np.quantile(waits, .99)), "wait_max_s": float(waits.max()),
+                    "wait_gt_1s_frac": float((waits > 1.0).mean())})
+    return out
 
 
 def heuristic_splits(lens, n_heads: int, n_kv_heads: int, n_sm: int) -> int:
@@ -137,14 +155,17 @@ def _workload(lens, n_heads, n_kv_heads):
 
 
 def step_losses(steps: pd.DataFrame, machine, params, cache_state="cold", n_heads=32, n_kv_heads=8,
-                candidates=CANDIDATES, every=1, page=256) -> pd.DataFrame:
+                candidates=CANDIDATES, every=1, page=256, fixed=()) -> pd.DataFrame:
     """Predicted heuristic time against the best candidate for every ``every``-th step.
 
     Predictions are cached per page-quantized length configuration (the policy cache's key), so
     consecutive steps of the same batch cost one prediction; ``attrs["predictions"]`` counts them.
+    ``fixed`` lists split counts whose predicted time is also recorded (column ``fixed<S>_us``) as a static
+    "always S splits" policy; they are scored as extra candidates but never change ``best_variant``.
     """
     if every < 1:
         raise ValueError("every must be a positive integer")
+    fixed_names = {int(f): f"fd_s{int(f)}_paged" for f in fixed}
     cache, rows = {}, []
     for row in steps.iloc[::every].itertuples(index=False):
         lens = json.loads(row.lens)
@@ -153,15 +174,19 @@ def step_losses(steps: pd.DataFrame, machine, params, cache_state="cold", n_head
         if not hit:
             w = _workload(lens, n_heads, n_kv_heads)
             times = {c: float(predict(c, w, machine, params, cache_state).time_us) for c in candidates}
-            if any(not math.isfinite(t) or t <= 0 for t in times.values()):
+            extra = {n: float(predict(n, w, machine, params, cache_state).time_us)
+                     for n in fixed_names.values() if n not in times}
+            if any(not math.isfinite(t) or t <= 0 for t in (*times.values(), *extra.values())):
                 raise ValueError(f"surrogate produced a nonpositive or nonfinite prediction for {row.lens}")
             best = min(times, key=times.get)
-            cache[key] = (resolve_splits(parse_variant(HEURISTIC), w, machine.n_sm), times[HEURISTIC], best, times[best])
-        splits, h_us, best, best_us = cache[key]
+            cache[key] = (resolve_splits(parse_variant(HEURISTIC), w, machine.n_sm), times[HEURISTIC], best, times[best],
+                          {**times, **extra})
+        splits, h_us, best, best_us, all_times = cache[key]
         rows.append({"step": int(row.step), "t_s": float(row.t_s), "B": len(lens), "len_max": max(lens),
                      "heuristic_splits": splits, "heuristic_us": h_us, "best_variant": best, "best_us": best_us,
-                     "loss": h_us / best_us, "cache_hit": hit})
-    frame = pd.DataFrame(rows, columns=LOSS_COLUMNS)
+                     "loss": h_us / best_us, "cache_hit": hit,
+                     **{f"fixed{k}_us": all_times[n] for k, n in fixed_names.items()}})
+    frame = pd.DataFrame(rows, columns=LOSS_COLUMNS + [f"fixed{k}_us" for k in fixed_names])
     frame.attrs.update({"predictions": len(cache), "every": every, "candidates": list(candidates), "cache_state": cache_state})
     return frame
 
@@ -180,6 +205,37 @@ def summarize_losses(losses: pd.DataFrame, thresholds=(1.1, 1.25, 1.5, 2.0)) -> 
         over = losses.loss >= th
         out[f"loss_ge_{th}_frac"] = float(over.mean())
         out[f"attention_share_loss_ge_{th}"] = float(losses.heuristic_us[over].sum() / total_h)
+    return out
+
+
+def summarize_fixed(losses: pd.DataFrame, fixed, split_b=26, thresholds=(1.25,)) -> dict:
+    """Score "always S splits" policies against the per-step best (and the heuristic) over the whole replay.
+
+    ``<S>.ratio_best`` is attention time (fixed S) / (best candidate); ``<S>.ratio_heuristic`` is the same over the
+    heuristic's time (< 1 means fixed S wins). The ``_b_lt_<split_b>`` / ``_b_ge_`` variants restrict to steps below /
+    at or above the batch size where the heuristic stops splitting. ``<S>.regret_ge_<th>_frac`` counts steps where
+    fixed S is that much slower than the best candidate.
+    """
+    out = {}
+    if len(losses) == 0:
+        return out
+    low = losses.B < split_b
+    for s in fixed:
+        col = losses[f"fixed{int(s)}_us"]
+        key = f"s{int(s)}"
+        out[f"{key}.ratio_best"] = float(col.sum() / losses.best_us.sum())
+        out[f"{key}.ratio_heuristic"] = float(col.sum() / losses.heuristic_us.sum())
+        out[f"{key}.regret_max"] = float((col / losses.best_us).max())
+        for th in thresholds:
+            out[f"{key}.regret_ge_{th}_frac"] = float(((col / losses.best_us) >= th).mean())
+        for tag, mask in (("b_lt", low), ("b_ge", ~low)):
+            if mask.any():
+                out[f"{key}.ratio_best_{tag}_{split_b}"] = float(col[mask].sum() / losses.best_us[mask].sum())
+                out[f"{key}.ratio_heuristic_{tag}_{split_b}"] = float(col[mask].sum() / losses.heuristic_us[mask].sum())
+    for tag, mask in (("b_lt", low), ("b_ge", ~low)):
+        if mask.any():
+            out[f"heuristic.ratio_best_{tag}_{split_b}"] = float(losses.heuristic_us[mask].sum() / losses.best_us[mask].sum())
+            out[f"steps_frac_{tag}_{split_b}"] = float(mask.mean())
     return out
 
 

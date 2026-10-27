@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
+MAX_TAG_CHARS = 120
 SCHEMA = ["workload_key", "kernel", "backend", "metric", "unit", "value", "launch_idx"]
 
 
@@ -19,7 +20,7 @@ class ResultStore:
         frame = pd.DataFrame(rows)
         for key, value in (extra or {}).items():
             frame[key] = value
-        name = re.sub(r"[^A-Za-z0-9_.-]", "_", tag)
+        name = re.sub(r"[^A-Za-z0-9_.-]", "_", tag)[:MAX_TAG_CHARS]  # long kv_lens keys exceed the 255-byte file name limit
         path = self.root / f"{name}-{uuid.uuid4().hex}.parquet"
         temporary = path.with_suffix(".tmp")
         try:

@@ -470,6 +470,44 @@ def _defaults_summary(grid, cells, default, column):
     return f
 
 
+# ---- one fixed split count for every cell (demo_data/hw_4090 paged grids, 2026-10-24) -----------------------------
+
+FIXEDSPLIT = "docs/experiments/2026-10-24-final-evidence.md"
+FIXED_GROUPS = {   # group -> (grids, cache state); the FlashInfer grids are included wherever the bundle has them
+    "32k_ragged": (GRIDS["32k"][:3], "cold"), "32k_uniform": (GRIDS["32k"][3:], "cold"),
+    "32k_uniform_warm": (GRIDS["32k"][3:4], "warm"), "64k_ragged": (GRIDS["64k"][:3], "cold"),
+    "64k_uniform": (GRIDS["64k"][3:], "cold"), "s2_ragged": (("ragged_s2_paged",), "cold"),
+    "s2_uniform": (("uniform_s2_paged",), "cold")}
+
+
+@lru_cache(maxsize=None)
+def _fixed_table(data: Path, group: str) -> pd.DataFrame:
+    """Per cell of one grid group: every fixed split's time, the FA2 heuristic and the two bests (analysis.dispatch).
+    ``32k_union`` is the 32K ragged and uniform cold grids together."""
+    from kernelscope.analysis.dispatch import fixed_split_table
+    if group == "32k_union":
+        return pd.concat([_fixed_table(data, "32k_ragged"), _fixed_table(data, "32k_uniform")], ignore_index=True)
+    grids, state = FIXED_GROUPS[group]
+    dirs = [data / "hw_4090" / g for g in grids]
+    missing = [d for d in dirs if not (d / "summaries.jsonl").exists()]
+    if missing:
+        raise FileNotFoundError(missing[0] / "summaries.jsonl")
+    return fixed_split_table(load_dirs(dirs), state)
+
+
+def _fixed(group, policy, column, against="fa2_best"):
+    def f(repo, data):
+        from kernelscope.analysis.dispatch import fixed_split_summary
+        s = fixed_split_summary(_fixed_table(data, group), against).set_index("policy")
+        return float(s.loc[policy, column])
+    return f
+
+
+def _fixed_s_star(repo, data):
+    from kernelscope.analysis.dispatch import best_fixed_split
+    return float(best_fixed_split(_fixed_table(data, "32k_union")))
+
+
 def _matched_long_cells(data: Path) -> pd.DataFrame:
     """Ragged cells both grids share: B in {26, 32, 64}, one or two long requests, short 512/1024/2048."""
     import re
@@ -504,6 +542,64 @@ def _traffic(run, *path):
         for key in path:
             summary = summary[key]
         return float(summary)
+    return f
+
+
+# ---- load sweep (demo_data/traffic_sweep/<run>/summary.json; scripts/traffic_replay.py --fixed-splits, 2026-10-24) -----
+
+SWEEP = "docs/experiments/2026-10-24-final-evidence.md"
+
+
+def _sweep_summary(data, run):
+    return json.loads((data / "traffic_sweep" / run / "summary.json").read_text())
+
+
+def _sweep(run, *path):
+    def f(repo, data):
+        summary = _sweep_summary(data, run)
+        for key in path:
+            summary = summary[key]
+        return float(summary)
+    return f
+
+
+def _sweep_runs(data, prefix):
+    return sorted(p.parent.name for p in (data / "traffic_sweep").glob(f"{prefix}*/summary.json"))
+
+
+def _sweep_extreme(prefix, fn, *path):
+    def f(repo, data):
+        values = []
+        for run in _sweep_runs(data, prefix):
+            v = _sweep_summary(data, run)
+            for key in path:
+                v = v[key]
+            values.append(float(v))
+        return float(fn(values))
+    return f
+
+
+def _sweep_cond(run, column):
+    def f(repo, data):
+        table = pd.read_csv(data / "traffic_sweep" / "sweep_table.csv").set_index("run")
+        return float(table.loc[run, column])
+    return f
+
+
+def _sweep_bin(b_lo, key):
+    def f(repo, data):
+        bins = json.loads((data / "traffic_sweep" / "batch_bins.json").read_text())["bins"]
+        return float(next(b for b in bins if b["b_lo"] == b_lo)[key])
+    return f
+
+
+def _sweep_repro(run):
+    """Largest absolute difference between the sweep's re-run and the 2026-10-06 bundle over every shared losses field."""
+    def f(repo, data):
+        old = json.loads((data / "traffic" / run / "summary.json").read_text())
+        new = _sweep_summary(data, run)
+        shared = [k for k, v in old["losses"].items() if isinstance(v, float) and k in new["losses"]]
+        return float(max(abs(old["losses"][k] - new["losses"][k]) for k in shared) + abs(old["steps"] - new["steps"]))
     return f
 
 
@@ -1479,8 +1575,367 @@ HYB = "docs/experiments/2026-09-26-hybrid-policy.md"
 SIM = "docs/experiments/2026-09-26-gpgpusim-splitkv.md"
 VAL = "docs/plan/2026-09-22-model-validation.md"
 
+# ---- trace-driven scenario, vLLM backend selection, long-context and GSM8K scenarios (2026-10-24, P1b) ----------
+
+TRACE_E2E = "docs/experiments/2026-10-24-final-evidence.md"
+TRACE_SCENARIO = "scenarios/trace_azure_conv_i550_n300.yaml"
+LONGTEXT_SCENARIO = "scenarios/demo_text_ragged_64k.yaml"
+GSM8K_SCENARIO = "scenarios/gsm8k_ragged32k_n200.yaml"
+TRACE_STEP_S = 0.03
+
+
+@lru_cache(maxsize=None)
+def _trace_e2e_replay(repo: Path):
+    """The scenario replayed on the engine's logical-step grid (arrival_step x 30 ms) and scored by the surrogate."""
+    from kernelscope.analysis.traffic import ReplayConfig, replay, step_losses
+    from kernelscope.model.machine import MachineSpec
+    from kernelscope.model.params import ModelParams
+    from kernelscope.serve.scenarios import load
+    requests = load(repo / TRACE_SCENARIO)
+    trace = pd.DataFrame({"arrival_s": [r.arrival_step * TRACE_STEP_S for r in requests],
+                          "prompt_tokens": [r.prompt_len for r in requests], "output_tokens": [r.max_new_tokens for r in requests]})
+    steps = replay(trace, ReplayConfig(max_batch=64, kv_tokens=72_817, step_s=TRACE_STEP_S))
+    losses = step_losses(steps, MachineSpec.from_json(repo / "machines/rtx4090.json"), ModelParams.from_json(repo / "models/rtx4090.json"))
+    return steps, losses, requests
+
+
+def _trace_e2e(what):
+    def f(repo, data):
+        from kernelscope.analysis.traffic import summarize_losses
+        steps, losses, requests = _trace_e2e_replay(Path(repo))
+        if what == "requests":
+            return float(len(requests))
+        if what == "steps":
+            return float(len(steps))
+        if what == "batch_mean":
+            return float(steps.B.mean())
+        if what == "criterion_steps":
+            return float(((losses.loss >= 1.25) & (losses.B >= 26)).sum())
+        if what == "prompt_max":
+            return float(max(r.prompt_len for r in requests))
+        if what == "prompts_ge_4096":
+            return float(sum(r.prompt_len >= 4096 for r in requests))
+        if what == "bundle_matches_recompute":      # the bundled prediction is what the scenario replays to now
+            predicted = json.loads((data / "trace_e2e" / "predicted.json").read_text())
+            s = summarize_losses(losses)
+            same = (predicted["steps"] == len(steps) and abs(predicted["losses"]["attention_time_ratio"] - s["attention_time_ratio"]) < 1e-9)
+            return float(same)
+        return float(summarize_losses(losses)[what])
+    return f
+
+
+def _trace_selection(what):
+    def f(repo, data):
+        sel = json.loads((data / "trace_e2e" / "selection.json").read_text())
+        scored = [c for c in sel["candidates"] if c.get("criterion_steps") is not None]
+        return float({"windows": len(sel["candidates"]), "windows_reaching_batch": len(scored),
+                      "chosen_start": sel["chosen"]["start"], "chosen_criterion": sel["chosen"]["criterion_steps"],
+                      "relaxed": sel["criteria"]["relaxed_no_window_reached_min_batch"]}[what])
+    return f
+
+
+def _trace_predicted(*path):
+    def f(repo, data):
+        value = json.loads((data / "trace_e2e" / "predicted.json").read_text())
+        for key in path:
+            value = value[key]
+        return float(value)
+    return f
+
+
+def _vllm_backend(what):
+    def f(repo, data):
+        d = json.loads((data / "vllm_4090" / "backend_selection.json").read_text())
+        return float({"starts": d["engine_starts_reporting_backend"], "flash_attn": d["using"].get("FLASH_ATTN", 0),
+                      "flashinfer": d["using"].get("FLASHINFER", 0), "warnings": d["unknown_env_var_warnings"],
+                      "requested_flashinfer": d["child_runs_requesting_flashinfer"]}[what])
+    return f
+
+
+def _scenario_stat(path, what):
+    def f(repo, data):
+        from kernelscope.serve.scenarios import load_scenario
+        requests, _ = load_scenario(Path(repo) / path)
+        text = [r for r in requests if r.prompt_text is not None]
+        longs = [r for r in requests if r.prompt_recipe == "corpus_repeat"]
+        shorts = [r for r in longs if r.prompt_len < 4096]
+        if what == "questions":
+            return float(len(text))
+        if what == "groups":
+            return float(len({r.arrival_step for r in requests}))
+        if what == "first_group_questions":
+            return float(sum(r.arrival_step == 0 for r in text))
+        if what == "max_new":
+            return float(max(r.max_new_tokens for r in requests))
+        if what == "spacing":
+            return float(sorted({r.arrival_step for r in requests})[1])
+        if what == "long_len":
+            return float(max(r.prompt_len for r in longs))
+        if what == "short_count":
+            return float(len(shorts))
+        if what == "short_len":
+            return float(shorts[0].prompt_len)
+        raise KeyError(what)
+    return f
+
+
+# ---- GPU queue results of 2026-10-24/25 (P3): fixed split in the engine, trace-replay scoring, trace-driven end to end,
+# ---- vLLM step decomposition, 64K natural text, GSM8K ------------------------------------------------------------
+
+FIXED_RUN = "fixedsplit_20261024"
+TRACE_RUN = "trace_e2e_20261024"
+TRACE_NAME = "trace_azure_conv_i550_n300"
+LONGTEXT_RUN = "longctx_text_20261024"
+GSM8K_RUN = "gsm8k_20261024"
+VALIDATION_DIR = "hw_4090/trace_validation_20261024"
+VLLM_PROFILE = "vllm_4090/profile_20261024"
+
+
+@lru_cache(maxsize=None)
+def _p3_summary(data: Path, run: str, scenario: str) -> pd.DataFrame:
+    from kernelscope.serve.report import summarize
+    return summarize(data / "serve_4090" / run / scenario).set_index("policy")
+
+
+def _p3_serve(run, scenario, policy, column):
+    return lambda repo, data: float(_p3_summary(data, run, scenario).loc[policy, column])
+
+
+@lru_cache(maxsize=None)
+def _p3_repeats(data: Path, run: str, scenario: str) -> pd.DataFrame:
+    """Per policy and repeat: TPOT mean, policy cost and cache-hit rate, attention per step (from the recorded parquet files)."""
+    from kernelscope.serve.report import iter_runs, tpot_us
+    rows = []
+    for policy, repeat, directory, _ in iter_runs(data / "serve_4090" / run / scenario):
+        steps, tokens = pd.read_parquet(directory / "steps.parquet"), pd.read_parquet(directory / "tokens.parquet")
+        rows.append(dict(policy=policy, repeat=repeat, tpot_ms=float(tpot_us(tokens).mean()) / 1000, attn_ms=float(steps.attn_us.mean()) / 1000,
+                         step_ms=float(steps.step_us.mean()) / 1000,
+                         policy_us=float(steps.policy_us.mean()),
+                         hit=float(steps.policy_cache_hit.mean()) if "policy_cache_hit" in steps else math.nan))
+    return pd.DataFrame(rows).set_index(["policy", "repeat"])
+
+
+def _p3_repeat(run, scenario, policy, repeat, column):
+    return lambda repo, data: float(_p3_repeats(data, run, scenario).loc[(policy, repeat), column])
+
+
+def _p3_steady_tpot(run, scenario, policy):
+    """Mean TPOT over the repeats after the first (decision cache filled by the first repeat)."""
+    def f(repo, data):
+        t = _p3_repeats(data, run, scenario).loc[policy]
+        return float(t.tpot_ms.iloc[1:].mean())
+    return f
+
+
+def _p3_steady_speedup(run, scenario, policy):
+    def f(repo, data):
+        t = _p3_repeats(data, run, scenario)
+        return float(t.loc["heuristic"].tpot_ms.iloc[1:].mean() / t.loc[policy].tpot_ms.iloc[1:].mean())
+    return f
+
+
+@lru_cache(maxsize=None)
+def _p3_events(data: Path, run: str) -> pd.DataFrame:
+    from kernelscope.serve.divergence import campaign_events, summarize_campaign_events
+    return summarize_campaign_events(campaign_events(data / "serve_4090" / run)).set_index(["scenario", "policy"])
+
+
+def _p3_event(run, scenario, policy, column):
+    return lambda repo, data: float(_p3_events(data, run).loc[(scenario, policy), column])
+
+
+@lru_cache(maxsize=None)
+def _p3_step_attention(data: Path, run: str, scenario: str) -> pd.DataFrame:
+    """Per decode step attention time averaged over the repeats, one column per policy (schedules are identical across policies)."""
+    from kernelscope.serve.report import iter_runs
+    frames = {}
+    for policy, _, directory, _ in iter_runs(data / "serve_4090" / run / scenario):
+        frames.setdefault(policy, []).append(pd.read_parquet(directory / "steps.parquet").attn_us.to_numpy())
+    out = pd.DataFrame({p: sum(v) / len(v) for p, v in frames.items()})
+    return out
+
+
+def _p3_step_ratio(policy, what):
+    """Measured per-step attention: heuristic over the policy, as a total ratio or as the fraction of steps at or above 1.25."""
+    def f(repo, data):
+        a = _p3_step_attention(data, TRACE_RUN, TRACE_NAME)
+        ratio = a.heuristic / a[policy]
+        return float(a.heuristic.sum() / a[policy].sum()) if what == "total" else float((ratio >= 1.25).mean())
+    return f
+
+
+def _p3_teacher(run, scenario, column):
+    def f(repo, data):
+        t = pd.read_csv(data / "serve_4090" / run / "numerics" / scenario / "teacher_forced_logits.csv")
+        t = t[t.policy == "table"] if column != "rows_all" else t
+        return {"rows": float(len(t)), "flips": float((~t.argmax_equal.astype(bool)).sum()), "rows_all": float(len(t)),
+                "max_diff": float(t.max_abs_logit_diff.max()), "tied": float(t.reference_tied_top1.astype(bool).sum())}[column]
+    return f
+
+
+@lru_cache(maxsize=None)
+def _p3_validation(data: Path, step_weight: str = "stratum"):
+    from kernelscope.analysis import validation
+    first = pd.read_csv(data / VALIDATION_DIR / "measured_pass1.csv")
+    second = pd.read_csv(data / VALIDATION_DIR / "measured_pass2.csv")
+    return validation.prepare(first, step_weight), validation.prepare(second, step_weight), first, second
+
+
+def _p3_val(source, key, passes=1, step_weight="stratum"):
+    def f(repo, data):
+        from kernelscope.analysis import validation
+        m = _p3_validation(data, step_weight)[passes - 1]
+        return float(validation.source_stats(m, source)[key])
+    return f
+
+
+def _p3_val_ci(source, key, side):
+    def f(repo, data):
+        from kernelscope.analysis import validation
+        return float(validation.bootstrap(_p3_validation(data)[0], source, key)[side])
+    return f
+
+
+def _p3_val_error(key):
+    def f(repo, data):
+        from kernelscope.analysis import validation
+        return float(validation.overall_error(_p3_validation(data)[0])[key])
+    return f
+
+
+def _p3_val_stratum(source, stratum, column):
+    def f(repo, data):
+        from kernelscope.analysis import validation
+        return float(validation.error_by_stratum(_p3_validation(data)[0], source).loc[stratum, column])
+    return f
+
+
+def _p3_val_noise(key):
+    def f(repo, data):
+        from kernelscope.analysis import validation
+        _, _, first, second = _p3_validation(data)
+        return float(validation.run_to_run(first, second)[key])
+    return f
+
+
+def _p3_val_false_positive_range(side):
+    """Measured regret range of the conv cells predicted >= 1.25 whose measured regret is below it."""
+    def f(repo, data):
+        m = _p3_validation(data)[0]
+        g = m[(m.source == "azure_conv_x1") & (m.pred_r >= 1.25) & (m.meas_r < 1.25)].meas_r
+        return float(g.min() if side == "min" else g.max())
+    return f
+
+
+@lru_cache(maxsize=None)
+def _p3_vllm(data: Path) -> dict:
+    from kernelscope.analysis import vllm_steps
+    runs = vllm_steps.load(data / VLLM_PROFILE)
+    return {"table": vllm_steps.run_table(runs), "runs": {r["run"]: r for r in runs}}
+
+
+def _p3_vllm_value(run, column):
+    return lambda repo, data: float(_p3_vllm(data)["table"][run][column])
+
+
+def _p3_vllm_excess_share(ragged, uniform):
+    """Share of the ragged-over-uniform step time that is attention GPU time."""
+    def f(repo, data):
+        t = _p3_vllm(data)["table"]
+        return float((t[ragged]["attention_ms"] - t[uniform]["attention_ms"]) / (t[ragged]["unprofiled_ms"] - t[uniform]["unprofiled_ms"]))
+    return f
+
+
+def _p3_vllm_after_leave(column):
+    """The decode iteration after the 32K request finished (31 requests left), FA2 eager, in milliseconds."""
+    def f(repo, data):
+        from kernelscope.analysis import vllm_steps
+        return float(vllm_steps.last_row_after_long_request_leaves(_p3_vllm(data)["runs"]["flash_attn_eager_ragged"])[column]) / 1000
+    return f
+
+
+def _p3_vllm_logged_median(run, column):
+    return lambda repo, data: float(_p3_vllm(data)["runs"][run]["summary"][column]) / 1000
+
+
+def _p3_vllm_grid_ratio(repo, data):
+    """vLLM FA2 attention per layer / the kernel grid's FA2-heuristic time of the same batch (B=32, 32768 + 512 x 31)."""
+    grid = pd.read_csv(data / "dispatch_paged_cold.csv").set_index("lens")
+    layers = 36
+    per_layer_ms = _p3_vllm(data)["table"]["flash_attn_eager_ragged"]["attention_ms"] / layers
+    return float(per_layer_ms * 1000 / grid.loc["32768+512x31", "heuristic_us"])
+
+
+def _p3_vllm_best_over_grid(repo, data):
+    grid = pd.read_csv(data / "dispatch_paged_cold.csv").set_index("lens")
+    return float(grid.loc["32768+512x31", "heuristic_us"] / grid.loc["32768+512x31", "best_us"])
+
+
+@lru_cache(maxsize=None)
+def _p3_gsm8k(data: Path) -> pd.DataFrame:
+    from kernelscope.analysis.accuracy import PERQUESTION
+    return pd.read_csv(data / "serve_4090" / GSM8K_RUN / PERQUESTION)
+
+
+def _p3_acc(policy, metric, key):
+    def f(repo, data):
+        from kernelscope.analysis.accuracy import policy_stats
+        return float(policy_stats(_p3_gsm8k(data), policy, metric)[key])
+    return f
+
+
+def _p3_paired(policy, metric, key):
+    def f(repo, data):
+        from kernelscope.analysis.accuracy import paired
+        return float(paired(_p3_gsm8k(data), policy, metric=metric)[key])
+    return f
+
+
+def _p3_gsm8k_events(policy, answered):
+    """Divergence events of a policy in the 200 graded questions (answered) or in the 7 long filler requests."""
+    def f(repo, data):
+        import json as _json
+        from kernelscope.serve.divergence import campaign_events
+        events = campaign_events(data / "serve_4090" / GSM8K_RUN)
+        gold = {int(k) for k in _json.loads((data / "serve_4090" / GSM8K_RUN / "gsm8k_ragged32k_n200_gold.json").read_text())["gold_by_rid"]}
+        e = events[(events.policy == policy) & (events.repeat == 0)]
+        return float(e.rid.isin(gold).sum() if answered else (~e.rid.isin(gold)).sum())
+    return f
+
+
+
+# ---- background figures for the talk (docs/presentation/background, 2026-10-25) ------------------------------------
+
+BG = "docs/presentation/background/story.md"
+BG_CELL = "decode_B32_Lq1_Lkv32768+512x31_Hq32_Hkv8_d128_float16_causal"   # the headline mixed-length cell
+
+
+def _bg_len(trace, key):
+    def f(repo, data):
+        d = json.loads((data / "background" / "prompt_length_hist.json").read_text())
+        return float(next(t for t in d["traces"] if t["name"].startswith(trace))[key])
+    return f
+
+
+def _bg_len_all(key):
+    def f(repo, data):
+        d = json.loads((data / "background" / "prompt_length_hist.json").read_text())
+        return float(sum(t[key] for t in d["traces"]))
+    return f
+
+
+def _bg_cta(variant, what):
+    """CTA work of the headline cell on a 128-SM GPU (analysis of kernelscope.model.geometry.build_launch)."""
+    def f(repo, data):
+        from kernelscope.model.geometry import build_launch, parse_variant
+        from kernelscope.workload import Workload
+        keys = build_launch(Workload.from_key(BG_CELL), parse_variant(variant), 128).keys
+        return {"ctas": float(len(keys)), "max": float(keys.max()), "max_over_sm_share": float(keys.max() / (keys.sum() / 128))}[what]
+    return f
+
+
 CHECKS = [
-    Check("kernel.uniform_median", "균일 배치(S1, dense, cold): 기본 휴리스틱의 최적 대비 손실 중앙값",
+    Check("kernel.uniform_median","균일 배치(S1, dense, cold): 기본 휴리스틱의 최적 대비 손실 중앙값",
           0.72, 0.005, "%", _uniform_regret_pct("median_regret"), P0, "median 0.72 %, max 5.71 %"),
     Check("kernel.uniform_max", "균일 배치(S1, dense, cold): 기본 휴리스틱의 최적 대비 손실 최댓값",
           5.71, 0.005, "%", _uniform_regret_pct("max_regret"), P0, "median 0.72 %, max 5.71 %"),
@@ -2075,6 +2530,457 @@ CHECKS = [
           70, 0.05, "ulp", _anytable_clear_value("margin_ulps"), SCOPE, "여유 70 ulp"),
     Check("anytable.clear_dlogit", "같은 clear 사건 위치의 교사 강제 로짓 최대 차이",
           22.3, 0.05, "", _anytable_clear_value("max_abs_logit_diff"), SCOPE, "교사 강제 로짓 최대 차이 22.3"),
+
+    Check("fixedsplit.s_star", "32K 혼합+균일 합집합(cold, 211셀)에서 최악 손실을 최소화하는 단일 고정 분할 수(최선 FA2 분할 대비)", 8, 0, "", _fixed_s_star, FIXEDSPLIT, "s*=8"),
+    Check("fixedsplit.32k.ragged.fixed8_max", "32K 혼합 길이 162셀: 분할 8 고정 / 최선 FA2 분할 regret 최댓값", 1.042, 0.0005, "x", _fixed("32k_ragged", "fixed:8", "loss_max"), FIXEDSPLIT, "1.042배"),
+    Check("fixedsplit.32k.ragged.fixed8_median", "32K 혼합 길이: 분할 8 고정 regret 중앙값", 1.01, 0.0005, "x", _fixed("32k_ragged", "fixed:8", "loss_median"), FIXEDSPLIT, "1.010배"),
+    Check("fixedsplit.32k.ragged.fixed16_max", "32K 혼합 길이: 분할 16 고정 regret 최댓값", 1.069, 0.0005, "x", _fixed("32k_ragged", "fixed:16", "loss_max"), FIXEDSPLIT, "1.069배"),
+    Check("fixedsplit.32k.ragged.fixed1_median", "32K 혼합 길이: 분할 1(분할 없음) 고정 regret 중앙값", 1.639, 0.0005, "x", _fixed("32k_ragged", "fixed:1", "loss_median"), FIXEDSPLIT, "1.639배"),
+    Check("fixedsplit.32k.ragged.heuristic_median", "32K 혼합 길이: FA2 휴리스틱 / 최선 FA2 분할 regret 중앙값", 1.436, 0.0005, "x", _fixed("32k_ragged", "fa2_heuristic", "loss_median"), FIXEDSPLIT, "1.436배"),
+    Check("fixedsplit.32k.ragged.heuristic_over1_25", "32K 혼합 길이: FA2 휴리스틱 regret이 1.25배를 넘는 셀 수(최선 FA2 분할 대비)", 108, 0, "", _fixed("32k_ragged", "fa2_heuristic", "over_1.25"), FIXEDSPLIT, "108셀"),
+    Check("fixedsplit.32k.uniform.fixed8_max", "32K 균일 길이 49셀: 분할 8 고정 regret 최댓값", 1.127, 0.0005, "x", _fixed("32k_uniform", "fixed:8", "loss_max"), FIXEDSPLIT, "1.127배"),
+    Check("fixedsplit.32k.uniform.fixed16_max", "32K 균일 길이: 분할 16 고정 regret 최댓값", 1.162, 0.0005, "x", _fixed("32k_uniform", "fixed:16", "loss_max"), FIXEDSPLIT, "1.162배"),
+    Check("fixedsplit.32k.uniform.fixed1_max", "32K 균일 길이: 분할 1 고정 regret 최댓값", 4.861, 0.0005, "x", _fixed("32k_uniform", "fixed:1", "loss_max"), FIXEDSPLIT, "4.861배"),
+    Check("fixedsplit.32k.union.fixed8_p90", "32K 혼합+균일 211셀: 분할 8 고정 regret 90퍼센타일", 1.034, 0.0005, "x", _fixed("32k_union", "fixed:8", "loss_p90"), FIXEDSPLIT, "1.034배"),
+    Check("fixedsplit.32k.union.fixed8_max", "32K 혼합+균일 211셀: 분할 8 고정 regret 최댓값", 1.127, 0.0005, "x", _fixed("32k_union", "fixed:8", "loss_max"), FIXEDSPLIT, "1.127배"),
+    Check("fixedsplit.32k.union.fixed8_over1_1", "32K 혼합+균일 211셀: 분할 8 고정 regret이 1.1배를 넘는 셀 수", 1, 0, "", _fixed("32k_union", "fixed:8", "over_1.1"), FIXEDSPLIT, "1셀"),
+    Check("fixedsplit.32k.union.fixed16_max", "32K 혼합+균일 211셀: 분할 16 고정 regret 최댓값", 1.162, 0.0005, "x", _fixed("32k_union", "fixed:16", "loss_max"), FIXEDSPLIT, "1.162배"),
+    Check("fixedsplit.64k.ragged.fixed8_max", "64K 혼합 길이 18셀: 분할 8 고정 regret 최댓값", 1.009, 0.0005, "x", _fixed("64k_ragged", "fixed:8", "loss_max"), FIXEDSPLIT, "1.009배"),
+    Check("fixedsplit.64k.ragged.fixed16_max", "64K 혼합 길이: 분할 16 고정 regret 최댓값", 1.022, 0.0005, "x", _fixed("64k_ragged", "fixed:16", "loss_max"), FIXEDSPLIT, "1.022배"),
+    Check("fixedsplit.32k.uniform_warm.fixed8_max", "32K 균일 길이 warm 49셀: 분할 8 고정 regret 최댓값", 1.712, 0.0005, "x", _fixed("32k_uniform_warm", "fixed:8", "loss_max"), FIXEDSPLIT, "1.712배"),
+    Check("fixedsplit.32k.uniform_warm.fixed8_over1_25", "32K 균일 길이 warm: 분할 8 고정 regret이 1.25배를 넘는 셀 수", 8, 0, "", _fixed("32k_uniform_warm", "fixed:8", "over_1.25"), FIXEDSPLIT, "8셀"),
+    Check("fixedsplit.s2.ragged.fixed8_max", "H_q=28·H_kv=4 격자 혼합 길이 135셀: 분할 8 고정 regret 최댓값", 1.146, 0.0005, "x", _fixed("s2_ragged", "fixed:8", "loss_max"), FIXEDSPLIT, "1.146배"),
+    Check("fixedsplit.s2.ragged.fixed16_max", "H_q=28·H_kv=4 격자 혼합 길이: 분할 16 고정 regret 최댓값", 1.058, 0.0005, "x", _fixed("s2_ragged", "fixed:16", "loss_max"), FIXEDSPLIT, "1.058배"),
+    Check("fixedsplit.s2.uniform.fixed8_max", "H_q=28·H_kv=4 격자 균일 길이 49셀: 분할 8 고정 regret 최댓값", 1.216, 0.0005, "x", _fixed("s2_uniform", "fixed:8", "loss_max"), FIXEDSPLIT, "1.216배"),
+    Check("fixedsplit.32k.union.fa2_best_vs_best_max", "32K 혼합+균일 211셀: FA2 분할만 고르는 선택기 / 전체 최선(FlashInfer 포함) 최댓값", 1.106, 0.0005, "x", _fixed("32k_union", "fa2_best", "loss_max", "best"), FIXEDSPLIT, "1.106배"),
+    Check("fixedsplit.32k.union.fixed8_vs_best_median", "32K 혼합+균일 211셀: 분할 8 고정 / 전체 최선(FlashInfer 포함) 중앙값", 1.037, 0.0005, "x", _fixed("32k_union", "fixed:8", "loss_median", "best"), FIXEDSPLIT, "1.037배"),
+
+    Check("traceE2E.windows", "트레이스 창 선택: 후보 창 수(연속 300요청, 50건 간격)", 382, 0, "", _trace_selection("windows"), TRACE_E2E, "후보 창 382개 중 17개"),
+    Check("traceE2E.windows_reaching_batch", "후보 창 중 캡 적용 replay 평균 배치가 26 이상인 창 수", 17, 0, "", _trace_selection("windows_reaching_batch"), TRACE_E2E, "후보 창 382개 중 17개"),
+    Check("traceE2E.chosen_start", "선택한 창의 시작 요청 번호", 550, 0, "", _trace_selection("chosen_start"), TRACE_E2E, "요청 550..849"),
+    Check("traceE2E.criterion_steps", "선택 기준: 예측 regret 1.25배 이상이면서 배치 26 이상인 step 수(시나리오에서 다시 계산)", 589, 0, "", _trace_e2e("criterion_steps"), TRACE_E2E, "기준 step 589개"),
+    Check("traceE2E.requests", "트레이스 구동 시나리오의 요청 수", 300, 0, "", _trace_e2e("requests"), TRACE_E2E, "연속 300개 요청"),
+    Check("traceE2E.steps", "시나리오 replay(논리 step 격자)의 decode step 수", 1897, 0, "", _trace_e2e("steps"), TRACE_E2E, "1,897 decode step"),
+    Check("traceE2E.batch_mean", "시나리오 replay의 평균 배치", 26.9, 0.005, "", _trace_e2e("batch_mean"), TRACE_E2E, "평균 배치 26.9"),
+    Check("traceE2E.attention_ratio", "모델 예측: 휴리스틱 대 최선 분할 attention 시간 비(시나리오 replay)", 1.187, 0.0005, "x", _trace_e2e("attention_time_ratio"), TRACE_E2E, "attention 시간 비 1.187"),
+    Check("traceE2E.loss_ge_1_25_frac", "모델 예측: regret 1.25배 이상 step 비율", 0.3105, 0.0001, "", _trace_e2e("loss_ge_1.25_frac"), TRACE_E2E, "regret 1.25배 이상 step 31.0%"),
+    Check("traceE2E.no_split_frac", "모델 예측: 휴리스틱이 분할 없이 도는 step 비율", 0.6795, 0.0001, "", _trace_e2e("no_split_frac"), TRACE_E2E, "분할 없이 도는 step 67.9%"),
+    Check("traceE2E.prompt_max", "시나리오의 최대 프롬프트 토큰", 4119, 0, "", _trace_e2e("prompt_max"), TRACE_E2E, "최대 프롬프트 4,119 토큰"),
+    Check("traceE2E.prompts_ge_4096", "시나리오에서 프롬프트가 4,096 토큰 이상인 요청 수", 4, 0, "", _trace_e2e("prompts_ge_4096"), TRACE_E2E, "4,096 이상은 4건뿐"),
+    Check("traceE2E.output_capped", "출력 상한 256이 적용된 요청 수(번들의 예측 파일)", 129, 0, "", _trace_predicted("output_capped"), TRACE_E2E, "출력 상한 256 적용 129건"),
+    Check("traceE2E.prompt_capped", "프롬프트 상한이 적용된 요청 수", 0, 0, "", _trace_predicted("prompt_capped"), TRACE_E2E, "상한 적용 0건"),
+    Check("traceE2E.bundle_matches_recompute", "번들의 예측 파일 = 시나리오를 지금 replay한 결과(step 수·attention 시간 비, 1=같음)", 1, 0, "", _trace_e2e("bundle_matches_recompute"), TRACE_E2E, "attention 시간 비 1.187"),
+    Check("traceE2E.not_relaxed", "창 선택이 배치 기준을 낮추지 않고 끝남(0=기준 충족)", 0, 0, "", _trace_selection("relaxed"), TRACE_E2E, "17개가 평균 배치 26 이상"),
+
+    Check("vllmbackend.engine_starts", "10월 6일 vLLM 재현 로그 3개에서 백엔드를 보고한 엔진 시작 횟수", 8, 0, "", _vllm_backend("starts"), TRACE_E2E, "엔진 시작 8회 모두 FLASH_ATTN"),
+    Check("vllmbackend.flash_attn_starts", "그중 FLASH_ATTN을 쓴 횟수", 8, 0, "", _vllm_backend("flash_attn"), TRACE_E2E, "엔진 시작 8회 모두 FLASH_ATTN"),
+    Check("vllmbackend.flashinfer_starts", "그중 FLASHINFER를 쓴 횟수", 0, 0, "", _vllm_backend("flashinfer"), TRACE_E2E, "FLASH_ATTN으로 돌았다"),
+    Check("vllmbackend.unknown_env_warnings", "Unknown vLLM environment variable 경고 횟수", 8, 0, "", _vllm_backend("warnings"), TRACE_E2E, "경고 8회"),
+    Check("vllmbackend.requested_flashinfer", "FLASHINFER를 요청한 자식 실행 횟수", 4, 0, "", _vllm_backend("requested_flashinfer"), TRACE_E2E, "FLASHINFER를 요청한 4회"),
+
+    Check("longtext.long_len", "64K 자연어 시나리오의 긴 요청 길이", 65536, 0, "", _scenario_stat(LONGTEXT_SCENARIO, "long_len"), TRACE_E2E, "65,536 토큰"),
+    Check("longtext.short_count", "64K 자연어 시나리오의 짧은 요청 수", 31, 0, "", _scenario_stat(LONGTEXT_SCENARIO, "short_count"), TRACE_E2E, "짧은 요청 31개(512 토큰)"),
+    Check("longtext.short_len", "64K 자연어 시나리오의 짧은 요청 길이", 512, 0, "", _scenario_stat(LONGTEXT_SCENARIO, "short_len"), TRACE_E2E, "짧은 요청 31개(512 토큰)"),
+    Check("gsm8k.questions", "GSM8K 시나리오의 문항 수", 200, 0, "", _scenario_stat(GSM8K_SCENARIO, "questions"), TRACE_E2E, "앞 200문항"),
+    Check("gsm8k.groups", "GSM8K 시나리오의 묶음 수", 7, 0, "", _scenario_stat(GSM8K_SCENARIO, "groups"), TRACE_E2E, "7묶음(31×6 + 14)"),
+    Check("gsm8k.first_group_questions", "첫 묶음의 문항 수", 31, 0, "", _scenario_stat(GSM8K_SCENARIO, "first_group_questions"), TRACE_E2E, "7묶음(31×6 + 14)"),
+    Check("gsm8k.spacing", "묶음 도착 간격(논리 step)", 270, 0, "", _scenario_stat(GSM8K_SCENARIO, "spacing"), TRACE_E2E, "논리 step 270 간격"),
+    Check("gsm8k.max_new", "GSM8K 시나리오의 요청당 생성 토큰", 256, 0, "", _scenario_stat(GSM8K_SCENARIO, "max_new"), TRACE_E2E, "요청마다 생성 256토큰"),
+    Check("sweep.conv_x0.25.loss_ge_1.25", "부하 스윕, Azure conv ×0.25: regret 1.25배 이상 step 비율", 0.004, 0.0005, "", _sweep("azure_conv_x0.25", "losses", "loss_ge_1.25_frac"), SWEEP, "0.4%"),
+    Check("sweep.conv_x0.5.loss_ge_1.25", "부하 스윕, Azure conv ×0.5: regret 1.25배 이상 step 비율", 0.024, 0.0005, "", _sweep("azure_conv_x0.5", "losses", "loss_ge_1.25_frac"), SWEEP, "2.4%"),
+    Check("sweep.conv_x0.75.loss_ge_1.25", "부하 스윕, Azure conv ×0.75: regret 1.25배 이상 step 비율", 0.116, 0.0005, "", _sweep("azure_conv_x0.75", "losses", "loss_ge_1.25_frac"), SWEEP, "11.6%"),
+    Check("sweep.conv_x1.loss_ge_1.25", "부하 스윕, Azure conv ×1: regret 1.25배 이상 step 비율", 0.135, 0.0005, "", _sweep("azure_conv_x1", "losses", "loss_ge_1.25_frac"), SWEEP, "13.5%"),
+    Check("sweep.conv_x1.25.loss_ge_1.25", "부하 스윕, Azure conv ×1.25: regret 1.25배 이상 step 비율", 0.059, 0.0005, "", _sweep("azure_conv_x1.25", "losses", "loss_ge_1.25_frac"), SWEEP, "5.9%"),
+    Check("sweep.conv_x2.loss_ge_1.25", "부하 스윕, Azure conv ×2: regret 1.25배 이상 step 비율", 0.041, 0.0005, "", _sweep("azure_conv_x2", "losses", "loss_ge_1.25_frac"), SWEEP, "4.1%"),
+    Check("sweep.conv_x4.loss_ge_1.25", "부하 스윕, Azure conv ×4: regret 1.25배 이상 step 비율", 0.042, 0.0005, "", _sweep("azure_conv_x4", "losses", "loss_ge_1.25_frac"), SWEEP, "4.2%"),
+    Check("sweep.conv_x1.batch_mean", "부하 스윕, Azure conv ×1: 평균 배치", 34.77, 0.005, "", _sweep("azure_conv_x1", "losses", "batch_mean"), SWEEP, "| 34.8 |"),
+    Check("sweep.conv_x0.75.batch_mean", "부하 스윕, Azure conv ×0.75: 평균 배치(분할 없음 임계 26 바로 위)", 26.1, 0.005, "", _sweep("azure_conv_x0.75", "losses", "batch_mean"), SWEEP, "| 26.1 |"),
+    Check("sweep.conv_x4.batch_mean", "부하 스윕, Azure conv ×4: 평균 배치(KV 예산이 상한)", 47.17, 0.005, "", _sweep("azure_conv_x4", "losses", "batch_mean"), SWEEP, "| 47.2 |"),
+    Check("sweep.conv_x1.no_split_frac", "부하 스윕, Azure conv ×1: 휴리스틱이 분할하지 않는 step 비율", 0.895, 0.0005, "", _sweep("azure_conv_x1", "losses", "no_split_frac"), SWEEP, "89.5%"),
+    Check("sweep.conv_x0.5.no_split_frac", "부하 스윕, Azure conv ×0.5: 휴리스틱이 분할하지 않는 step 비율", 0.062, 0.0005, "", _sweep("azure_conv_x0.5", "losses", "no_split_frac"), SWEEP, "6.2%"),
+    Check("sweep.conv_x1.heuristic_ratio", "부하 스윕, Azure conv ×1: attention 시간 비(휴리스틱/최선)", 1.119, 0.0005, "x", _sweep("azure_conv_x1", "losses", "attention_time_ratio"), SWEEP, "1.119"),
+    Check("sweep.conv_x0.25.heuristic_ratio", "부하 스윕, Azure conv ×0.25: attention 시간 비(휴리스틱/최선)", 1.07, 0.0005, "x", _sweep("azure_conv_x0.25", "losses", "attention_time_ratio"), SWEEP, "1.070"),
+    Check("sweep.code_x16.loss_ge_1.25", "부하 스윕, Azure code ×16: regret 1.25배 이상 step 비율", 0.141, 0.0005, "", _sweep("azure_code_x16", "losses", "loss_ge_1.25_frac"), SWEEP, "14.1%"),
+    Check("sweep.code_x2.loss_ge_1.25", "부하 스윕, Azure code ×2: regret 1.25배 이상 step 비율", 0.041, 0.0005, "", _sweep("azure_code_x2", "losses", "loss_ge_1.25_frac"), SWEEP, "4.1%"),
+    Check("sweep.code_x32.loss_ge_1.25", "부하 스윕, Azure code ×32: regret 1.25배 이상 step 비율(포화 고원)", 0.14, 0.0005, "", _sweep("azure_code_x32", "losses", "loss_ge_1.25_frac"), SWEEP, "14.0%"),
+    Check("sweep.burstgpt.max_loss_ge_1.25", "부하 스윕, BurstGPT 7일 ×25~400: regret 1.25배 이상 step 비율의 최댓값", 0.003, 0.0005, "", _sweep_extreme("burstgpt_7d_x", max, "losses", "loss_ge_1.25_frac"), SWEEP, "0.3%"),
+    Check("sweep.runs", "부하 스윕 실행 수(Azure conv 9 + code 7 + BurstGPT 5)", 21, 0, "", lambda repo, data: float(len(list((data / "traffic_sweep").glob("*/summary.json")))), SWEEP, "21개 실행"),
+    Check("sweep.all.loss_ge_1.25_max", "부하 스윕 21개 실행에서 regret 1.25배 이상 step 비율의 최댓값", 0.141, 0.0005, "", _sweep_extreme("", max, "losses", "loss_ge_1.25_frac"), SWEEP, "code ×16 이후의 14.0~14.1%"),
+    Check("sweep.repro.azure_conv_x0.5", "부하 스윕 재실행 azure_conv_x0.5: 2026-10-06 번들과 손실 필드·step 수의 차이(0이어야 함)", 0, 1e-09, "", _sweep_repro("azure_conv_x0.5"), SWEEP, "한 자리도 다르지 않음"),
+    Check("sweep.repro.azure_conv_x1", "부하 스윕 재실행 azure_conv_x1: 2026-10-06 번들과 손실 필드·step 수의 차이(0이어야 함)", 0, 1e-09, "", _sweep_repro("azure_conv_x1"), SWEEP, "한 자리도 다르지 않음"),
+    Check("sweep.repro.azure_conv_x2", "부하 스윕 재실행 azure_conv_x2: 2026-10-06 번들과 손실 필드·step 수의 차이(0이어야 함)", 0, 1e-09, "", _sweep_repro("azure_conv_x2"), SWEEP, "한 자리도 다르지 않음"),
+    Check("sweep.repro.azure_code_x4", "부하 스윕 재실행 azure_code_x4: 2026-10-06 번들과 손실 필드·step 수의 차이(0이어야 함)", 0, 1e-09, "", _sweep_repro("azure_code_x4"), SWEEP, "한 자리도 다르지 않음"),
+    Check("sweep.repro.azure_code_x8", "부하 스윕 재실행 azure_code_x8: 2026-10-06 번들과 손실 필드·step 수의 차이(0이어야 함)", 0, 1e-09, "", _sweep_repro("azure_code_x8"), SWEEP, "한 자리도 다르지 않음"),
+    Check("sweep.repro.azure_code_x16", "부하 스윕 재실행 azure_code_x16: 2026-10-06 번들과 손실 필드·step 수의 차이(0이어야 함)", 0, 1e-09, "", _sweep_repro("azure_code_x16"), SWEEP, "한 자리도 다르지 않음"),
+    Check("sweep.repro.burstgpt_7d_x50", "부하 스윕 재실행 burstgpt_7d_x50: 2026-10-06 번들과 손실 필드·step 수의 차이(0이어야 함)", 0, 1e-09, "", _sweep_repro("burstgpt_7d_x50"), SWEEP, "한 자리도 다르지 않음"),
+    Check("sweep.repro.burstgpt_7d_x100", "부하 스윕 재실행 burstgpt_7d_x100: 2026-10-06 번들과 손실 필드·step 수의 차이(0이어야 함)", 0, 1e-09, "", _sweep_repro("burstgpt_7d_x100"), SWEEP, "한 자리도 다르지 않음"),
+    Check("sweep.fixed.azure_conv_x1.s8.ratio_best", "부하 스윕, azure_conv_x1: 분할 8 고정의 ratio_best", 1.034, 0.0005, "x", _sweep("azure_conv_x1", "fixed", "s8.ratio_best"), SWEEP, "1.034"),
+    Check("sweep.fixed.azure_conv_x1.s8.ratio_heuristic", "부하 스윕, azure_conv_x1: 분할 8 고정의 ratio_heuristic", 0.924, 0.0005, "x", _sweep("azure_conv_x1", "fixed", "s8.ratio_heuristic"), SWEEP, "0.924"),
+    Check("sweep.fixed.azure_conv_x1.s16.ratio_best", "부하 스윕, azure_conv_x1: 분할 16 고정의 ratio_best", 1.09, 0.0005, "x", _sweep("azure_conv_x1", "fixed", "s16.ratio_best"), SWEEP, "1.090"),
+    Check("sweep.fixed.azure_conv_x0.25.s8.ratio_best", "부하 스윕, azure_conv_x0.25: 분할 8 고정의 ratio_best", 1.063, 0.0005, "x", _sweep("azure_conv_x0.25", "fixed", "s8.ratio_best"), SWEEP, "1.063"),
+    Check("sweep.fixed.azure_conv_x0.25.s16.ratio_best", "부하 스윕, azure_conv_x0.25: 분할 16 고정의 ratio_best", 1.124, 0.0005, "x", _sweep("azure_conv_x0.25", "fixed", "s16.ratio_best"), SWEEP, "1.124"),
+    Check("sweep.fixed.azure_conv_x0.25.s8.ratio_heuristic", "부하 스윕, azure_conv_x0.25: 분할 8 고정의 ratio_heuristic", 0.993, 0.0005, "x", _sweep("azure_conv_x0.25", "fixed", "s8.ratio_heuristic"), SWEEP, "0.993"),
+    Check("sweep.fixed.azure_code_x16.s8.ratio_best", "부하 스윕, azure_code_x16: 분할 8 고정의 ratio_best", 1.005, 0.0005, "x", _sweep("azure_code_x16", "fixed", "s8.ratio_best"), SWEEP, "1.005"),
+    Check("sweep.fixed.azure_code_x16.s8.ratio_heuristic", "부하 스윕, azure_code_x16: 분할 8 고정의 ratio_heuristic", 0.885, 0.0005, "x", _sweep("azure_code_x16", "fixed", "s8.ratio_heuristic"), SWEEP, "0.885"),
+    Check("sweep.fixed.burstgpt_7d_x100.s8.ratio_best", "부하 스윕, burstgpt_7d_x100: 분할 8 고정의 ratio_best", 1.059, 0.0005, "x", _sweep("burstgpt_7d_x100", "fixed", "s8.ratio_best"), SWEEP, "1.059"),
+    Check("sweep.fixed.burstgpt_7d_x100.s8.ratio_heuristic", "부하 스윕, burstgpt_7d_x100: 분할 8 고정의 ratio_heuristic", 1.039, 0.0005, "x", _sweep("burstgpt_7d_x100", "fixed", "s8.ratio_heuristic"), SWEEP, "1.039"),
+    Check("sweep.fixed.burstgpt_7d_x400.s8.ratio_heuristic", "부하 스윕, burstgpt_7d_x400: 분할 8 고정의 ratio_heuristic", 1.057, 0.0005, "x", _sweep("burstgpt_7d_x400", "fixed", "s8.ratio_heuristic"), SWEEP, "1.057"),
+    Check("sweep.fixed.azure_conv_x1.s8.ratio_best_b_lt_26", "부하 스윕, azure_conv_x1: 분할 8 고정의 ratio_best_b_lt_26", 1.023, 0.0005, "x", _sweep("azure_conv_x1", "fixed", "s8.ratio_best_b_lt_26"), SWEEP, "1.023"),
+    Check("sweep.fixed.azure_conv_x1.s8.ratio_best_b_ge_26", "부하 스윕, azure_conv_x1: 분할 8 고정의 ratio_best_b_ge_26", 1.035, 0.0005, "x", _sweep("azure_conv_x1", "fixed", "s8.ratio_best_b_ge_26"), SWEEP, "1.035"),
+    Check("sweep.fixed.s8.ratio_best_max", "부하 스윕 21개 실행에서 분할 8 고정 / 최선의 최댓값", 1.065, 0.0005, "x", _sweep_extreme("", max, "fixed", "s8.ratio_best"), SWEEP, "1.065"),
+    Check("sweep.fixed.s8.ratio_heuristic_min", "부하 스윕 21개 실행에서 분할 8 고정 / 휴리스틱의 최솟값(가장 큰 이득)", 0.885, 0.0005, "x", _sweep_extreme("", min, "fixed", "s8.ratio_heuristic"), SWEEP, "0.885"),
+    Check("sweep.fixed.s8.ratio_heuristic_max", "부하 스윕 21개 실행에서 분할 8 고정 / 휴리스틱의 최댓값(가장 큰 손해)", 1.057, 0.0005, "x", _sweep_extreme("", max, "fixed", "s8.ratio_heuristic"), SWEEP, "1.057"),
+    Check("sweep.fixed.s8.regret_max_overall", "부하 스윕 21개 실행의 step 중 분할 8 고정의 단일 step 최악 regret", 1.36, 0.0005, "x", _sweep_extreme("", max, "fixed", "s8.regret_max"), SWEEP, "code ×8에서 1.360"),
+    Check("sweep.azure_conv_x0.75.wait_p99_s", "부하 스윕, azure_conv_x0.75: 큐 대기 wait_p99_s", 0.03, 0.0005, "s", _sweep("azure_conv_x0.75", "load", "wait_p99_s"), SWEEP, "0.03"),
+    Check("sweep.azure_conv_x1.wait_p99_s", "부하 스윕, azure_conv_x1: 큐 대기 wait_p99_s", 3.712, 0.0005, "s", _sweep("azure_conv_x1", "load", "wait_p99_s"), SWEEP, "p99 3.7 s"),
+    Check("sweep.azure_conv_x1.25.wait_p99_s", "부하 스윕, azure_conv_x1.25: 큐 대기 wait_p99_s", 43.208, 0.0005, "s", _sweep("azure_conv_x1.25", "load", "wait_p99_s"), SWEEP, "| 43 |"),
+    Check("sweep.azure_conv_x1.wait_gt_1s_frac", "부하 스윕, azure_conv_x1: 큐 대기 wait_gt_1s_frac", 0.055, 0.0005, "", _sweep("azure_conv_x1", "load", "wait_gt_1s_frac"), SWEEP, "대기 > 1 s 요청 5.5%"),
+    Check("sweep.azure_conv_x0.75.wait_gt_1s_frac", "부하 스윕, azure_conv_x0.75: 큐 대기 wait_gt_1s_frac", 0.001, 0.0005, "", _sweep("azure_conv_x0.75", "load", "wait_gt_1s_frac"), SWEEP, "| 0.1% |"),
+    Check("sweep.cond.conv_x0.5", "부하 스윕, Azure conv ×0.5: 배치 ≥ 26인 step 중 regret 1.25배 이상 비율", 0.304, 0.0005, "", _sweep_cond("azure_conv_x0.5", "cond.loss_ge_1.25_given_b_ge_26"), SWEEP, "30.4%"),
+    Check("sweep.cond.conv_x0.75", "부하 스윕, Azure conv ×0.75: 배치 ≥ 26인 step 중 regret 1.25배 이상 비율", 0.215, 0.0005, "", _sweep_cond("azure_conv_x0.75", "cond.loss_ge_1.25_given_b_ge_26"), SWEEP, "21.5%"),
+    Check("sweep.cond.conv_x1", "부하 스윕, Azure conv ×1: 배치 ≥ 26인 step 중 regret 1.25배 이상 비율", 0.15, 0.0005, "", _sweep_cond("azure_conv_x1", "cond.loss_ge_1.25_given_b_ge_26"), SWEEP, "15.0%"),
+    Check("sweep.cond.conv_x1.25", "부하 스윕, Azure conv ×1.25: 배치 ≥ 26인 step 중 regret 1.25배 이상 비율", 0.06, 0.0005, "", _sweep_cond("azure_conv_x1.25", "cond.loss_ge_1.25_given_b_ge_26"), SWEEP, "6.0%"),
+    Check("sweep.cond.conv_x2", "부하 스윕, Azure conv ×2: 배치 ≥ 26인 step 중 regret 1.25배 이상 비율", 0.042, 0.0005, "", _sweep_cond("azure_conv_x2", "cond.loss_ge_1.25_given_b_ge_26"), SWEEP, "4.2%"),
+    Check("sweep.cond.code_x16", "부하 스윕, Azure code ×16: 배치 ≥ 26인 step 중 regret 1.25배 이상 비율", 0.2, 0.0005, "", _sweep_cond("azure_code_x16", "cond.loss_ge_1.25_given_b_ge_26"), SWEEP, "B ≥ 26인 step 중 code ×16은 20.0%"),
+    Check("sweep.cond.conv_x1.b_ge_26", "부하 스윕, Azure conv ×1: 배치 ≥ 26인 step 비율", 0.895, 0.0005, "", _sweep_cond("azure_conv_x1", "cond.b_ge_26_frac"), SWEEP, "89.5%"),
+    Check("sweep.bin.b13_25", "부하 스윕, Azure conv ×1·×2 합친 step: 배치 13~25에서 regret 1.25배 이상 비율", 0.005, 0.0005, "", _sweep_bin(13, "loss_ge_1.25_frac"), SWEEP, "0.5%"),
+    Check("sweep.bin.b26_29", "부하 스윕, Azure conv ×1·×2 합친 step: 배치 26~29에서 regret 1.25배 이상 비율", 0.303, 0.0005, "", _sweep_bin(26, "loss_ge_1.25_frac"), SWEEP, "30.3%"),
+    Check("sweep.bin.b30_34", "부하 스윕, Azure conv ×1·×2 합친 step: 배치 30~34에서 regret 1.25배 이상 비율", 0.164, 0.0005, "", _sweep_bin(30, "loss_ge_1.25_frac"), SWEEP, "16.4%"),
+    Check("sweep.bin.b35_39", "부하 스윕, Azure conv ×1·×2 합친 step: 배치 35~39에서 regret 1.25배 이상 비율", 0.145, 0.0005, "", _sweep_bin(35, "loss_ge_1.25_frac"), SWEEP, "14.5%"),
+    Check("sweep.bin.b40_44", "부하 스윕, Azure conv ×1·×2 합친 step: 배치 40~44에서 regret 1.25배 이상 비율", 0.088, 0.0005, "", _sweep_bin(40, "loss_ge_1.25_frac"), SWEEP, "8.8%"),
+    Check("sweep.bin.b45_49", "부하 스윕, Azure conv ×1·×2 합친 step: 배치 45~49에서 regret 1.25배 이상 비율", 0.038, 0.0005, "", _sweep_bin(45, "loss_ge_1.25_frac"), SWEEP, "3.8%"),
+    Check("sweep.bin.b50_64", "부하 스윕, Azure conv ×1·×2 합친 step: 배치 50~64에서 regret 1.25배 이상 비율", 0.012, 0.0005, "", _sweep_bin(50, "loss_ge_1.25_frac"), SWEEP, "1.2%"),
+    # ---- P3: GPU queue results (2026-10-24/25) ------------------------------------------------------------------------
+    # §1 fixed split in the engine (fixedsplit_20261024): TPOT ratios against the heuristic, mean of 3 repeats
+    *[Check(f"p3fixed.{sc}.{pol}.speedup", f"고정 분할 실생성 {sc}: {pol}의 TPOT 배율(휴리스틱 TPOT / 정책 TPOT, 3회 평균)", exp, 0.0005, "x",
+            _p3_serve(FIXED_RUN, sc, pol, "speedup_vs_heuristic"), FIXEDSPLIT, txt)
+      for sc, pol, exp, txt in [
+          ("ragged", "table", 1.8125, "table 1.813배"), ("ragged", "fixed8", 1.6445, "고정 8 1.644배"), ("ragged", "fixed16", 1.8039, "고정 16 1.804배"),
+          ("uniform", "table", 1.0029, "table 1.003배"), ("uniform", "fixed8", 0.9980, "고정 8 0.998배"), ("uniform", "fixed16", 0.9895, "고정 16 0.990배"),
+          ("arrivals", "table", 1.1728, "table 1.173배"), ("arrivals", "fixed8", 1.1783, "고정 8 1.178배"), ("arrivals", "fixed16", 1.1677, "고정 16 1.168배"),
+          ("ragged_64k", "table", 2.4484, "table 2.448배"), ("ragged_64k", "fixed8", 2.4430, "고정 8 2.443배"), ("ragged_64k", "fixed16", 2.4286, "고정 16 2.429배")]],
+    Check("p3fixed.ragged.fixed8.ci_low", "혼합 길이 고정 8의 반복 부트스트랩 구간 하한(이상치 반복 포함)", 1.3933, 0.0005, "x",
+          _p3_serve(FIXED_RUN, "ragged", "fixed8", "speedup_ci95_low"), FIXEDSPLIT, "구간 1.393–1.815"),
+    Check("p3fixed.ragged.fixed8.repeat1_tpot", "혼합 길이 고정 8의 반복 1 TPOT(ms; 반복 0·2는 34.1·34.0)", 45.173, 0.001, "ms",
+          _p3_repeat(FIXED_RUN, "ragged", "fixed8", 1, "tpot_ms"), FIXEDSPLIT, "반복 1의 TPOT 45.17 ms"),
+    Check("p3fixed.ragged.fixed8.repeat0_tpot", "혼합 길이 고정 8의 반복 0 TPOT(ms)", 34.115, 0.001, "ms",
+          _p3_repeat(FIXED_RUN, "ragged", "fixed8", 0, "tpot_ms"), FIXEDSPLIT, "34.11 ms"),
+    Check("p3fixed.ragged.fixed8.repeat2_tpot", "혼합 길이 고정 8의 반복 2 TPOT(ms)", 33.976, 0.001, "ms",
+          _p3_repeat(FIXED_RUN, "ragged", "fixed8", 2, "tpot_ms"), FIXEDSPLIT, "33.98 ms"),
+    Check("p3fixed.ragged.fixed8.pair02", "혼합 길이 고정 8: 이상치 반복 1을 뺀 반복 0·2의 TPOT 배율(휴리스틱 평균 / 고정 8 평균)", 1.8112, 0.0005, "x",
+          lambda repo, data: float(_p3_repeats(data, FIXED_RUN, "ragged").loc["heuristic"].tpot_ms.iloc[[0, 2]].mean()
+                                   / _p3_repeats(data, FIXED_RUN, "ragged").loc["fixed8"].tpot_ms.iloc[[0, 2]].mean()),
+          FIXEDSPLIT, "반복 0·2만 보면 1.811배"),
+    Check("p3fixed.ragged.heuristic.attn", "혼합 길이 휴리스틱의 attention ms/step", 36.806, 0.0005, "ms",
+          _p3_serve(FIXED_RUN, "ragged", "heuristic", "attn_ms_per_step"), FIXEDSPLIT, "36.81 ms/step"),
+    Check("p3fixed.ragged.fixed8.attn", "혼합 길이 고정 8의 attention ms/step(반복 1 포함)", 9.557, 0.0005, "ms",
+          _p3_serve(FIXED_RUN, "ragged", "fixed8", "attn_ms_per_step"), FIXEDSPLIT, "9.56 ms/step"),
+    Check("p3fixed.ragged.fixed8.repeat1_attn", "혼합 길이 고정 8 반복 1의 attention ms/step(다른 반복은 9.15)", 10.366, 0.0005, "ms",
+          _p3_repeat(FIXED_RUN, "ragged", "fixed8", 1, "attn_ms"), FIXEDSPLIT, "반복 1의 attention 10.37 ms"),
+    Check("p3fixed.ragged.table.attn", "혼합 길이 table의 attention ms/step", 9.247, 0.0005, "ms",
+          _p3_serve(FIXED_RUN, "ragged", "table", "attn_ms_per_step"), FIXEDSPLIT, "9.25 ms/step"),
+    Check("p3fixed.ragged_64k.heuristic.attn", "64K 혼합 길이 휴리스틱의 attention ms/step", 70.439, 0.0005, "ms",
+          _p3_serve(FIXED_RUN, "ragged_64k", "heuristic", "attn_ms_per_step"), FIXEDSPLIT, "70.44 ms/step"),
+    Check("p3fixed.ragged_64k.fixed8.attn", "64K 혼합 길이 고정 8의 attention ms/step", 14.342, 0.0005, "ms",
+          _p3_serve(FIXED_RUN, "ragged_64k", "fixed8", "attn_ms_per_step"), FIXEDSPLIT, "14.34 ms/step"),
+    Check("p3fixed.uniform.fixed8.events", "균일 길이 고정 8의 분기 지점 수(휴리스틱 대비)", 6, 0, "", _p3_event(FIXED_RUN, "uniform", "fixed8", "distinct_positions"), FIXEDSPLIT, "균일 길이에서 고정 8은 분기 지점 6곳"),
+    Check("p3fixed.uniform.fixed8.tie", "그중 bf16 1 ulp 동점", 5, 0, "", _p3_event(FIXED_RUN, "uniform", "fixed8", "tie_1ulp"), FIXEDSPLIT, "동점(1 ulp) 5곳"),
+    Check("p3fixed.uniform.fixed8.clear", "그중 clear", 1, 0, "", _p3_event(FIXED_RUN, "uniform", "fixed8", "clear"), FIXEDSPLIT, "clear 1곳"),
+    Check("p3fixed.uniform.fixed16.events", "균일 길이 고정 16의 분기 지점 수", 6, 0, "", _p3_event(FIXED_RUN, "uniform", "fixed16", "distinct_positions"), FIXEDSPLIT, "고정 16도 같은 6곳"),
+    Check("p3fixed.uniform.fixed8.mismatches", "균일 길이 고정 8의 불일치 토큰 수(반복당)", 114, 0, "", _p3_event(FIXED_RUN, "uniform", "fixed8", "token_mismatches_max"), FIXEDSPLIT, "불일치 토큰 114개"),
+    Check("p3fixed.uniform.table.events", "균일 길이 table의 분기 지점 수", 0, 0, "", _p3_event(FIXED_RUN, "uniform", "table", "distinct_positions"), FIXEDSPLIT, "table은 균일 길이에서 0곳"),
+    Check("p3fixed.ragged.events", "혼합 길이 table·고정 8·고정 16의 분기 지점 합", 0, 0, "",
+          lambda repo, data: sum(_p3_event(FIXED_RUN, "ragged", p, "distinct_positions")(repo, data) for p in ("table", "fixed8", "fixed16")), FIXEDSPLIT, "혼합 길이에서는 세 정책 모두 분기 0곳"),
+    Check("p3fixed.arrivals.events", "요청 도착 table·고정 8·고정 16의 분기 지점 합", 0, 0, "",
+          lambda repo, data: sum(_p3_event(FIXED_RUN, "arrivals", p, "distinct_positions")(repo, data) for p in ("table", "fixed8", "fixed16")), FIXEDSPLIT, "요청 도착에서도 분기 0곳"),
+    Check("p3fixed.ragged_64k.events", "64K 혼합 길이 table·고정 8·고정 16의 분기 지점 합(정책마다 1곳)", 3, 0, "",
+          lambda repo, data: sum(_p3_event(FIXED_RUN, "ragged_64k", p, "distinct_positions")(repo, data) for p in ("table", "fixed8", "fixed16")), FIXEDSPLIT, "64K에서는 세 정책 모두 같은 한 곳"),
+    Check("p3fixed.ragged_64k.clear", "64K 혼합 길이 table·고정 8·고정 16의 clear 합", 3, 0, "",
+          lambda repo, data: sum(_p3_event(FIXED_RUN, "ragged_64k", p, "clear")(repo, data) for p in ("table", "fixed8", "fixed16")), FIXEDSPLIT, "요청 0 위치 27"),
+    # §6 trace-replay scoring against measured kernel times (hw_4090/trace_validation_20261024)
+    Check("p3val.conv.cells", "표본 셀 수(Azure conv ×1)", 100, 0, "", _p3_val("azure_conv_x1", "cells"), FIXEDSPLIT, "Azure conv ×1은 층마다 25개(100셀"),
+    Check("p3val.conv.pred_ge", "conv ×1: 예측 regret ≥ 1.25인 표본 셀 수", 50, 0, "", _p3_val("azure_conv_x1", "pred_ge"), FIXEDSPLIT, "예측한 셀은 50개"),
+    Check("p3val.conv.meas_ge", "conv ×1: 실측 regret ≥ 1.25인 표본 셀 수(1회차)", 41, 0, "", _p3_val("azure_conv_x1", "meas_ge"), FIXEDSPLIT, "그중 실측도 ≥ 1.25인 셀이 41개"),
+    Check("p3val.conv.precision", "conv ×1 precision: 예측 ≥ 1.25 중 실측 ≥ 1.25 비율(표본)", 0.82, 0.0005, "", _p3_val("azure_conv_x1", "precision"), FIXEDSPLIT, "precision 0.82"),
+    Check("p3val.conv.recall", "conv ×1 recall: 실측 ≥ 1.25 중 예측 ≥ 1.25 비율(표본)", 1.0, 0.0005, "", _p3_val("azure_conv_x1", "recall"), FIXEDSPLIT, "recall 1.00"),
+    Check("p3val.conv.w_precision", "conv ×1: 층 가중 precision", 0.6565, 0.0005, "", _p3_val("azure_conv_x1", "w_precision"), FIXEDSPLIT, "층 가중 precision 0.657"),
+    Check("p3val.conv.w_pred_frac", "conv ×1: 모델이 예측한 regret ≥ 1.25 step 비율(층 비율)", 0.1349, 0.0005, "", _p3_val("azure_conv_x1", "w_pred_frac"), FIXEDSPLIT, "예측 13.5%"),
+    Check("p3val.conv.w_meas_frac", "conv ×1: 실측 regret ≥ 1.25 step 비율 추정(층 가중, 1회차)", 0.0886, 0.0005, "", _p3_val("azure_conv_x1", "w_meas_frac"), FIXEDSPLIT, "실측 기준 8.9%"),
+    Check("p3val.conv.w_meas_frac_lo", "같은 추정의 95% 구간 하한(층 안 부트스트랩 2,000회)", 0.0628, 0.0005, "", _p3_val_ci("azure_conv_x1", "w_meas_frac", 0), FIXEDSPLIT, "95% 구간 6.3–10.9%"),
+    Check("p3val.conv.w_meas_frac_hi", "같은 추정의 95% 구간 상한", 0.1091, 0.0005, "", _p3_val_ci("azure_conv_x1", "w_meas_frac", 1), FIXEDSPLIT, "95% 구간 6.3–10.9%"),
+    Check("p3val.conv.w_meas_frac_pass2", "conv ×1: 2회차 측정의 실측 ≥ 1.25 step 비율 추정", 0.0937, 0.0005, "", _p3_val("azure_conv_x1", "w_meas_frac", 2), FIXEDSPLIT, "2회차(9.4%)"),
+    Check("p3val.conv.w_meas_frac_keysteps", "conv ×1: 셀 가중을 같은 키의 step 수로 바꾼 추정", 0.1018, 0.0005, "", _p3_val("azure_conv_x1", "w_meas_frac", 1, "key_steps"), FIXEDSPLIT, "10.2%(구간 6.5–14.6%)"),
+    Check("p3val.conv.att_meas", "conv ×1: 실측 attention 시간 비(휴리스틱 / 최선, 표본 가중)", 1.1439, 0.0005, "x", _p3_val("azure_conv_x1", "w_meas_attention_ratio"), FIXEDSPLIT, "실측 attention 시간 비는 1.144"),
+    Check("p3val.conv.att_meas_lo", "같은 비의 95% 구간 하한", 1.1312, 0.0005, "x", _p3_val_ci("azure_conv_x1", "w_meas_attention_ratio", 0), FIXEDSPLIT, "구간 1.131–1.156"),
+    Check("p3val.conv.att_meas_hi", "같은 비의 95% 구간 상한", 1.1564, 0.0005, "x", _p3_val_ci("azure_conv_x1", "w_meas_attention_ratio", 1), FIXEDSPLIT, "구간 1.131–1.156"),
+    Check("p3val.conv.att_pred", "conv ×1: 같은 셀·가중의 예측 attention 시간 비", 1.1192, 0.0005, "x", _p3_val("azure_conv_x1", "w_pred_attention_ratio"), FIXEDSPLIT, "예측 1.119"),
+    Check("p3val.conv.fp_min", "conv ×1 거짓 양성 9셀의 실측 regret 최솟값", 1.197, 0.0005, "x", _p3_val_false_positive_range("min"), FIXEDSPLIT, "실측 regret은 1.197–1.250"),
+    Check("p3val.conv.fp_max", "conv ×1 거짓 양성 9셀의 실측 regret 최댓값", 1.2498, 0.0005, "x", _p3_val_false_positive_range("max"), FIXEDSPLIT, "실측 regret은 1.197–1.250"),
+    Check("p3val.code.cells", "표본 셀 수(Azure code ×16)", 31, 0, "", _p3_val("azure_code_x16", "cells"), FIXEDSPLIT, "1셀, 31셀"),
+    Check("p3val.code.recall", "code ×16 recall(표본)", 0.75, 0.0005, "", _p3_val("azure_code_x16", "recall"), FIXEDSPLIT, "recall 0.75"),
+    Check("p3val.code.precision", "code ×16 precision(표본)", 0.8182, 0.0005, "", _p3_val("azure_code_x16", "precision"), FIXEDSPLIT, "precision 0.82(9/11)"),
+    Check("p3val.code.w_meas_frac", "code ×16: 실측 ≥ 1.25 step 비율 추정(층 가중)", 0.2353, 0.0005, "", _p3_val("azure_code_x16", "w_meas_frac"), FIXEDSPLIT, "실측 23.5%"),
+    Check("p3val.code.w_pred_frac", "code ×16: 예측 ≥ 1.25 step 비율", 0.1405, 0.0005, "", _p3_val("azure_code_x16", "w_pred_frac"), FIXEDSPLIT, "예측 14.1%"),
+    Check("p3val.code.w_meas_frac_lo", "code ×16 실측 비율 구간 하한", 0.1254, 0.0005, "", _p3_val_ci("azure_code_x16", "w_meas_frac", 0), FIXEDSPLIT, "(12.5–37.2%)"),
+    Check("p3val.code.w_meas_frac_hi", "code ×16 실측 비율 구간 상한", 0.3723, 0.0005, "", _p3_val_ci("azure_code_x16", "w_meas_frac", 1), FIXEDSPLIT, "(12.5–37.2%)"),
+    Check("p3val.code.att_meas", "code ×16: 실측 attention 시간 비", 1.1606, 0.0005, "x", _p3_val("azure_code_x16", "w_meas_attention_ratio"), FIXEDSPLIT, "code ×16의 실측 attention 시간 비 1.161"),
+    Check("p3val.err.abs_median", "전 표본: |예측 regret − 실측 regret| 중앙값", 0.0482, 0.0005, "", _p3_val_error("abs_err_median"), FIXEDSPLIT, "중앙값 0.048"),
+    Check("p3val.err.abs_max", "전 표본: |예측 regret − 실측 regret| 최댓값", 0.2452, 0.0005, "", _p3_val_error("abs_err_max"), FIXEDSPLIT, "최댓값 0.245"),
+    Check("p3val.err.rel_median", "전 표본: 예측 regret 상대 오차 중앙값", 0.0402, 0.0005, "", _p3_val_error("rel_err_median"), FIXEDSPLIT, "상대 오차 중앙값 4.0%"),
+    Check("p3val.err.rel_max", "전 표본: 예측 regret 상대 오차 최댓값", 0.1693, 0.0005, "", _p3_val_error("rel_err_max"), FIXEDSPLIT, "최댓값 16.9%"),
+    Check("p3val.err.spearman", "전 표본: 예측·실측 regret의 Spearman 순위 상관", 0.9585, 0.0005, "", _p3_val_error("spearman"), FIXEDSPLIT, "순위 상관 0.959"),
+    Check("p3val.err.time_ratio", "전 표본: 휴리스틱 시간 예측 / 실측 중앙값", 0.8672, 0.0005, "", _p3_val_error("time_pred_over_meas_median"), FIXEDSPLIT, "절대 시간은 실측의 0.867배"),
+    Check("p3val.err.best_variant", "전 표본: 예측 최선 분할 = 실측 최선 분할인 비율", 0.7099, 0.0005, "", _p3_val_error("best_variant_agreement"), FIXEDSPLIT, "같은 변형을 고른 비율 0.710"),
+    Check("p3val.noise.regret_median", "두 측정 회차 사이 실측 regret 상대 차이 중앙값", 0.00155, 0.00005, "", _p3_val_noise("regret_rel_median"), FIXEDSPLIT, "중앙값 0.16%"),
+    Check("p3val.noise.regret_max", "두 측정 회차 사이 실측 regret 상대 차이 최댓값", 0.00758, 0.00005, "", _p3_val_noise("regret_rel_max"), FIXEDSPLIT, "최댓값 0.76%"),
+    *[Check(f"p3val.conv.stratum.{s}.{c}", f"conv ×1 층 {s}: {t}", exp, 0.0005, "", _p3_val_stratum("azure_conv_x1", s, c), FIXEDSPLIT, txt)
+      for s, c, t, exp, txt in [
+          ("<1.1", "meas_median", "실측 regret 중앙값", 1.0777, "층 <1.1의 실측 중앙값 1.078"),
+          ("1.1-1.25", "meas_ge", "실측 ≥ 1.25 셀 수(25셀 중)", 0, "층 1.1–1.25는 0/25"),
+          ("1.25-1.5", "meas_ge", "실측 ≥ 1.25 셀 수(25셀 중)", 16, "층 1.25–1.5는 16/25"),
+          (">=1.5", "meas_ge", "실측 ≥ 1.25 셀 수(25셀 중)", 25, "층 ≥1.5는 25/25"),
+          ("1.25-1.5", "pred_median", "예측 regret 중앙값", 1.3262, "예측 중앙값 1.326"),
+          ("1.25-1.5", "meas_median", "실측 regret 중앙값", 1.2655, "실측 중앙값 1.265"),
+          (">=1.5", "pred_median", "예측 regret 중앙값", 1.5739, "예측 중앙값 1.574"),
+          (">=1.5", "meas_median", "실측 regret 중앙값", 1.4263, "실측 중앙값 1.426")]],
+    # §7 trace-driven end to end (trace_e2e_20261024)
+    *[Check(f"p3trace.{pol}.{what}", title, exp, tol, unit, fn, FIXEDSPLIT, txt)
+      for pol in ("table",) for what, title, exp, tol, unit, fn, txt in [
+          ("speedup", "table의 TPOT 배율(3회 평균)", 1.0346, 0.0005, "x", _p3_serve(TRACE_RUN, TRACE_NAME, "table", "speedup_vs_heuristic"), "table 1.035배"),
+          ("attn", "table의 attention ms/step", 5.893, 0.0005, "ms", _p3_serve(TRACE_RUN, TRACE_NAME, "table", "attn_ms_per_step"), "table 5.89 ms"),
+          ("p50", "table의 TPOT p50(ms)", 36.838, 0.0005, "ms", _p3_serve(TRACE_RUN, TRACE_NAME, "table", "tpot_ms_p50"), "p50 36.84"),
+          ("p90", "table의 TPOT p90(ms)", 42.835, 0.0005, "ms", _p3_serve(TRACE_RUN, TRACE_NAME, "table", "tpot_ms_p90"), "p90 42.84"),
+          ("throughput", "table의 처리량(토큰/s)", 797.8, 0.05, "tok/s", _p3_serve(TRACE_RUN, TRACE_NAME, "table", "throughput_tokens_s"), "797.8 tok/s"),
+          ("step_ratio", "측정한 step별 attention 시간 합 비(휴리스틱 / table)", 1.1778, 0.0005, "x", _p3_step_ratio("table", "total"), "측정 비 1.178"),
+          ("frac125", "측정한 step별 attention 배율이 1.25 이상인 step 비율(휴리스틱 / table)", 0.4308, 0.0005, "", _p3_step_ratio("table", "frac"), "43.1%")]],
+    Check("p3trace.heuristic.attn", "휴리스틱의 attention ms/step", 6.941, 0.0005, "ms", _p3_serve(TRACE_RUN, TRACE_NAME, "heuristic", "attn_ms_per_step"), FIXEDSPLIT, "휴리스틱 6.94 ms"),
+    Check("p3trace.heuristic.tpot", "휴리스틱의 TPOT(ms, 3회 평균)", 37.585, 0.0005, "ms", _p3_serve(TRACE_RUN, TRACE_NAME, "heuristic", "tpot_ms_mean"), FIXEDSPLIT, "휴리스틱 37.58 ms"),
+    Check("p3trace.heuristic.p50", "휴리스틱의 TPOT p50(ms)", 38.443, 0.0005, "ms", _p3_serve(TRACE_RUN, TRACE_NAME, "heuristic", "tpot_ms_p50"), FIXEDSPLIT, "p50 38.44"),
+    Check("p3trace.heuristic.p90", "휴리스틱의 TPOT p90(ms)", 44.5, 0.0005, "ms", _p3_serve(TRACE_RUN, TRACE_NAME, "heuristic", "tpot_ms_p90"), FIXEDSPLIT, "p90 44.50"),
+    Check("p3trace.heuristic.throughput", "휴리스틱의 처리량(토큰/s)", 776.0, 0.05, "tok/s", _p3_serve(TRACE_RUN, TRACE_NAME, "heuristic", "throughput_tokens_s"), FIXEDSPLIT, "776.0에서 797.8"),
+    Check("p3trace.model.attn", "model의 attention ms/step", 5.8, 0.0005, "ms", _p3_serve(TRACE_RUN, TRACE_NAME, "model", "attn_ms_per_step"), FIXEDSPLIT, "| model | 5.800 |"),
+    Check("p3trace.model.step_ratio", "측정한 step별 attention 시간 합 비(휴리스틱 / model)", 1.1968, 0.0005, "x", _p3_step_ratio("model", "total"), FIXEDSPLIT, "측정 비 1.197"),
+    Check("p3trace.model.frac125", "측정한 step별 배율이 1.25 이상인 step 비율(휴리스틱 / model)", 0.4613, 0.0005, "", _p3_step_ratio("model", "frac"), FIXEDSPLIT, "46.1%"),
+    Check("p3trace.hybrid.step_ratio", "측정한 step별 attention 시간 합 비(휴리스틱 / hybrid)", 1.1811, 0.0005, "x", _p3_step_ratio("hybrid", "total"), FIXEDSPLIT, "측정 비 1.181"),
+    Check("p3trace.model.r0_tpot", "model 반복 0의 TPOT(ms; 정책 캐시가 빈 첫 반복)", 43.615, 0.0005, "ms", _p3_repeat(TRACE_RUN, TRACE_NAME, "model", 0, "tpot_ms"), FIXEDSPLIT, "model 반복 0의 TPOT는 43.62 ms"),
+    Check("p3trace.model.steady_tpot", "model 반복 1·2의 TPOT 평균(ms)", 36.252, 0.0005, "ms", _p3_steady_tpot(TRACE_RUN, TRACE_NAME, "model"), FIXEDSPLIT, "반복 1·2는 36.25 ms"),
+    Check("p3trace.model.steady_speedup", "model 반복 1·2의 TPOT 배율(휴리스틱 반복 1·2 대비)", 1.0368, 0.0005, "x", _p3_steady_speedup(TRACE_RUN, TRACE_NAME, "model"), FIXEDSPLIT, "model 1.037배"),
+    Check("p3trace.hybrid.r0_tpot", "hybrid 반복 0의 TPOT(ms)", 43.685, 0.0005, "ms", _p3_repeat(TRACE_RUN, TRACE_NAME, "hybrid", 0, "tpot_ms"), FIXEDSPLIT, "hybrid 43.69 ms"),
+    Check("p3trace.hybrid.steady_speedup", "hybrid 반복 1·2의 TPOT 배율", 1.0347, 0.0005, "x", _p3_steady_speedup(TRACE_RUN, TRACE_NAME, "hybrid"), FIXEDSPLIT, "hybrid 1.035배"),
+    Check("p3trace.model.all_speedup", "model의 3회 평균 TPOT 배율(반복 0 포함)", 0.971, 0.0005, "x", _p3_serve(TRACE_RUN, TRACE_NAME, "model", "speedup_vs_heuristic"), FIXEDSPLIT, "0.971배"),
+    Check("p3trace.model.r0_policy_us", "model 반복 0의 step당 정책 비용(µs)", 6460.7, 0.5, "us", _p3_repeat(TRACE_RUN, TRACE_NAME, "model", 0, "policy_us"), FIXEDSPLIT, "6,461 µs"),
+    Check("p3trace.model.r1_policy_us", "model 반복 1의 step당 정책 비용(µs)", 6.3, 0.05, "us", _p3_repeat(TRACE_RUN, TRACE_NAME, "model", 1, "policy_us"), FIXEDSPLIT, "6.3 µs"),
+    Check("p3trace.model.r0_hit", "model 반복 0의 결정 캐시 적중률", 0.6568, 0.0005, "", _p3_repeat(TRACE_RUN, TRACE_NAME, "model", 0, "hit"), FIXEDSPLIT, "결정 캐시 적중률은 65.7%"),
+    Check("p3trace.table.r0_policy_us", "table 반복 0의 step당 정책 비용(µs)", 29.2, 0.05, "us", _p3_repeat(TRACE_RUN, TRACE_NAME, "table", 0, "policy_us"), FIXEDSPLIT, "table은 29 µs"),
+    Check("p3trace.table.events", "table의 분기 지점 수(휴리스틱 대비, 300요청 중 10개 요청)", 10, 0, "", _p3_event(TRACE_RUN, TRACE_NAME, "table", "distinct_positions"), FIXEDSPLIT, "table 분기 지점 10곳"),
+    Check("p3trace.table.tie", "그중 교사 강제 구간 안이라 분류된 동점(1 ulp)", 1, 0, "", _p3_event(TRACE_RUN, TRACE_NAME, "table", "tie_1ulp"), FIXEDSPLIT, "분류된 것은 1곳"),
+    Check("p3trace.table.unclassified", "그중 교사 강제 구간 밖이라 미분류", 9, 0, "", _p3_event(TRACE_RUN, TRACE_NAME, "table", "unclassified"), FIXEDSPLIT, "나머지 9곳"),
+    Check("p3trace.table.mismatches", "table의 불일치 토큰 수(반복당)", 921, 0, "", _p3_event(TRACE_RUN, TRACE_NAME, "table", "token_mismatches_max"), FIXEDSPLIT, "불일치 토큰 table 921개"),
+    Check("p3trace.model.events", "model의 분기 지점 수", 8, 0, "", _p3_event(TRACE_RUN, TRACE_NAME, "model", "distinct_positions"), FIXEDSPLIT, "model 8곳"),
+    Check("p3trace.model.clear", "model의 clear 수", 0, 0, "", _p3_event(TRACE_RUN, TRACE_NAME, "model", "clear"), FIXEDSPLIT, "clear는 없다"),
+    Check("p3trace.teacher_rows", "교사 강제로 기록된 정책당 (step, 요청) 행 수", 8684, 0, "", _p3_teacher(TRACE_RUN, TRACE_NAME, "rows"), FIXEDSPLIT, "8,684행"),
+    Check("p3trace.teacher_flips", "그 행에서 argmax가 휴리스틱과 다른 수(table)", 1, 0, "", _p3_teacher(TRACE_RUN, TRACE_NAME, "flips"), FIXEDSPLIT, "argmax가 바뀐 행은 1개"),
+    # §8 vLLM decode step decomposition (vllm_4090/profile_20261024)
+    *[Check(f"p3vllm.{run}.{col}", f"vLLM 0.31 {run}: {t}", exp, tol, "ms", _p3_vllm_value(run, col), FIXEDSPLIT, txt)
+      for run, col, t, exp, tol, txt in [
+          ("flash_attn_eager_ragged", "unprofiled_ms", "비프로파일 step 시간", 81.013, 0.0005, "혼합 길이 step은 81.0 ms"),
+          ("flash_attn_eager_ragged", "attention_ms", "attention GPU 시간", 67.73, 0.005, "attention 67.7 ms"),
+          ("flash_attn_eager_ragged", "gemm_ms", "GEMM GPU 시간", 9.56, 0.005, "GEMM 9.6 ms"),
+          ("flash_attn_eager_ragged", "gpu_busy_ms", "GPU busy", 78.19, 0.005, "| FA2 eager, 혼합 | 81.0 | 78.2 |"),
+          ("flash_attn_eager_ragged", "not_gpu_busy_ms", "비프로파일 step 시간 − GPU busy", 2.82, 0.005, "GPU 밖 시간은 FA2 혼합 2.8 ms"),
+          ("flash_attn_eager_ragged", "attention_share_of_busy", "attention이 GPU busy에서 차지하는 비중", 0.866, 0.0005, "GPU busy의 87%"),
+          ("flash_attn_eager_uniform", "unprofiled_ms", "비프로파일 step 시간", 14.629, 0.0005, "FA2 균일 14.6 ms"),
+          ("flash_attn_eager_uniform", "attention_ms", "attention GPU 시간", 2.95, 0.005, "균일은 2.95 ms다"),
+          ("flash_attn_eager_uniform", "gemm_ms", "GEMM GPU 시간", 9.65, 0.005, "(GEMM 9.6 ms 대 9.7 ms)"),
+          ("flash_attn_cudagraph_ragged", "unprofiled_ms", "비프로파일 step 시간", 80.574, 0.0005, "CUDA graph 혼합 80.6 ms"),
+          ("flash_attn_cudagraph_ragged", "attention_ms", "attention GPU 시간", 67.72, 0.005, "attention 67.7 ms"),
+          ("flash_attn_cudagraph_uniform", "unprofiled_ms", "비프로파일 step 시간", 13.69, 0.005, "CUDA graph 균일 13.7 ms"),
+          ("flashinfer_eager_ragged", "unprofiled_ms", "비프로파일 step 시간", 35.955, 0.0005, "혼합 step 36.0 ms"),
+          ("flashinfer_eager_ragged", "attention_ms", "attention GPU 시간", 24.03, 0.005, "attention이 24.0 ms"),
+          ("flashinfer_eager_ragged", "attention_share_of_busy", "attention이 GPU busy에서 차지하는 비중", 0.702, 0.0005, "GPU busy의 70%"),
+          ("flashinfer_eager_uniform", "unprofiled_ms", "비프로파일 step 시간", 14.33, 0.005, "균일 14.3 ms의 2.5배"),
+          ("flashinfer_eager_uniform", "attention_ms", "attention GPU 시간", 2.96, 0.005, "| FlashInfer eager, 균일 | 14.3 | 13.3 | 2.96 |")]],
+    Check("p3vllm.excess_share.fa2", "FA2 eager: 혼합−균일 step 시간 차 중 attention GPU 시간 차의 비율", 0.9758, 0.0005, "",
+          _p3_vllm_excess_share("flash_attn_eager_ragged", "flash_attn_eager_uniform"), FIXEDSPLIT, "차이의 97.6%"),
+    Check("p3vllm.excess_share.fi", "FlashInfer eager: 같은 비율", 0.9742, 0.0005, "",
+          _p3_vllm_excess_share("flashinfer_eager_ragged", "flashinfer_eager_uniform"), FIXEDSPLIT, "차이의 97.4%"),
+    Check("p3vllm.after_leave.attention", "32K 요청이 끝난 직후 decode iteration(31개 요청)의 attention ms", 2.89, 0.005, "ms",
+          _p3_vllm_after_leave("attention_us"), FIXEDSPLIT, "2.89 ms로 떨어진다"),
+    Check("p3vllm.logged_median.attention", "analyze가 기록한 중앙값 칸의 FA2 혼합 attention ms(iteration 종류가 섞인 값, 사용하지 않음)", 1.44, 0.005, "ms",
+          _p3_vllm_logged_median("flash_attn_eager_ragged", "attention_us_median"), FIXEDSPLIT, "기록된 중앙값 1.44 ms"),
+    Check("p3vllm.grid_ratio", "vLLM FA2 attention(층당) / 같은 배치의 커널 격자 휴리스틱 시간", 1.7554, 0.0005, "x", _p3_vllm_grid_ratio, FIXEDSPLIT, "격자의 1.76배"),
+    Check("p3vllm.grid_best", "같은 배치의 격자에서 휴리스틱 / 최선 FA2 분할 시간", 3.8, 0.05, "x", _p3_vllm_best_over_grid, FIXEDSPLIT, "격자의 최선 분할은 휴리스틱의 1/3.8"),
+    # §9 64K natural text (longctx_text_20261024)
+    Check("p3text.table.speedup", "64K 자연어: table TPOT 배율", 2.449, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "table", "speedup_vs_heuristic"), FIXEDSPLIT, "table 2.449배"),
+    Check("p3text.model.speedup", "64K 자연어: model TPOT 배율", 2.4433, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "model", "speedup_vs_heuristic"), FIXEDSPLIT, "model 2.443배"),
+    Check("p3text.hybrid.speedup", "64K 자연어: hybrid TPOT 배율", 2.4402, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "hybrid", "speedup_vs_heuristic"), FIXEDSPLIT, "hybrid 2.440배"),
+    Check("p3text.heuristic.attn", "64K 자연어: 휴리스틱 attention ms/step", 70.453, 0.0005, "ms", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "heuristic", "attn_ms_per_step"), FIXEDSPLIT, "70.45 ms/step"),
+    Check("p3text.table.attn", "64K 자연어: table attention ms/step", 14.335, 0.0005, "ms", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "table", "attn_ms_per_step"), FIXEDSPLIT, "14.33 ms/step"),
+    Check("p3text.events", "64K 자연어: 세 정책의 분기 지점 합", 0, 0, "",
+          lambda repo, data: sum(_p3_event(LONGTEXT_RUN, "demo_text_ragged_64k", p, "distinct_positions")(repo, data) for p in ("table", "model", "hybrid")), FIXEDSPLIT, "분기 지점 0곳"),
+    Check("p3text.mismatches", "64K 자연어: 세 정책의 불일치 토큰 합", 0, 0, "",
+          lambda repo, data: sum(_p3_event(LONGTEXT_RUN, "demo_text_ragged_64k", p, "token_mismatches_max")(repo, data) for p in ("table", "model", "hybrid")), FIXEDSPLIT, "불일치 토큰 0개"),
+    Check("p3text.teacher_rows", "64K 자연어: 교사 강제 행 수(정책당)", 2016, 0, "", _p3_teacher(LONGTEXT_RUN, "demo_text_ragged_64k", "rows"), FIXEDSPLIT, "2,016행"),
+    Check("p3text.teacher_flips", "64K 자연어: argmax가 달라진 행 수", 0, 0, "", _p3_teacher(LONGTEXT_RUN, "demo_text_ragged_64k", "flips"), FIXEDSPLIT, "argmax 변화 0"),
+    Check("p3text.teacher_maxdiff", "64K 자연어: 교사 강제 로짓 최대 차이", 0.5, 0.005, "", _p3_teacher(LONGTEXT_RUN, "demo_text_ragged_64k", "max_diff"), FIXEDSPLIT, "로짓 최대 차이 0.5"),
+    Check("p3text.teacher_tied", "64K 자연어: 휴리스틱 기준 1위 동점인 행 수(table)", 15, 0, "", _p3_teacher(LONGTEXT_RUN, "demo_text_ragged_64k", "tied"), FIXEDSPLIT, "1위 동점 15행"),
+    # §10 GSM8K (gsm8k_20261024)
+    *[Check(f"p3gsm.{pol}.speedup", f"GSM8K 시나리오: {pol}의 TPOT 배율", exp, 0.0005, "x", _p3_serve(GSM8K_RUN, "gsm8k_ragged32k_n200", pol, "speedup_vs_heuristic"), FIXEDSPLIT, txt)
+      for pol, exp, txt in [("table", 2.1009, "table 2.101배"), ("fixed8", 2.1541, "고정 8 2.154배"), ("flashinfer_cudacore", 2.1553, "flashinfer_cudacore 2.155배")]],
+    Check("p3gsm.heuristic.attn", "GSM8K 시나리오: 휴리스틱 attention ms/step", 32.905, 0.0005, "ms", _p3_serve(GSM8K_RUN, "gsm8k_ragged32k_n200", "heuristic", "attn_ms_per_step"), FIXEDSPLIT, "32.91 ms/step"),
+    Check("p3gsm.acc.marker", "GSM8K 200문항: `####` 뒤 숫자 기준 정확도(네 정책 모두)", 0.78, 0.0005, "", _p3_acc("heuristic", "marker", "accuracy"), FIXEDSPLIT, "정확도 0.780"),
+    Check("p3gsm.acc.marker_lo", "같은 정확도의 95% Wilson 구간 하한", 0.7176, 0.0005, "", _p3_acc("heuristic", "marker", "ci_low"), FIXEDSPLIT, "0.718–0.832"),
+    Check("p3gsm.acc.marker_hi", "같은 정확도의 95% Wilson 구간 상한", 0.8318, 0.0005, "", _p3_acc("heuristic", "marker", "ci_high"), FIXEDSPLIT, "0.718–0.832"),
+    *[Check(f"p3gsm.acc.marker.{pol}", f"GSM8K: {pol}의 `####` 기준 정답 수", 156, 0, "", _p3_acc(pol, "marker", "correct"), FIXEDSPLIT, "네 정책 모두 156문항")
+      for pol in ("table", "fixed8", "flashinfer_cudacore")],
+    Check("p3gsm.acc.last.heuristic", "GSM8K: 마지막 숫자 기준 휴리스틱 정확도", 0.395, 0.0005, "", _p3_acc("heuristic", "last", "accuracy"), FIXEDSPLIT, "마지막 숫자 기준 0.395"),
+    Check("p3gsm.acc.last.cudacore", "GSM8K: 마지막 숫자 기준 flashinfer_cudacore 정확도", 0.405, 0.0005, "", _p3_acc("flashinfer_cudacore", "last", "accuracy"), FIXEDSPLIT, "flashinfer_cudacore 0.405"),
+    Check("p3gsm.pair.cudacore.r2w", "flashinfer_cudacore: `####` 기준 맞음→틀림 문항 수", 3, 0, "", _p3_paired("flashinfer_cudacore", "marker", "right_to_wrong"), FIXEDSPLIT, "맞음→틀림 3, 틀림→맞음 3"),
+    Check("p3gsm.pair.cudacore.w2r", "flashinfer_cudacore: `####` 기준 틀림→맞음 문항 수", 3, 0, "", _p3_paired("flashinfer_cudacore", "marker", "wrong_to_right"), FIXEDSPLIT, "맞음→틀림 3, 틀림→맞음 3"),
+    Check("p3gsm.pair.cudacore.changed", "flashinfer_cudacore: `####` 답이 휴리스틱과 다른 문항 수", 8, 0, "", _p3_paired("flashinfer_cudacore", "marker", "prediction_changed"), FIXEDSPLIT, "답이 달라진 문항 8"),
+    Check("p3gsm.pair.cudacore.text", "flashinfer_cudacore: 생성 토큰이 휴리스틱과 다른 문항 수(200문항 중)", 140, 0, "", _p3_paired("flashinfer_cudacore", "marker", "text_differs"), FIXEDSPLIT, "생성이 달라진 문항 140"),
+    Check("p3gsm.pair.cudacore.same_answer", "그중 `####` 답은 같은 문항 수", 132, 0, "", _p3_paired("flashinfer_cudacore", "marker", "text_differs_answer_same"), FIXEDSPLIT, "그중 132문항은 답이 같다"),
+    Check("p3gsm.pair.cudacore.last_r2w", "flashinfer_cudacore: 마지막 숫자 기준 맞음→틀림", 13, 0, "", _p3_paired("flashinfer_cudacore", "last", "right_to_wrong"), FIXEDSPLIT, "13 / 15"),
+    Check("p3gsm.pair.cudacore.last_w2r", "flashinfer_cudacore: 마지막 숫자 기준 틀림→맞음", 15, 0, "", _p3_paired("flashinfer_cudacore", "last", "wrong_to_right"), FIXEDSPLIT, "13 / 15"),
+    Check("p3gsm.pair.cudacore.last_p", "flashinfer_cudacore: 마지막 숫자 기준 정확 McNemar p", 0.8506, 0.0005, "", _p3_paired("flashinfer_cudacore", "last", "p_value"), FIXEDSPLIT, "p = 0.851"),
+    Check("p3gsm.pair.table.changed", "table: 답이 달라진 문항 수", 0, 0, "", _p3_paired("table", "marker", "prediction_changed"), FIXEDSPLIT, "table·고정 8은 200문항 모두 생성 토큰이 같다"),
+    Check("p3gsm.pair.table.text", "table: 생성 토큰이 다른 문항 수", 0, 0, "", _p3_paired("table", "marker", "text_differs"), FIXEDSPLIT, "table·고정 8은 200문항 모두 생성 토큰이 같다"),
+    Check("p3gsm.pair.fixed8.text", "고정 8: 생성 토큰이 다른 문항 수", 0, 0, "", _p3_paired("fixed8", "marker", "text_differs"), FIXEDSPLIT, "table·고정 8은 200문항 모두 생성 토큰이 같다"),
+    Check("p3gsm.events.cudacore.answered", "flashinfer_cudacore: 채점 대상 200문항에서의 분기 지점 수(반복 0)", 140, 0, "", _p3_gsm8k_events("flashinfer_cudacore", True), FIXEDSPLIT, "채점 문항 140곳"),
+    Check("p3gsm.events.cudacore.filler", "flashinfer_cudacore: 32K 필러 요청 7개에서의 분기 지점 수", 7, 0, "", _p3_gsm8k_events("flashinfer_cudacore", False), FIXEDSPLIT, "필러 7곳"),
+    Check("p3gsm.events.table.answered", "table: 채점 문항의 분기 지점 수", 0, 0, "", _p3_gsm8k_events("table", True), FIXEDSPLIT, "채점 문항의 분기는 0곳"),
+    Check("p3gsm.events.table.filler", "table: 필러 요청의 분기 지점 수(7개 중)", 6, 0, "", _p3_gsm8k_events("table", False), FIXEDSPLIT, "필러 7개 중 6개"),
+    Check("p3gsm.events.fixed8.filler", "고정 8: 필러 요청의 분기 지점 수", 6, 0, "", _p3_gsm8k_events("fixed8", False), FIXEDSPLIT, "필러 7개 중 6개"),
+    # ---- P3 additions: every other number of the §1/§6-§10 tables ---------------------------------------------------
+    *[Check(f"p3fixed.ci.{sc}.{pol}.{side}", f"고정 분할 실생성 {sc}: {pol} TPOT 배율 구간 {side}", exp, 0.0006, "x", _p3_serve(FIXED_RUN, sc, pol, f"speedup_ci95_{side}"), FIXEDSPLIT, txt)
+      for sc, pol, side, exp, txt in [
+          ("ragged", "table", "low", 1.7952, "1.813 (1.795–1.830)"), ("ragged", "table", "high", 1.8299, "1.813 (1.795–1.830)"),
+          ("ragged", "fixed16", "low", 1.7902, "1.804 (1.790–1.827)"), ("ragged", "fixed16", "high", 1.8273, "1.804 (1.790–1.827)"),
+          ("ragged", "fixed8", "high", 1.8147, "1.644 (1.393–1.815)"),
+          ("uniform", "table", "low", 0.9990, "1.003 (0.999–1.008)"), ("uniform", "table", "high", 1.0080, "1.003 (0.999–1.008)"),
+          ("uniform", "fixed8", "low", 0.9957, "0.998 (0.996–1.002)"), ("uniform", "fixed8", "high", 1.0015, "0.998 (0.996–1.002)"),
+          ("uniform", "fixed16", "low", 0.9869, "0.990 (0.987–0.994)"), ("uniform", "fixed16", "high", 0.9939, "0.990 (0.987–0.994)"),
+          ("arrivals", "table", "low", 1.1697, "1.173 (1.170–1.177)"), ("arrivals", "table", "high", 1.1769, "1.173 (1.170–1.177)"),
+          ("arrivals", "fixed8", "low", 1.1755, "1.178 (1.176–1.180)"), ("arrivals", "fixed8", "high", 1.1798, "1.178 (1.176–1.180)"),
+          ("arrivals", "fixed16", "low", 1.1662, "1.168 (1.166–1.169)"), ("arrivals", "fixed16", "high", 1.1692, "1.168 (1.166–1.169)"),
+          ("ragged_64k", "table", "low", 2.4456, "2.448 (2.446–2.451)"), ("ragged_64k", "table", "high", 2.4510, "2.448 (2.446–2.451)"),
+          ("ragged_64k", "fixed8", "low", 2.4424, "2.443 (2.442–2.444)"), ("ragged_64k", "fixed8", "high", 2.4441, "2.443 (2.442–2.444)"),
+          ("ragged_64k", "fixed16", "low", 2.4237, "2.429 (2.424–2.431)"), ("ragged_64k", "fixed16", "high", 2.4311, "2.429 (2.424–2.431)")]],
+    Check("p3fixed.ragged.heuristic.repeat1_tpot", "혼합 길이 휴리스틱의 반복 1 TPOT(ms)", 62.9375, 0.001, "ms", _p3_repeat(FIXED_RUN, "ragged", "heuristic", 1, "tpot_ms"), FIXEDSPLIT, "62.94 ms"),
+    Check("p3fixed.ragged.fixed8.repeat1_other", "혼합 길이 고정 8 반복 1의 step 시간 − attention(ms)", 24.191, 0.005, "ms",
+          lambda repo, data: float(_p3_repeats(data, FIXED_RUN, "ragged").loc[("fixed8", 1), "step_ms"] - _p3_repeats(data, FIXED_RUN, "ragged").loc[("fixed8", 1), "attn_ms"]),
+          FIXEDSPLIT, "step 시간 − attention 24.2 ms"),
+    Check("p3fixed.ragged.fixed8.repeat0_other", "혼합 길이 고정 8 반복 0의 step 시간 − attention(ms)", 14.771, 0.005, "ms",
+          lambda repo, data: float(_p3_repeats(data, FIXED_RUN, "ragged").loc[("fixed8", 0), "step_ms"] - _p3_repeats(data, FIXED_RUN, "ragged").loc[("fixed8", 0), "attn_ms"]),
+          FIXEDSPLIT, "다른 반복 14.8 ms"),
+    Check("p3fixed.ragged.fixed8.repeat0_attn", "혼합 길이 고정 8 반복 0의 attention ms/step", 9.151, 0.0005, "ms", _p3_repeat(FIXED_RUN, "ragged", "fixed8", 0, "attn_ms"), FIXEDSPLIT, "다른 반복 9.15 ms"),
+    Check("p3fixed.uniform.table.splits", "균일 길이 table이 고른 분할 수의 서로 다른 값 개수(첫 반복, 1 = 모든 step이 같은 값)", 1, 0, "",
+          lambda repo, data: float(pd.read_parquet(data / "serve_4090" / FIXED_RUN / "uniform" / "table" / "repeat_000" / "steps.parquet").num_splits.nunique()), FIXEDSPLIT, "63 step 모두 휴리스틱(`num_splits=0`)"),
+    Check("p3fixed.uniform.table.splits_value", "균일 길이 table이 고른 분할 수(0 = 휴리스틱)", 0, 0, "",
+          lambda repo, data: float(pd.read_parquet(data / "serve_4090" / FIXED_RUN / "uniform" / "table" / "repeat_000" / "steps.parquet").num_splits.iloc[0]), FIXEDSPLIT, "63 step 모두 휴리스틱(`num_splits=0`)"),
+    Check("p3fixed.ragged.table.splits_value", "혼합 길이 table이 고른 분할 수(모든 step 같은 값)", 16, 0, "",
+          lambda repo, data: float(pd.read_parquet(data / "serve_4090" / FIXED_RUN / "ragged" / "table" / "repeat_000" / "steps.parquet").num_splits.iloc[0]
+                                   if pd.read_parquet(data / "serve_4090" / FIXED_RUN / "ragged" / "table" / "repeat_000" / "steps.parquet").num_splits.nunique() == 1 else -1),
+          FIXEDSPLIT, "혼합 길이는 63 step 모두 16"),
+    Check("p3fixed.arrivals.table.splits8", "요청 도착 table이 분할 8을 고른 step 수(63 중)", 41, 0, "",
+          lambda repo, data: float((pd.read_parquet(data / "serve_4090" / FIXED_RUN / "arrivals" / "table" / "repeat_000" / "steps.parquet").num_splits == 8).sum()), FIXEDSPLIT, "8이 41 step"),
+    Check("p3fixed.ragged_64k.table.splits_value", "64K 혼합 길이 table이 고른 분할 수(모든 step 같은 값)", 8, 0, "",
+          lambda repo, data: float(pd.read_parquet(data / "serve_4090" / FIXED_RUN / "ragged_64k" / "table" / "repeat_000" / "steps.parquet").num_splits.iloc[0]
+                                   if pd.read_parquet(data / "serve_4090" / FIXED_RUN / "ragged_64k" / "table" / "repeat_000" / "steps.parquet").num_splits.nunique() == 1 else -1),
+          FIXEDSPLIT, "64K 혼합 길이는 63 step 모두 8"),
+    Check("p3val.conv.att_meas_pass2", "conv ×1: 2회차 실측 attention 시간 비", 1.1434, 0.0005, "x", _p3_val("azure_conv_x1", "w_meas_attention_ratio", 2), FIXEDSPLIT, "1.143"),
+    Check("p3val.conv.att_meas_keysteps", "conv ×1: 키 step 수 가중 실측 attention 시간 비", 1.1391, 0.0005, "x", _p3_val("azure_conv_x1", "w_meas_attention_ratio", 1, "key_steps"), FIXEDSPLIT, "1.139"),
+    Check("p3val.conv.w_meas_frac_keysteps_lo", "같은 추정의 구간 하한(키 step 수 가중)", 0.0649, 0.0006, "",
+          lambda repo, data: float(__import__("kernelscope.analysis.validation", fromlist=["x"]).bootstrap(_p3_validation(data, "key_steps")[0], "azure_conv_x1", "w_meas_frac")[0]), FIXEDSPLIT, "10.2%(구간 6.5–14.6%)"),
+    Check("p3val.conv.w_meas_frac_keysteps_hi", "같은 추정의 구간 상한(키 step 수 가중)", 0.1457, 0.0006, "",
+          lambda repo, data: float(__import__("kernelscope.analysis.validation", fromlist=["x"]).bootstrap(_p3_validation(data, "key_steps")[0], "azure_conv_x1", "w_meas_frac")[1]), FIXEDSPLIT, "10.2%(구간 6.5–14.6%)"),
+    Check("p3val.conv.w_precision_lo", "conv ×1 층 가중 precision 구간 하한", 0.4657, 0.0006, "", _p3_val_ci("azure_conv_x1", "w_precision", 0), FIXEDSPLIT, "(구간 0.466–0.809)"),
+    Check("p3val.conv.w_precision_hi", "conv ×1 층 가중 precision 구간 상한", 0.8092, 0.0006, "", _p3_val_ci("azure_conv_x1", "w_precision", 1), FIXEDSPLIT, "(구간 0.466–0.809)"),
+    Check("p3val.code.w_meas_frac_pass2", "code ×16: 2회차 실측 ≥ 1.25 step 비율", 0.2353, 0.0006, "", _p3_val("azure_code_x16", "w_meas_frac", 2), FIXEDSPLIT, "| code ×16: regret ≥ 1.25 step 비율 | 14.1% | 23.5% (12.5–37.2%) | 23.5% | 19.6% |"),
+    Check("p3val.code.w_meas_frac_keysteps", "code ×16: 키 step 수 가중 실측 ≥ 1.25 step 비율", 0.1959, 0.0006, "", _p3_val("azure_code_x16", "w_meas_frac", 1, "key_steps"), FIXEDSPLIT, "| code ×16: regret ≥ 1.25 step 비율 | 14.1% | 23.5% (12.5–37.2%) | 23.5% | 19.6% |"),
+    Check("p3val.code.att_pred", "code ×16: 예측 attention 시간 비", 1.1345, 0.0005, "x", _p3_val("azure_code_x16", "w_pred_attention_ratio"), FIXEDSPLIT, "| code ×16: attention 시간 비 | 1.134 | 1.161 | 1.161 | 1.150 |"),
+    Check("p3val.code.att_pass2", "code ×16: 2회차 실측 attention 시간 비", 1.1614, 0.0005, "x", _p3_val("azure_code_x16", "w_meas_attention_ratio", 2), FIXEDSPLIT, "| code ×16: attention 시간 비 | 1.134 | 1.161 | 1.161 | 1.150 |"),
+    Check("p3val.code.att_keysteps", "code ×16: 키 step 수 가중 실측 attention 시간 비", 1.1498, 0.0005, "x", _p3_val("azure_code_x16", "w_meas_attention_ratio", 1, "key_steps"), FIXEDSPLIT, "| code ×16: attention 시간 비 | 1.134 | 1.161 | 1.161 | 1.150 |"),
+    *[Check(f"p3val.conv.stratum.{s}.{c}", f"conv ×1 층 {s}: {t}", exp, 0.0006, "", _p3_val_stratum("azure_conv_x1", s, c), FIXEDSPLIT, txt)
+      for s, c, t, exp, txt in [
+          ("<1.1", "abs_err_median", "|예측−실측| 중앙값", 0.0355, "0.036 / 0.202"), ("<1.1", "abs_err_max", "|예측−실측| 최대", 0.2023, "0.036 / 0.202"),
+          ("1.1-1.25", "abs_err_median", "|예측−실측| 중앙값", 0.0233, "0.023 / 0.099"), ("1.1-1.25", "abs_err_max", "|예측−실측| 최대", 0.0994, "0.023 / 0.099"),
+          ("1.25-1.5", "abs_err_median", "|예측−실측| 중앙값", 0.0562, "0.056 / 0.112"), ("1.25-1.5", "abs_err_max", "|예측−실측| 최대", 0.1117, "0.056 / 0.112"),
+          (">=1.5", "abs_err_median", "|예측−실측| 중앙값", 0.1401, "0.140 / 0.245"), (">=1.5", "abs_err_max", "|예측−실측| 최대", 0.2452, "0.140 / 0.245"),
+          ("<1.1", "pred_median", "예측 regret 중앙값", 1.0, "| < 1.1 | 25 | 1.000 | 1.078 | 0 |"), ("1.1-1.25", "pred_median", "예측 regret 중앙값", 1.1660, "| 1.1–1.25 | 25 | 1.166 | 1.186 | 0 |"),
+          ("1.1-1.25", "meas_median", "실측 regret 중앙값", 1.1862, "| 1.1–1.25 | 25 | 1.166 | 1.186 | 0 |")]],
+    Check("p3trace.predicted_heuristic_us", "모델 예측: 휴리스틱 attention µs/층(시나리오 replay)", 180.87, 0.005, "us", _trace_predicted("predicted_attention_us_per_step", "heuristic"), FIXEDSPLIT, "예측 휴리스틱 180.9 µs/층"),
+    Check("p3trace.model.r0_speedup", "model 반복 0의 TPOT 배율(휴리스틱 반복 0 / model 반복 0)", 0.8617, 0.0005, "x",
+          lambda repo, data: float(_p3_repeats(data, TRACE_RUN, TRACE_NAME).loc[("heuristic", 0), "tpot_ms"] / _p3_repeats(data, TRACE_RUN, TRACE_NAME).loc[("model", 0), "tpot_ms"]), FIXEDSPLIT, "배율 0.86"),
+    *[Check(f"p3trace.{pol}.{col}", f"트레이스 e2e {pol}: {col}", exp, tol, "", _p3_serve(TRACE_RUN, TRACE_NAME, pol, col), FIXEDSPLIT, txt)
+      for pol, col, exp, tol, txt in [
+          ("table", "tpot_ms_mean", 36.327, 0.0005, "| table | 5.893 | 36.327 |"), ("hybrid", "tpot_ms_mean", 38.779, 0.0005, "| hybrid(δ=0.2) | 5.877 | 38.779 |"),
+          ("model", "tpot_ms_mean", 38.707, 0.0005, "| model | 5.800 | 38.707 |"), ("hybrid", "attn_ms_per_step", 5.877, 0.0005, "| hybrid(δ=0.2) | 5.877 | 38.779 |"),
+          ("hybrid", "tpot_ms_p50", 38.856, 0.0005, "38.86 / 48.94"), ("hybrid", "tpot_ms_p90", 48.94, 0.0005, "38.86 / 48.94"),
+          ("model", "tpot_ms_p50", 38.817, 0.0005, "38.82 / 49.01"), ("model", "tpot_ms_p90", 49.007, 0.0005, "38.82 / 49.01"),
+          ("hybrid", "throughput_tokens_s", 756.7, 0.05, "| 756.7 |"), ("model", "throughput_tokens_s", 758.6, 0.05, "| 758.6 |"),
+          ("table", "step_ms_per_step", 20.297, 0.0005, "step 시간 21.3 ms에서 20.3 ms"), ("heuristic", "step_ms_per_step", 21.302, 0.0005, "step 시간 21.3 ms에서 20.3 ms"),
+          ("table", "speedup_ci95_low", 1.0341, 0.0005, "구간 1.034–1.035"), ("table", "speedup_ci95_high", 1.0354, 0.0005, "구간 1.034–1.035")]],
+    *[Check(f"p3vllmx.{run}.{col}", f"vLLM 0.31 {run}: {col}", exp, 0.005, "ms", _p3_vllm_value(run, col), FIXEDSPLIT, txt)
+      for run, col, exp, txt in [
+          ("flash_attn_cudagraph_ragged", "gpu_busy_ms", 77.74, "| FA2 CUDA graph, 혼합 | 80.6 | 77.7 |"), ("flash_attn_cudagraph_ragged", "gemm_ms", 9.43, "| 77.7 | 67.7 | 9.4 |"),
+          ("flash_attn_cudagraph_ragged", "not_gpu_busy_ms", 2.83, "| 9.4 | 0.6 | 2.8 |"), ("flash_attn_cudagraph_uniform", "attention_ms", 2.87, "| FA2 CUDA graph, 균일 | 13.7 | 13.0 | 2.9 |"),
+          ("flash_attn_cudagraph_uniform", "gpu_busy_ms", 12.97, "| FA2 CUDA graph, 균일 | 13.7 | 13.0 | 2.9 |"), ("flash_attn_cudagraph_uniform", "gemm_ms", 9.5, "| 2.9 | 9.5 | 0.6 | 0.7 |"),
+          ("flash_attn_cudagraph_uniform", "not_gpu_busy_ms", 0.72, "| 2.9 | 9.5 | 0.6 | 0.7 |"), ("flash_attn_eager_uniform", "gpu_busy_ms", 13.45, "| FA2 eager, 균일 | 14.6 | 13.4 |"),
+          ("flash_attn_eager_uniform", "not_gpu_busy_ms", 1.18, "| 0.8 | 1.2 |"), ("flashinfer_eager_ragged", "gpu_busy_ms", 34.22, "| FlashInfer(tensor core) eager, 혼합 | 36.0 | 34.2 |"),
+          ("flashinfer_eager_ragged", "gemm_ms", 9.56, "| 24.0 | 9.6 | 0.6 | 1.7 |"), ("flashinfer_eager_ragged", "not_gpu_busy_ms", 1.73, "| 24.0 | 9.6 | 0.6 | 1.7 |"),
+          ("flashinfer_eager_uniform", "gpu_busy_ms", 13.27, "| FlashInfer eager, 균일 | 14.3 | 13.3 |"), ("flashinfer_eager_uniform", "gemm_ms", 9.66, "| 2.96 | 9.7 | 0.65 | 1.1 |"),
+          ("flashinfer_eager_uniform", "not_gpu_busy_ms", 1.06, "| 2.96 | 9.7 | 0.65 | 1.1 |"), ("flash_attn_eager_ragged", "kv_write_ms", 0.07, "| 67.7 | 9.6 | 0.9 | 2.8 |")]],
+    Check("p3vllm.other.fa2_eager_ragged", "vLLM FA2 eager 혼합: 기타(KV 쓰기 + 샘플링 등) ms", 0.89, 0.005, "ms",
+          lambda repo, data: float(_p3_vllm(data)["table"]["flash_attn_eager_ragged"]["other_ms"] + _p3_vllm(data)["table"]["flash_attn_eager_ragged"]["kv_write_ms"]), FIXEDSPLIT, "| 67.7 | 9.6 | 0.9 | 2.8 |"),
+    Check("p3vllm.steps_estimate", "FA2 eager 혼합 실행의 decode step 수 추정(커널 합계 / step당 커널 수; 정수 22이어야 함)", 22.0, 0.05, "",
+          lambda repo, data: float(_p3_vllm(data)["table"]["flash_attn_eager_ragged"]["steps"]), FIXEDSPLIT, "step 수(약 22)"),
+    Check("p3vllm.ratio.fa2_eager", "FA2 eager 혼합 / 균일 비프로파일 step 시간", 5.54, 0.005, "x",
+          lambda repo, data: float(_p3_vllm(data)["table"]["flash_attn_eager_ragged"]["unprofiled_ms"] / _p3_vllm(data)["table"]["flash_attn_eager_uniform"]["unprofiled_ms"]), FIXEDSPLIT, "5.5배"),
+    Check("p3vllm.ratio.fa2_graph", "FA2 CUDA graph 혼합 / 균일 비프로파일 step 시간", 5.89, 0.005, "x",
+          lambda repo, data: float(_p3_vllm(data)["table"]["flash_attn_cudagraph_ragged"]["unprofiled_ms"] / _p3_vllm(data)["table"]["flash_attn_cudagraph_uniform"]["unprofiled_ms"]), FIXEDSPLIT, "5.9배"),
+    Check("p3vllm.ratio.flashinfer", "FlashInfer 혼합 / 균일 비프로파일 step 시간", 2.51, 0.005, "x",
+          lambda repo, data: float(_p3_vllm(data)["table"]["flashinfer_eager_ragged"]["unprofiled_ms"] / _p3_vllm(data)["table"]["flashinfer_eager_uniform"]["unprofiled_ms"]), FIXEDSPLIT, "2.5배"),
+    Check("p3vllm.grid_heuristic_us", "격자의 같은 배치(B=32, 32768 + 512×31) FA2 휴리스틱 시간(µs/층)", 1071.8, 0.05, "us",
+          lambda repo, data: float(pd.read_csv(data / "dispatch_paged_cold.csv").set_index("lens").loc["32768+512x31", "heuristic_us"]), FIXEDSPLIT, "층당 1,071.8 µs"),
+    Check("p3text.ci.table.low", "64K 자연어 table 배율 구간 하한", 2.4474, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "table", "speedup_ci95_low"), FIXEDSPLIT, "2.449 (2.447–2.451)"),
+    Check("p3text.ci.table.high", "64K 자연어 table 배율 구간 상한", 2.4506, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "table", "speedup_ci95_high"), FIXEDSPLIT, "2.449 (2.447–2.451)"),
+    Check("p3text.ci.model.low", "64K 자연어 model 배율 구간 하한", 2.4359, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "model", "speedup_ci95_low"), FIXEDSPLIT, "2.443 (2.436–2.448)"),
+    Check("p3text.ci.model.high", "64K 자연어 model 배율 구간 상한", 2.4476, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "model", "speedup_ci95_high"), FIXEDSPLIT, "2.443 (2.436–2.448)"),
+    Check("p3text.ci.hybrid.low", "64K 자연어 hybrid 배율 구간 하한", 2.4318, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "hybrid", "speedup_ci95_low"), FIXEDSPLIT, "2.440 (2.432–2.449)"),
+    Check("p3text.ci.hybrid.high", "64K 자연어 hybrid 배율 구간 상한", 2.4487, 0.0005, "x", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "hybrid", "speedup_ci95_high"), FIXEDSPLIT, "2.440 (2.432–2.449)"),
+    Check("p3text.heuristic.tpot", "64K 자연어 휴리스틱 TPOT(ms)", 94.809, 0.0005, "ms", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "heuristic", "tpot_ms_mean"), FIXEDSPLIT, "| heuristic | 70.45 | 94.81 |"),
+    Check("p3text.table.tpot", "64K 자연어 table TPOT(ms)", 38.714, 0.0005, "ms", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "table", "tpot_ms_mean"), FIXEDSPLIT, "| table | 14.33 | 38.71 |"),
+    Check("p3text.model.tpot", "64K 자연어 model TPOT(ms)", 38.803, 0.0005, "ms", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "model", "tpot_ms_mean"), FIXEDSPLIT, "| model | 14.34 | 38.80 |"),
+    Check("p3text.hybrid.tpot", "64K 자연어 hybrid TPOT(ms)", 38.853, 0.0005, "ms", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "hybrid", "tpot_ms_mean"), FIXEDSPLIT, "| hybrid | 14.34 | 38.85 |"),
+    Check("p3text.model.attn", "64K 자연어 model attention ms/step", 14.336, 0.0005, "ms", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "model", "attn_ms_per_step"), FIXEDSPLIT, "| model | 14.34 | 38.80 |"),
+    Check("p3text.hybrid.attn", "64K 자연어 hybrid attention ms/step", 14.336, 0.0005, "ms", _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "hybrid", "attn_ms_per_step"), FIXEDSPLIT, "| hybrid | 14.34 | 38.85 |"),
+    Check("p3text.distinct_generations", "64K 자연어: 32개 요청 중 서로 다른 생성 수(휴리스틱 반복 0)", 30, 0, "",
+          lambda repo, data: float(pd.read_parquet(data / "serve_4090" / LONGTEXT_RUN / "demo_text_ragged_64k" / "heuristic" / "repeat_000" / "tokens.parquet")
+                                   .sort_values(["rid", "position"]).groupby("rid").token.apply(lambda g: tuple(g.astype(int))).nunique()), FIXEDSPLIT, "서로 다른 생성이 30개"),
+    *[Check(f"p3gsm.attn.{pol}", f"GSM8K {pol}: attention ms/step", exp, 0.005, "ms", _p3_serve(GSM8K_RUN, "gsm8k_ragged32k_n200", pol, "attn_ms_per_step"), FIXEDSPLIT, txt)
+      for pol, exp, txt in [("table", 7.679, "| table | 2.101 | 7.68 |"), ("fixed8", 7.403, "| 고정 8 | 2.154 | 7.40 |"), ("flashinfer_cudacore", 7.016, "| flashinfer_cudacore | 2.155 | 7.02 |")]],
+    Check("p3gsm.marker_present", "GSM8K: `####`가 생성 안에 나온 문항 비율(휴리스틱)", 0.83, 0.0005, "", lambda repo, data: float(_p3_gsm8k(data).pred_marker_heuristic.notna().mean()), FIXEDSPLIT, "83%(200문항 중 166)"),
+    Check("p3gsm.filler.fixed8_first_position_max", "GSM8K 고정 8: 필러 요청 분기 위치의 최댓값", 253, 0, "",
+          lambda repo, data: float(__import__("kernelscope.serve.divergence", fromlist=["x"]).campaign_events(data / "serve_4090" / GSM8K_RUN).query("policy == 'fixed8' and repeat == 0").first_position.max()), FIXEDSPLIT, "고정 8 3~253"),
+    Check("p3gsm.filler.first_position_min", "GSM8K table: 필러 요청 분기 위치의 최솟값", 3, 0, "",
+          lambda repo, data: float(__import__("kernelscope.serve.divergence", fromlist=["x"]).campaign_events(data / "serve_4090" / GSM8K_RUN).query("policy == 'table' and repeat == 0").first_position.min()), FIXEDSPLIT, "table 3~145"),
+    Check("p3gsm.filler.first_position_max", "GSM8K table: 필러 요청 분기 위치의 최댓값", 145, 0, "",
+          lambda repo, data: float(__import__("kernelscope.serve.divergence", fromlist=["x"]).campaign_events(data / "serve_4090" / GSM8K_RUN).query("policy == 'table' and repeat == 0").first_position.max()), FIXEDSPLIT, "table 3~145"),
+
+    Check("bg.len.conv.p50", "발표 배경: Azure conv 프롬프트 길이 중앙값(19,366건)", 1020, 0, "tokens", _bg_len("Azure conv", "p50"), BG, "conv 중앙값 1,020"),
+    Check("bg.len.conv.p99", "발표 배경: Azure conv 프롬프트 길이 p99", 4142, 0.5, "tokens", _bg_len("Azure conv", "p99"), BG, "p99 4,142"),
+    Check("bg.len.conv.max", "발표 배경: Azure conv 프롬프트 길이 최댓값", 14050, 0, "tokens", _bg_len("Azure conv", "max"), BG, "최대 14,050"),
+    Check("bg.len.conv.n_ge_8192", "발표 배경: Azure conv에서 프롬프트 8K 이상인 요청 수", 1, 0, "requests", _bg_len("Azure conv", "n_ge_8192"), BG, "8K 이상은 conv 1건"),
+    Check("bg.len.code.p50", "발표 배경: Azure code 프롬프트 길이 중앙값(8,819건)", 1469, 0, "tokens", _bg_len("Azure code", "p50"), BG, "code 중앙값 1,469"),
+    Check("bg.len.burst.p50", "발표 배경: BurstGPT 7일 프롬프트 길이 중앙값(17,893건)", 502, 0, "tokens", _bg_len("BurstGPT", "p50"), BG, "BurstGPT 중앙값 502"),
+    Check("bg.len.all.n_ge_32768", "발표 배경: 세 트레이스 합계에서 프롬프트 32K 이상인 요청 수", 0, 0, "requests", _bg_len_all("n_ge_32768"), BG, "32K 이상 0건"),
+    Check("bg.kernel.fa2_heuristic_max", "발표 배경: 32K 격자 혼합 길이 FA2 휴리스틱 / 전체 최선 손실 최댓값(162셀)", 4.106, 0.0005, "x", _defaults_summary("32k", "ragged", "fa2_heuristic", "loss_max"), BG, "4.106배"),
+    Check("bg.cta.heuristic_ctas", "발표 배경: 대표 셀(32768+512×31) 휴리스틱 launch의 CTA 수(분할 1)", 256, 0, "CTAs", _bg_cta("flashdecoding_paged", "ctas"), BG, "CTA 256개"),
+    Check("bg.cta.heuristic_max_keys", "발표 배경: 같은 launch에서 가장 큰 CTA의 KV 토큰 수", 32768, 0, "keys", _bg_cta("flashdecoding_paged", "max"), BG, "한 CTA가 KV 32,768개"),
+    Check("bg.cta.heuristic_max_over_sm_share", "발표 배경: 가장 큰 CTA / SM당 균등 몫(총 작업량 ÷ 128)", 10.78, 0.005, "x", _bg_cta("flashdecoding_paged", "max_over_sm_share"), BG, "10.8배"),
+    Check("bg.cta.s16_ctas", "발표 배경: 분할 16 launch의 CTA 수", 4096, 0, "CTAs", _bg_cta("fd_s16_paged", "ctas"), BG, "CTA 4,096개"),
+    Check("bg.cta.s16_max_keys", "발표 배경: 분할 16 launch에서 가장 큰 CTA의 KV 토큰 수", 2048, 0, "keys", _bg_cta("fd_s16_paged", "max"), BG, "최대 2,048"),
 ]
 
 

@@ -12,7 +12,8 @@ import json
 from pathlib import Path
 import time
 
-from kernelscope.analysis.traffic import ReplayConfig, load_trace, replay, step_losses, summarize_losses
+from kernelscope.analysis.traffic import (ReplayConfig, load_stats, load_trace, replay, step_losses, summarize_fixed,
+                                          summarize_losses)
 
 
 def _sha256(path):
@@ -36,6 +37,7 @@ def main(argv=None):
     parser.add_argument("--cache-state", default="cold", choices=("cold", "warm"))
     parser.add_argument("--n-heads", type=int, default=32)
     parser.add_argument("--n-kv-heads", type=int, default=8)
+    parser.add_argument("--fixed-splits", default="", help="comma-separated split counts (2,4,8,16) to score as always-S policies")
     parser.add_argument("--out", required=True)
     args = parser.parse_args(argv)
     from kernelscope.model.machine import MachineSpec
@@ -59,7 +61,8 @@ def main(argv=None):
     started = time.perf_counter()
     steps = replay(trace, cfg)
     machine, params = MachineSpec.from_json(args.machine), ModelParams.from_json(args.params)
-    losses = step_losses(steps, machine, params, args.cache_state, args.n_heads, args.n_kv_heads, every=args.every)
+    fixed = [int(x) for x in args.fixed_splits.split(",") if x]
+    losses = step_losses(steps, machine, params, args.cache_state, args.n_heads, args.n_kv_heads, every=args.every, fixed=fixed)
     summary = {"trace": {"source": str(args.trace), "sha256": _sha256(args.trace), "kind": trace.attrs["kind"],
                          "model": args.model, "window_s": args.window_s, "prompt_scale": args.prompt_scale,
                          "rows": len(trace), "dropped": trace.attrs["dropped"],
@@ -75,6 +78,7 @@ def main(argv=None):
                "batch_mean_all_steps": float(steps.B.mean()) if len(steps) else None,
                "losses": {**summarize_losses(losses), "every": args.every, "predictions": losses.attrs["predictions"],
                           "candidates": losses.attrs["candidates"]},
+               **({"fixed": summarize_fixed(losses, fixed), "load": load_stats(steps, cfg)} if fixed else {}),
                "elapsed_s": time.perf_counter() - started, "what_if": what_if,
                "claim": "GPU-free replay with the fitted surrogate; prefill instantaneous, constant step time"}
     out.mkdir(parents=True)
