@@ -130,7 +130,7 @@ def _recorded_repeats(policy_dir) -> set:
     return {p.parent.name for p in policy_dir.glob("repeat_*/tokens.parquet")}
 
 
-def campaign_events(campaign, reference="heuristic") -> pd.DataFrame:
+def campaign_events(campaign, reference="heuristic", numerics=None) -> pd.DataFrame:
     """Classified divergence events of every non-reference policy run in a campaign folder.
 
     Layout: ``<campaign>/<scenario>/<policy>/repeat_NNN/tokens.parquet`` written by ``serve run`` and
@@ -140,11 +140,12 @@ def campaign_events(campaign, reference="heuristic") -> pd.DataFrame:
     not hide a difference, so two more counts are kept per run: ``missing_tokens`` (positions only
     one history has) and ``mismatches_outside_events`` (differing tokens no decode event covers, i.e.
     a differing prefill token). A policy whose recorded repeats differ from the reference's is an error.
+    ``numerics`` replaces ``<campaign>/numerics`` (a later teacher-forced run over the same campaign).
     """
     campaign = Path(campaign)
     rows = []
     for scenario in sorted(p for p in campaign.iterdir() if (p / reference).is_dir()):
-        teacher_path = campaign / "numerics" / scenario.name / "teacher_forced_logits.csv"
+        teacher_path = Path(numerics or campaign / "numerics") / scenario.name / "teacher_forced_logits.csv"
         teacher = pd.read_csv(teacher_path) if teacher_path.exists() else None
         reference_repeats = _recorded_repeats(scenario / reference)
         for policy_dir in sorted(p for p in scenario.iterdir() if p.is_dir() and p.name != reference):

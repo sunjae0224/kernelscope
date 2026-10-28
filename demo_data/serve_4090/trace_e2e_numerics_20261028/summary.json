@@ -1,0 +1,44 @@
+{
+ "note": "Teacher-forced numerics of trace_e2e_20261024 over the first 1,600 decode calls (scripts/check_policy_numerics.py --logit-steps 1600). teacher_forced_logits.csv here keeps only the rows whose argmax changed; the per-policy counts below are of the full file.",
+ "full_csv_sha256": "0c4a2e0a298a311fd8eec5f33944a814140b326587945ca4fb02938ac9dde2d2",
+ "full_csv_bytes": 17966215,
+ "manifest_sha256": "1bcdff31dc23a3a656474ead56e8cacb0f80ae0e4c019013f65218cc43e196b4",
+ "decode_calls_recorded": 1600,
+ "logit_steps": 1600,
+ "steps": 256,
+ "policy_specs": [
+  "heuristic",
+  "table:demo_data/dispatch_paged_cold.csv",
+  "hybrid:demo_data/dispatch_paged_cold.csv:0.2",
+  "model"
+ ],
+ "policies": {
+  "hybrid": {
+   "rows": 45409,
+   "argmax_changed": 15,
+   "max_abs_logit_diff": 18.640625,
+   "rows_diff_gt_4": 247,
+   "reference_tied_top1": 146
+  },
+  "model": {
+   "rows": 45409,
+   "argmax_changed": 17,
+   "max_abs_logit_diff": 20.1875,
+   "rows_diff_gt_4": 261,
+   "reference_tied_top1": 146
+  },
+  "table": {
+   "rows": 45409,
+   "argmax_changed": 15,
+   "max_abs_logit_diff": 18.640625,
+   "rows_diff_gt_4": 247,
+   "reference_tied_top1": 146
+  }
+ },
+ "check_policy_numerics_sha256": "d8c9d9c35b4a7614e5c1d657d687937f4d62e6498707ad2eeeea0332793427cd",
+ "first_400_calls": {
+  "rows_2026_10_24": 26052,
+  "identical_rows": 26052,
+  "note": "rows of trace_e2e_20261024/numerics (first 400 decode calls, 3 policies) matched on policy/step/rid/position; every column equal"
+ }
+}

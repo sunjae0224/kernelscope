@@ -172,3 +172,12 @@ def test_cli_refuses_a_folder_without_runs(tmp_path):
     with pytest.raises(SystemExit, match="no runs"):
         main(["--campaign", str(tmp_path)])
     assert not (tmp_path / "divergence.csv").exists()
+
+
+def test_campaign_events_reads_a_separate_numerics_folder(campaign, tmp_path):
+    later = tmp_path / "later"
+    (later / "arrivals").mkdir(parents=True)
+    (campaign / "numerics" / "arrivals" / "teacher_forced_logits.csv").rename(later / "arrivals" / "teacher_forced_logits.csv")
+    assert set(campaign_events(campaign).tie_class.dropna()) == {"unclassified"}
+    table = campaign_events(campaign, numerics=later).query("policy == 'table' and scenario == 'arrivals'")
+    assert table.tie_class.tolist() == ["tie_1ulp", "tie_1ulp"]

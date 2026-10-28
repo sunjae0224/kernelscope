@@ -12877,6 +12877,366 @@
       "bytes": 3407,
       "sha256": "9ba15742dbfe6afb08e008c6599c9033ec7dfb0d2463dd44bd823f0f386bb956",
       "source": "copy of results/traffic_mooncake_20261028/mooncake_arxiv_x1_kv436k/summary.json (scripts/traffic_replay.py over the Mooncake trace; surrogate-model replay, not a measurement); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/nvidia_smi.csv",
+      "bytes": 679,
+      "sha256": "1c08239d5c94c58735f10481fd5817f6fcd1fcfc31c7a315de3a9f8ebc792a3d",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/equivalence.csv",
+      "bytes": 727,
+      "sha256": "3210914328d18639650aab3c974dc10940d209f52a7099266e3316c57831bf27",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_000/meta.json",
+      "bytes": 1030,
+      "sha256": "82debc97e2009f61c3546b4ac7efdc8d541cbe7cb1f7aae62da14c4afffc2198",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_000/prefill.parquet",
+      "bytes": 8045,
+      "sha256": "5786471245b54695901c05012fc31d1457e64e06b76f0708f444597150785877",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_000/steps.parquet",
+      "bytes": 13877,
+      "sha256": "a7635da73879ca2a36a99de9619c7cd0e40a4735ffb361a3bf7a4bd4dd16e341",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_000/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "6e288b655278db63ac323e7ed965b1e22c8eadcc4bc0fde968e2ae89d335840e",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_001/meta.json",
+      "bytes": 1031,
+      "sha256": "7f1fba4866c7465eb292130e9f703526c7004b9b4bd72c5e3aa438d485ac2b41",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_001/prefill.parquet",
+      "bytes": 8040,
+      "sha256": "29ad72084532877274d506ac64418a678f57c93df66332362f339e7be48825b6",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_001/steps.parquet",
+      "bytes": 13894,
+      "sha256": "991804a5ae5b843a0936b521ac1747859a77cb40d444f952c86372dea016b0c6",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_001/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "53580ed1552a7236e959127d293a18cdd966a91fb15854dd6358b7aa18620773",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_002/meta.json",
+      "bytes": 1031,
+      "sha256": "58f4e0a57831e2544e56c58f117f4e4239f9d55cd79e7050ddb0ee473e27bddc",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_002/prefill.parquet",
+      "bytes": 8056,
+      "sha256": "547d90e8fa86d0ec4fc1cc55bd00366da93fc283d555de611cbc1e926fc3bfec",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_002/steps.parquet",
+      "bytes": 13933,
+      "sha256": "4b5b5fd93eeae6f1b48565944e0514225f30ebd425cdb53f601e1e64d83a1b2b",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed16/repeat_002/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "e6e5b3a30405ef6a00ba14fdc712072cc2ec7a7be0da0b7e27cd8e0478ad48e3",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_000/meta.json",
+      "bytes": 1030,
+      "sha256": "4ea0bfe9372776efca3e432e02d38b182ea9f923472ef263a22dff3685003988",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_000/prefill.parquet",
+      "bytes": 8056,
+      "sha256": "312a0b18656088acf6e5354c4950d2ba40a2ea7853b675d8f718907c7cb89aa5",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_000/steps.parquet",
+      "bytes": 13916,
+      "sha256": "cd748cda81da01baf6ca77353368d93a395847f87b50ecad38158748db559a66",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_000/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "0eb1fd7aa85fdb268d73d2a13ca4f0564d17c33a684927545ecc0fb02ac6720f",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_001/meta.json",
+      "bytes": 1030,
+      "sha256": "e3ffd097ef48349c7f77c96514109733077fa16cac04cd8c61455a275598fd04",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_001/prefill.parquet",
+      "bytes": 8052,
+      "sha256": "9f60604c9acdeeff5f19a8b11c1ef369c04cea35482963857da9e482362e58a6",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_001/steps.parquet",
+      "bytes": 13883,
+      "sha256": "453f25ec8f8508e2f4e5e3e5cde153bae7a4d383bca91505d86ef5d92f35d6dc",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_001/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "d59b5402fc892caaaa40b5449eba484c4f8713ee6532d1f5374951849bda605c",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_002/meta.json",
+      "bytes": 1030,
+      "sha256": "3992d814abf7efe88f0c0ba670ab90e8a05d6d42b22f7600b0ce1e759253351c",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_002/prefill.parquet",
+      "bytes": 8054,
+      "sha256": "73f3ac2cad61cd9ed95f38bf76292a4f26e7a5f28184c4ee516073eafdfc0f38",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_002/steps.parquet",
+      "bytes": 13912,
+      "sha256": "6841077e3867450143e0264fa39832fa8cef22ac90626035724c7543149f39aa",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/fixed8/repeat_002/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "74b86e7b43c4f842a06d628aed39bba7cf827a99bcb743279607ef05ead64414",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_000/meta.json",
+      "bytes": 1033,
+      "sha256": "28d80c13fb8eea354b56b8a43b3855516e0e6191274a92745c0c3e0c297156ea",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_000/prefill.parquet",
+      "bytes": 8056,
+      "sha256": "212856edbea8ff5f53e9d35e17d73b6956e02d4ec7fd78711beadb6b8fdb028e",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_000/steps.parquet",
+      "bytes": 13923,
+      "sha256": "1b87a25531a6f8f588c4968c4946d9f508b107a901e4acdd422794ceb7d5ad6e",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_000/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "dd5b6574a3ac55b4e3e022f0bcfc9eee53d26ad66d6e43537a15eb4ff95ce459",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_001/meta.json",
+      "bytes": 1033,
+      "sha256": "3646a6fa1606088a8a04515586feea0bcf75d241f4d39995dc1c808530352db1",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_001/prefill.parquet",
+      "bytes": 8048,
+      "sha256": "6714051c98b3eba4cd37f5cd9ed1faae1564076af967613541bdf2a842d024ff",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_001/steps.parquet",
+      "bytes": 13877,
+      "sha256": "396e06177667ba77e877e301c6ade334684da63991305c2c05b8ec8ce31b8649",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_001/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "9db52e3deb2da4287f2ffb1245355fa5b8113621d6e503d5fd76e4045583b7e2",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_002/meta.json",
+      "bytes": 1033,
+      "sha256": "a92ca9d0da6aaa19e472ff053afb68fdb61d1db2c49a0074996be8d32695157e",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_002/prefill.parquet",
+      "bytes": 8049,
+      "sha256": "d9a209df38bd9247400690d4ef54b550e2b65053d30e22d472e616deaa89283c",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_002/steps.parquet",
+      "bytes": 13934,
+      "sha256": "6a1f64bdc227fd9b3bccd5c5313459e7a6a1a5115b63a898707f64c2c0304c7c",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/heuristic/repeat_002/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "9570c39afe82fe9db74ff12bc2f3ce819c6d3c796fa99b39b296b7ee837f27da",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/manifest.json",
+      "bytes": 28556,
+      "sha256": "b554f12d70fd2b9b993f2cc2a31d274c437c76845b2629f6ded5fecbccfdf890",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/oracle.csv",
+      "bytes": 406,
+      "sha256": "42a36d9d49e76ee99f77ee85915737ee790908309921e9ff7ee912c4dcf776ab",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/prompts.jsonl",
+      "bytes": 361732,
+      "sha256": "2c528a8eadaa4dcc0351fc8c7b41df117a797331ea1e5fb87b92cd09508669d4",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/scenario.yaml",
+      "bytes": 219,
+      "sha256": "080d14984faf50946b6e9ca1d448ec071f709addc103b1bb4d13f3b7062045f2",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/summary.csv",
+      "bytes": 1532,
+      "sha256": "33a03995eb608049a6992427dec5a3e2171ecd3bcfd1ee69366e2dd7912453f5",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_000/meta.json",
+      "bytes": 1029,
+      "sha256": "54a0d70692ce6549bb6c74e378a90115a9efc377cb8a860430b9bc184304786b",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_000/prefill.parquet",
+      "bytes": 8054,
+      "sha256": "bd2a1d1164e0506e83d41e4f79a8ef3d9f1446fdf6723c64bc94e0cd9bdf0bc6",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_000/steps.parquet",
+      "bytes": 13934,
+      "sha256": "be743d95c343d310022e181237861e5fd771116d08a7ae30c3a997e11d4235dd",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_000/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "9dda05b2b8239775a88d137884ac2242654719f3028fb8c242cc9ea350d1b857",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_001/meta.json",
+      "bytes": 1029,
+      "sha256": "36e1edb0f2f143ed219760b5b434eb6b86e5dc038f0fc58dff4f555509e032de",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_001/prefill.parquet",
+      "bytes": 8052,
+      "sha256": "5e72e5e4e7ced530953a9458967ec6e262c338d4484de55cbe6c93b6ccc0a07d",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_001/steps.parquet",
+      "bytes": 13919,
+      "sha256": "9ea392ababd3575e7d8058c2fa7a5fd0a9eb34c42a0df0af6cf25fbf7fd09a47",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_001/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "5afe9a55793ce0eb57c45efde27e97a535f9c0329496317e16fb2ce912c5b5e4",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_002/meta.json",
+      "bytes": 1029,
+      "sha256": "461e9ae96c8c1f9fbd1b1ee4699b026ce6d1f9c8245d26b665f7a685aaf37479",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_002/prefill.parquet",
+      "bytes": 8040,
+      "sha256": "b473cc6f5088cdc7588989729648747de2b56fe79699dbe98774aef537aa4be1",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_002/steps.parquet",
+      "bytes": 13893,
+      "sha256": "66b635683e3a9aac887531fe07f62fc560f7aa77246624b3f2416dc8de05a7d7",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/fixedsplit_rerun_20261028/ragged/table/repeat_002/tokens.parquet",
+      "bytes": 7629,
+      "sha256": "2477127d7dd52bf697c2e1b92484aa8fc8666b3057f166bcbff89aeee7d952e5",
+      "source": "copy of results/serve_4090/fixedsplit_rerun_20261028 (serve run, ragged 32K re-measurement of (a) in docs/report/final_v2/남은_실험.md; RTX 4090, commit 32e936a); 2026-10-28"
+    },
+    {
+      "path": "serve_4090/trace_e2e_numerics_20261028/divergence.csv",
+      "bytes": 11345,
+      "sha256": "a53fb48a7ac15500a5974304f1c022bed796c1d358831fc3226758bc107bc3e4",
+      "source": "copy of results/serve_4090/trace_e2e_numerics_20261028 (classify_divergence output, nvidia-smi log) and a summary of the full teacher-forced file; 2026-10-28"
+    },
+    {
+      "path": "serve_4090/trace_e2e_numerics_20261028/numerics/trace_azure_conv_i550_n300/teacher_forced_logits.csv",
+      "bytes": 7008,
+      "sha256": "503db57131eab49b2481343871153e53a319cc005c86c780d4c97ea5df055950",
+      "source": "rows with a changed argmax only, filtered from results/serve_4090/trace_e2e_numerics_20261028/numerics/trace_azure_conv_i550_n300/teacher_forced_logits.csv (scripts/check_policy_numerics.py --logit-steps 1600; full-file sha256 in summary.json); diagnostic, not a performance measurement; 2026-10-28"
+    },
+    {
+      "path": "serve_4090/trace_e2e_numerics_20261028/nvidia_smi.csv",
+      "bytes": 983,
+      "sha256": "37f91f2fc998bf501fe4eb6e3dd5d2f5c5b20869b4ad924e336abd9ca5a8b9b8",
+      "source": "copy of results/serve_4090/trace_e2e_numerics_20261028 (classify_divergence output, nvidia-smi log) and a summary of the full teacher-forced file; 2026-10-28"
+    },
+    {
+      "path": "serve_4090/trace_e2e_numerics_20261028/summary.json",
+      "bytes": 1489,
+      "sha256": "0298624253e28bf6a5dcca5f8734c5ef34a32785b97b4de866db285d2972a993",
+      "source": "copy of results/serve_4090/trace_e2e_numerics_20261028 (classify_divergence output, nvidia-smi log) and a summary of the full teacher-forced file; 2026-10-28"
+    },
+    {
+      "path": "vllm_4090/profile_20261024/fa2_launches.json",
+      "bytes": 3900,
+      "sha256": "c6f926da7326abe27e704c6b1f008b6a7559c925413cf15dad8e98bb4fda6f61",
+      "source": "derived from the torch-profiler traces of results/vllm_4090/profile_20261024/traces (kernelscope.analysis.vllm_steps.fa2_launches; trace sha256 inside); 2026-10-28"
     }
   ],
   "notes": [
@@ -12886,6 +13246,7 @@
     "Raw CUDA traces and per-launch profiler parquet are omitted from the portable kernel bundle.",
     "traffic/*/summary.json are surrogate-model replays of public request traces (GPU-free), not measurements.",
     "traffic_sweep/*/summary.json are surrogate-model replays at many arrival scales with fixed-split scoring (GPU-free), not measurements.",
-    "thresholds/no_split_threshold.json holds inputs to a computed table (library rule per GPU), not measurements."
+    "thresholds/no_split_threshold.json holds inputs to a computed table (library rule per GPU), not measurements.",
+    "serve_4090/trace_e2e_numerics_20261028 keeps only teacher-forced rows whose argmax changed; vllm_4090/profile_20261024/fa2_launches.json is derived from profiler traces that are not bundled."
   ]
 }

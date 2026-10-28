@@ -87,6 +87,19 @@ TPOT 배율 = 휴리스틱 TPOT / 정책 TPOT(3회 평균). 괄호는 반복 단
 - **64K 혼합 길이**: table 2.448배, 고정 8 2.443배, 고정 16 2.429배. 휴리스틱의 attention 70.44 ms/step이 고정 8에서 14.34 ms/step로 줄었다.
 - **table이 실제로 고른 분할(첫 반복의 `steps.parquet`)**: 혼합 길이는 63 step 모두 16, 요청 도착은 8이 41 step·16이 22 step, 균일 길이는 모두 0(휴리스틱), 64K 혼합 길이는 63 step 모두 8. 즉 이 세 시나리오에서 table은 사실상 "혼합이면 16 안팎, 균일이면 휴리스틱 그대로"로 움직였고, 고정 16과 갈리는 곳은 균일 길이와 도착 조건의 일부 step뿐이다.
 
+**혼합 길이 재측정(2026-10-28, `남은_실험.md` (a)).** 위 이상치를 확인하려고 같은 규약(heuristic·table·고정 8·고정 16, `--policy-cache keep`, 반복 3회, warm-up 1회, warm-up step 2, KV 10 GiB, seed 0)으로 혼합 길이 시나리오만 다시 쟀다. 커밋 32e936a에서 실행했다(추적 파일 변경 없음, 미추적 PDF 1개). 시작과 종료 때 GPU에 다른 프로세스가 없었고, 30초 nvidia-smi 기록의 메모리 사용량(최대 19.7 GiB)도 이 실행 하나와 맞는다. 기존 폴더 `fixedsplit_20261024`는 그대로 두었다. 결과는 `serve_4090/fixedsplit_rerun_20261028`(번들 `demo_data/serve_4090/fixedsplit_rerun_20261028`)에 있고, 아래 값은 `make verify`(`p3rerun.*`)가 번들에서 다시 계산한다.
+
+| 정책 | TPOT 배율(3회 평균) | 구간 | 반복 0 / 1 / 2 TPOT ms | attention ms/step |
+|---|---:|---|---|---:|
+| heuristic | 1.000 | — | 62.94 / 61.01 / 63.20 | 37.68 |
+| table | 1.806 | 1.739–1.864 | 34.66 / 35.08 / 33.91 | 9.45 |
+| 고정 8 | 1.823 | 1.792–1.840 | 34.21 / 34.05 / 34.38 | 9.32 |
+| 고정 16 | 1.814 | 1.782–1.867 | 33.72 / 34.23 / 35.23 | 9.40 |
+
+- 고정 8의 세 반복은 34.05~34.38 ms로 고르다. 10월 24일 반복 1(45.17 ms)과 같은 느린 반복은 다시 나오지 않았다. 휴리스틱을 뺀 세 정책의 반복 9개는 TPOT가 33.72~35.23 ms이고, 최대/최소가 1.045배 안이다.
+- 고정 8은 1.823배다. 10월 24일 값에서 이상치를 뺀 1.811배와 0.7% 차이이고, table(1.806배)·고정 16(1.814배)과 구간이 겹친다. 따라서 "고정 8·16은 혼합 길이에서 table과 같은 수준"이라는 결론은 이상치 없이도 성립한다. 10월 24일 반복 1의 원인은 여전히 모른다(재현되지 않음).
+- 토큰: 세 정책 모두 세 반복에서 토큰 2,048개가 휴리스틱과 같다(불일치 0).
+
 **출력 분기(휴리스틱 대비, 3회 반복에서 같은 자리).**
 
 - 혼합 길이: table·고정 8·고정 16 모두 토큰이 휴리스틱과 같다. 혼합 길이에서는 세 정책 모두 분기 0곳. 요청 도착에서도 분기 0곳.
@@ -387,6 +400,18 @@ make verify    # p3val.* 항목
 - **step 비율은 모델 예측보다 컸다.** 모델은 regret ≥ 1.25인 step을 31.0%로 예측했다. 엔진에서 step마다 측정한 attention 시간의 배율(휴리스틱 / 정책, 3회 평균)이 1.25 이상인 step은 table 기준 43.1%, model 기준 46.1%다. 방향이 §6(커널 표본 실측이 모델 예측보다 작음)과 반대다: §6은 cold L2 커널 시간이고 이 값은 엔진 안(실제 L2 상태·같은 step의 이웃 층)의 시간이라 조건이 다르다. 원인은 이 절에서 가리지 않았다.
 - **분기(휴리스틱 대비).** table은 300개 요청 중 10개에서 토큰이 갈렸다(table 분기 지점 10곳; hybrid 10곳, model 8곳; 불일치 토큰 table 921개, hybrid 921개, model 740개 — 갈린 뒤의 누적 포함, 정책마다 토큰이 반복 3회 같은 자리에서 갈림). 교사 강제 진단은 처음 400 decode 호출에서 정책마다 8,684행을 기록했고 그중 argmax가 바뀐 행은 1개(table; 요청 16 위치 30, bf16 1 ulp 동점)다. 분류된 것은 1곳(동점 1 ulp)이고 나머지 9곳(model은 7곳)은 교사 강제 구간 밖이라 **미분류**다. 분류된 구간에서 clear는 없다; 미분류 지점이 clear인지는 알 수 없다(GPU 재실행이 필요하다). 교사 강제 구간은 평균 배치가 낮은 도입부라 §3의 기존 분류와 직접 비교하지 않는다.
 
+**미분류 분기의 교사 강제 분류(2026-10-28, `남은_실험.md` (b)).** 위 분기 지점은 decode step 132~1596에 있다. 교사 강제 진단을 `gpu_queue/03_trace_e2e.sh`와 같은 인자로 다시 돌리되, 기록 구간만 처음 400 decode 호출에서 1,600 호출로 늘렸다(`--logit-steps 1600`). 서빙 실행(`trace_e2e_20261024`)은 그대로 쓰고, 새 진단은 `serve_4090/trace_e2e_numerics_20261028`에 따로 두었다. 기존 진단과 `divergence.csv`는 지우지 않았다. 기준 로짓의 CPU 사본은 약 27.5 GB다. 정책마다 45,409행을 기록했다. 처음 400 호출의 8,684행은 10월 24일 기록과 값이 모두 같다(같은 진단의 재현). 분류는 `scripts.classify_divergence`의 규칙 그대로이고, 번들(`demo_data/serve_4090/trace_e2e_numerics_20261028`)에는 argmax가 바뀐 행만 남겼다. 전체 파일의 sha256과 정책별 행 수는 번들의 `summary.json`에 있다. 아래 값은 `make verify`(`p3tracetf.*`)가 10월 24일 번들의 토큰과 이 행에서 다시 분류한다.
+
+| 정책 | 분기 지점 | 동점 1 ulp | 동점 2 ulp | clear | 미분류 | 재현 안 됨 | argmax가 바뀐 교사 강제 행 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| table | 10 | 10 | 0 | 0 | 0 | 0 | 15 |
+| hybrid(δ=0.2) | 10 | 10 | 0 | 0 | 0 | 0 | 15 |
+| model | 8 | 7 | 1 | 0 | 0 | 0 | 17 |
+
+- **분기 지점 28곳(table 10, hybrid 10, model 8)이 모두 bf16 동점이다.** 모든 지점에서 교사 강제 후보가 자유 생성과 같은 토큰을 냈고, 기준의 1위 여유는 0~0.25(bf16 간격 2개 이내)다. clear는 없다. 위 문단의 "미분류 지점이 clear인지는 알 수 없다"는 이 결과로 답이 났다.
+- argmax가 바뀐 행이 분기 지점보다 많은 것(table 15행 대 10곳)은 정상이다. 나머지 행은 이미 분기한 요청의 뒤쪽 위치다(table은 요청 109의 4행, 요청 176의 1행). 자유 생성에서는 그 위치의 토큰이 이미 달라 분기 지점으로 세지 않는다.
+- argmax는 같지만 로짓 최대 차이가 4를 넘는 행이 table 247행(최대 18.6, 그 행의 1위 여유 24.6)이다. 교사 강제에서는 정책마다 KV가 따로 쌓이므로 긴 요청의 뒤쪽에서 차이가 커질 수 있다. 원인은 이 진단에서 가리지 않았다. 성능 측정이 아니므로 시간 값은 쓰지 않는다.
+
 **한계.** replay 가정(prefill 즉시, 상수 step)과 엔진(prefill 직렬, 실제 step 시간)이 다르다. 엔진의 step 수와 요청의 대기 시간 분포는 replay와 다를 수 있다(실측 뒤 비교). 프롬프트는 무작위 토큰이라 자연어 분포가 아니다. 트레이스 창 하나이므로 일반화하지 않는다.
 
 ```bash
@@ -409,7 +434,7 @@ make verify    # traceE2E.*는 시나리오에서 replay·예측을, p3trace.*�
 **소스 조사(설치된 vllm 0.31.0, `~/.venvs/kernelscope-vllm/.../site-packages/vllm/`).**
 - `v1/attention/backends/fa_utils.py:98-107`: 호퍼(SM90)만 FA3, SM100만 FA4, 나머지(RTX 4090 SM89 포함)는 **FA2**.
 - `vllm_flash_attn/flash_attn_interface.py:275-278, 341-342, 370`: FA2는 `num_splits`가 0 또는 1만 되고 2 이상이면 `NotImplementedError("FA2 does not support num_splits > 1")`; 0이면 C++ 커널(`_vllm_fa2_C.varlen_fwd`)의 분할 휴리스틱에 맡긴다. 이 래퍼로는 외부에서 분할 수를 고를 수 없다.
-- `v1/attention/backends/flash_attn.py:856-866`: step마다 `max_num_splits = 0`(주석: FA3 휴리스틱, CUDA graph 비호환)이고 전체 CUDA graph이며 토큰 수가 캡처 크기 이하일 때만 `self.max_num_splits`(`:708`에서 0, `:771-773`에서 전체 CUDA graph일 때 `attention_config.flash_attn_max_num_splits_for_cuda_graph`, 기본 32: `config/attention.py:61`)를 쓴다. 호출은 `flash_attn.py:1441`의 `num_splits = attn_metadata.max_num_splits`를 거친다.
+- `v1/attention/backends/flash_attn.py:856-866`: step마다 `max_num_splits = 0`(주석: FA3 휴리스틱, CUDA graph 비호환)이고 전체 CUDA graph이며 토큰 수가 캡처 크기 이하일 때만 `self.max_num_splits`(`:708`에서 0, `:771-773`에서 전체 CUDA graph일 때 `attention_config.flash_attn_max_num_splits_for_cuda_graph`, 기본 32: `config/attention.py:61`)를 쓴다. (2026-10-28 정정: `:753`의 조건에 `self.aot_schedule`(FA3만 참)이 함께 있어 FA2에서는 이 대입이 일어나지 않는다. 아래 "실제로 쓰인 분할 수" 참고.) 호출은 `flash_attn.py:1441`의 `num_splits = attn_metadata.max_num_splits`를 거친다.
 - `v1/attention/backends/flashinfer.py:1259-1264`: decode 래퍼를 `use_tensor_cores=True`로 항상 만든다(주석: 최신 GPU에서 CUDA core 이상이라는 판단). head 그룹 크기 조건이 없다.
 
 **설계.** `scripts/vllm_profile_step.py run`: `scripts/vllm_reproduce.py`와 같은 모델·배치 구성(혼합 32768×1 + 512×31, 균일 512×32)·prefix cache 끔·warm-up 후, 백엔드(FLASH_ATTN, FLASHINFER) × eager와 FLASH_ATTN × CUDA graph 하나. 시나리오마다 (a) 비프로파일 step 시간(두 생성 길이의 차), (b) `llm.start_profile()`/`stop_profile()`로 24토큰 생성의 torch profiler 트레이스. (환경변수 `VLLM_TORCH_PROFILER_DIR`은 0.31에 없고 `profiler_config`가 그 자리다; 모델은 별도 프로세스에서 돌며 worker가 트레이스를 쓴다.) `analyze`는 트레이스를 vLLM의 `execute_context_N(..)_generation_M(..)` 주석으로 iteration 단위로 자르고 커널을 launch 시점(CUPTI correlation id)으로 배정해 iteration마다 attention / KV 쓰기 / GEMM / 기타 GPU 시간, GPU busy(커널 구간 합집합), 호스트 쪽 비용·공백(iteration 간격 − GPU busy)을 낸다. 커널 분류는 이름 규칙이며 `step_breakdown.json`에 상위 커널 이름이 남아 있어 사후에 확인한다. 프로파일러 오버헤드 때문에 호스트 시간은 비프로파일 step 시간보다 길게 나오는 것이 정상이다. 예상 GPU 시간 20~30분.
@@ -436,10 +461,24 @@ make verify    # traceE2E.*는 시나리오에서 replay·예측을, p3trace.*�
 
 **vLLM 0.31의 혼합 길이 손실은 무엇이 지배하는가.** 이 설정에서는 attention 커널의 GPU 시간이다(혼합−균일 차이의 98%, FA2·FlashInfer 모두). 호스트 오버헤드·GEMM·CUDA graph 여부는 지배 요인이 아니다. 분할 수 휴리스틱이 직접 원인이라는 증거(커널 이름의 분할 수, 분할 8로 바꾼 재실행)는 이 프로파일에 없다: 같은 배치의 격자 측정(휴리스틱 1.07 ms/층, 분할 8 0.28 ms/층)과 엔진 측정이 일치한다는 정황 증거만 있다.
 
+**실제로 쓰인 분할 수(2026-10-28, `남은_실험.md` (c)).** 새 GPU 실행 없이, 위 시도 2의 torch profiler 트레이스(FA2 네 실행)에 기록된 커널 이름과 grid 크기에서 읽었다(`kernelscope.analysis.vllm_steps.fa2_launches`; 요약은 트레이스 sha256과 함께 `demo_data/vllm_4090/profile_20261024/fa2_launches.json`). flash-attn 2.8.3 `flash_fwd_launch_template.h`에서 `flash_fwd_splitkv_kernel`의 일곱 번째 bool 템플릿 인자가 `Split`이다(`:41`). `Split`은 `num_splits > 1`일 때 참이다(`:113`). grid는 `(m 블록, 분할이 2 이상이면 분할 수 아니면 배치, 분할이 2 이상이면 배치×헤드 아니면 헤드)`이고(`:107`), 분할 결과를 합치는 `flash_fwd_splitkv_combine_kernel`은 분할이 2 이상일 때만 실행된다(`:136`). 아래 값은 `make verify`(`vllmsplit.*`)가 요약 파일에서 다시 읽는다.
+
+| 실행 | 배치 32 decode 실행 수(grid (1, 32, 8)) | 그중 CUDA graph 안 | Split=true인 FA2 실행 | combine 커널 | decode 커널 시간 중앙값 µs |
+|---|---:|---:|---:|---:|---:|
+| FA2 eager, 혼합 | 792 | 0 | 0 | 0 | 1,875.8 |
+| FA2 eager, 균일 | 792 | 0 | 0 | 0 | 81.4 |
+| FA2 CUDA graph, 혼합 | 828 | 828 | 0 | 0 | 1,873.6 |
+| FA2 CUDA graph, 균일 | 828 | 828 | 0 | 0 | 79.1 |
+
+- **네 실행 모두 배치 32 decode가 분할 없이(num_splits = 1) 돌았다.** grid (1, 32, 8)은 m 블록 1, 배치 32, KV 헤드 8(GQA 축 교환 뒤)이다. 분할했다면 둘째 축이 분할 수, 셋째 축이 256(= 32×8)이어야 한다. Split=true인 실행도 combine 커널도 없다(이름에 combine이 들어간 커널 25개는 vLLM 샘플러의 `_combine_sampled_and_draft_tokens_kernel`이다). 혼합 길이 decode 커널 1,875.8 µs × 36층 = 67.5 ms/step으로, 위 표의 attention 67.7 ms와 맞는다.
+- **CUDA graph 실행도 같다.** 828회 모두 graph 안에서 실행됐고(트레이스의 graph id), 분할 수는 eager와 같다. 소스와도 맞는다. `flash_attn.py:753`의 조건은 `if self.use_full_cuda_graph and self.aot_schedule`이고, `aot_schedule`은 FA3일 때만 참이다(`:709`, `get_flash_attn_version() == 3`). SM89는 FA2라 `max_num_splits`가 `:708`의 0에 머물고, 0은 C++ 휴리스틱에 맡긴다는 뜻이다. 위 "소스 조사"와 아래 조건 3에서 CUDA graph 때 32가 넘어간다고 읽은 것은 이 조건을 빠뜨린 것이다.
+- 휴리스틱으로 계산해도 같다. B·H_kv = 32×8 = 256 ≥ 0.8×2×128 = 204.8이므로 분할 1이다(§4의 임계 B* = 26 ≤ 32).
+- 따라서 vLLM 0.31의 혼합 길이 손실은 **분할 수 휴리스틱이 분할하지 않은 FA2 커널**에서 생긴다는 것이 커널 기록으로 확인된다. 다만 분할 8로 바꾼 vLLM 실행은 없다(래퍼가 2 이상을 받지 않음). 그래서 vLLM 안에서 얼마나 줄어드는지는 여전히 격자 배율에서 추정한 값이다. vLLM의 커널 시간이 우리 격자의 1.76배인 이유도 확인하지 못했다.
+
 **본 작품의 기전이 운영 엔진에서 성립하는 조건(이 측정이 보인 범위).**
 1. 증상은 vLLM 0.31(기본 FA2 백엔드, RTX 4090, 긴 요청 1개 + 짧은 요청 31개)에서 재현되고 attention이 step의 87%를 차지한다 — 해결할 시간이 있다. 이 시간 중 커널 격자의 분할 비(3.8배)가 그대로 옮겨진다면 step은 81 ms에서 약 31 ms로 줄 수 있다는 계산이 나오지만 이것은 측정이 아니라 격자 배율을 그대로 적용한 가정이다.
 2. 그러나 vLLM의 FA2 래퍼는 `num_splits`를 0(C++ 휴리스틱)과 1만 받으므로(소스 인용 위 §8) 외부에서 분할 수를 고르는 방식은 C++ 래퍼 수정 없이는 적용되지 않는다. FlashInfer 백엔드는 tensor core 변형으로 고정되어 있어(`flashinfer.py:1259-1264`) 혼합 길이에서 24.0 ms attention이 남고, CUDA-core 변형을 고르는 설정은 노출되어 있지 않다.
-3. CUDA graph 모드에서 소스(`flash_attn.py:771-773, 856-866`)는 FA2에 `num_splits=32`를 넘기는 것으로 읽히지만 FA2 래퍼는 `num_splits > 1`이면 `NotImplementedError`를 내므로 두 소스가 충돌한다. 실행은 성공했고 attention은 eager와 같았다(67.7 ms) — 어느 값이 실제로 쓰였는지는 확인하지 못했다.
+3. CUDA graph 모드에서 소스(`flash_attn.py:771-773, 856-866`)는 FA2에 `num_splits=32`를 넘기는 것으로 읽히지만 FA2 래퍼는 `num_splits > 1`이면 `NotImplementedError`를 내므로 두 소스가 충돌한다. 실행은 성공했고 attention은 eager와 같았다(67.7 ms) — 어느 값이 실제로 쓰였는지는 확인하지 못했다. (2026-10-28 정정: 32는 FA3에서만 쓰이고, 실제 분할 수는 1이었다. 위 "실제로 쓰인 분할 수" 참고.)
 4. 조건: 이 결과는 SM89(FA2 경로)와 vLLM 0.31.0에 한정된다. 호퍼(SM90)는 FA3 경로라 휴리스틱이 다르다. 한 모델·한 배치 구성·한 GPU이고 비프로파일 step 시간은 반복 3회의 중앙값이다.
 
 ```bash

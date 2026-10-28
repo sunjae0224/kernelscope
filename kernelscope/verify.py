@@ -299,6 +299,63 @@ def _mooncake_lengths(trace, stat):
     return f
 
 
+# ---- GPU optional experiments of 2026-10-28 (docs/report/final_v2/남은_실험.md (a)-(c)) --------------------------
+
+FIXED_RERUN = "fixedsplit_rerun_20261028"
+TRACE_TF = "trace_e2e_numerics_20261028"
+FA2_LAUNCHES = "vllm_4090/profile_20261024/fa2_launches.json"
+
+
+def _rerun_mismatches(repo, data):
+    return float(pd.read_csv(data / "serve_4090" / FIXED_RERUN / "ragged" / "equivalence.csv").token_mismatches.sum())
+
+
+def _rerun_tpot_spread(repo, data):
+    """Largest over smallest TPOT among the nine non-heuristic repeats of the re-measurement."""
+    t = _p3_repeats(data, FIXED_RERUN, "ragged").drop("heuristic").tpot_ms
+    return float(t.max() / t.min())
+
+
+@lru_cache(maxsize=None)
+def _trace_tf_events(data: Path) -> pd.DataFrame:
+    """The 2026-10-24 trace e2e events classified with the 1,600-call teacher-forced rows of 2026-10-28."""
+    from kernelscope.serve.divergence import campaign_events, summarize_campaign_events
+    events = campaign_events(data / "serve_4090" / TRACE_RUN, numerics=data / "serve_4090" / TRACE_TF / "numerics")
+    return summarize_campaign_events(events).set_index(["scenario", "policy"])
+
+
+def _trace_tf(policy, column):
+    return lambda repo, data: float(_trace_tf_events(data).loc[(TRACE_NAME, policy), column])
+
+
+def _trace_tf_flips(policy, before=None):
+    def f(repo, data):
+        t = pd.read_csv(data / "serve_4090" / TRACE_TF / "numerics" / TRACE_NAME / "teacher_forced_logits.csv")
+        t = t[(t.policy == policy) & ~t.argmax_equal.astype(bool)]
+        return float(len(t) if before is None else (t.step < before).sum())
+    return f
+
+
+def _trace_tf_summary(*path):
+    def f(repo, data):
+        value = json.loads((data / "serve_4090" / TRACE_TF / "summary.json").read_text())
+        for key in path:
+            value = value[key]
+        return float(value)
+    return f
+
+
+def _fa2_launch(run, what):
+    """FA2 launches of one vLLM profile run: decode launches of the batch of 32 (grid (1, 32, 8)) and the split evidence."""
+    def f(repo, data):
+        r = json.loads((data / FA2_LAUNCHES).read_text())["runs"][run]
+        decode = [g for g in r["groups"] if g["grid"] == [1, 32, 8]]
+        return float({"decode": sum(g["launches"] for g in decode), "graph": sum(g["graph_launches"] for g in decode),
+                      "split": sum(g["launches"] for g in r["groups"] if g["split"]), "combine": r["combine_launches"],
+                      "dur": decode[0]["dur_us_median"]}[what])
+    return f
+
+
 # ---- op-class step breakdown (demo_data/serve_4090/diagnose_20260927) -----------------------------
 
 DIAG = "diagnose_20260927"
@@ -2226,6 +2283,58 @@ CHECKS = [
           ("s8_ratio_best", "고정 분할 8 / 최선 attention 시간 비(예측)", ("fixed", "s8.ratio_best"), 0.00005),
           ("s16_ratio_best", "고정 분할 16 / 최선 attention 시간 비(예측)", ("fixed", "s16.ratio_best"), 0.00005),
           ("wait_mean_s", "도착부터 배치 진입까지 평균 대기(s)", ("load", "wait_mean_s"), 0.005)], values)],
+
+    # ---- GPU optional experiments of 2026-10-28: (a) fixed-split ragged re-measurement, (b) trace e2e teacher forcing
+    # ---- over 1,600 decode calls, (c) the split count vLLM 0.31 actually ran (FA2 launches in the 2026-10-25 traces)
+    *[Check(f"p3rerun.ragged.{pol}.speedup", f"고정 분할 혼합 길이 재측정(2026-10-28): {pol}의 TPOT 배율(휴리스틱 / 정책, 3회 평균)", exp, 0.0005, "x",
+            _p3_serve(FIXED_RERUN, "ragged", pol, "speedup_vs_heuristic"), EVIDENCE, row)
+      for pol, exp, row in [("table", 1.8057, '| table | 1.806 | 1.739–1.864 | 34.66 / 35.08 / 33.91 | 9.45 |'), ("fixed8", 1.8234, '| 고정 8 | 1.823 | 1.792–1.840 | 34.21 / 34.05 / 34.38 | 9.32 |'), ("fixed16", 1.8139, '| 고정 16 | 1.814 | 1.782–1.867 | 33.72 / 34.23 / 35.23 | 9.40 |')]],
+    Check("p3rerun.ragged.fixed8.ci_low", "재측정 고정 8의 반복 부트스트랩 구간 하한", 1.7918, 0.0005, "x",
+          _p3_serve(FIXED_RERUN, "ragged", "fixed8", "speedup_ci95_low"), EVIDENCE, '| 고정 8 | 1.823 | 1.792–1.840 | 34.21 / 34.05 / 34.38 | 9.32 |'),
+    Check("p3rerun.ragged.fixed8.ci_high", "재측정 고정 8의 반복 부트스트랩 구간 상한", 1.8396, 0.0005, "x",
+          _p3_serve(FIXED_RERUN, "ragged", "fixed8", "speedup_ci95_high"), EVIDENCE, '| 고정 8 | 1.823 | 1.792–1.840 | 34.21 / 34.05 / 34.38 | 9.32 |'),
+    *[Check(f"p3rerun.ragged.{pol}.repeat{i}_tpot", f"재측정 {pol} 반복 {i}의 TPOT(ms)", exp, 0.005, "ms",
+            _p3_repeat(FIXED_RERUN, "ragged", pol, i, "tpot_ms"), EVIDENCE, row)
+      for pol, values, row in [("heuristic", (62.937, 61.010, 63.204), '| heuristic | 1.000 | — | 62.94 / 61.01 / 63.20 | 37.68 |'), ("table", (34.657, 35.083, 33.905), '| table | 1.806 | 1.739–1.864 | 34.66 / 35.08 / 33.91 | 9.45 |'),
+                               ("fixed8", (34.212, 34.049, 34.377), '| 고정 8 | 1.823 | 1.792–1.840 | 34.21 / 34.05 / 34.38 | 9.32 |'), ("fixed16", (33.717, 34.234, 35.227), '| 고정 16 | 1.814 | 1.782–1.867 | 33.72 / 34.23 / 35.23 | 9.40 |')]
+      for i, exp in enumerate(values)],
+    *[Check(f"p3rerun.ragged.{pol}.attn", f"재측정 {pol}의 attention ms/step", exp, 0.005, "ms",
+            _p3_serve(FIXED_RERUN, "ragged", pol, "attn_ms_per_step"), EVIDENCE, row)
+      for pol, exp, row in [("heuristic", 37.680, '| heuristic | 1.000 | — | 62.94 / 61.01 / 63.20 | 37.68 |'), ("table", 9.4503, '| table | 1.806 | 1.739–1.864 | 34.66 / 35.08 / 33.91 | 9.45 |'), ("fixed8", 9.3182, '| 고정 8 | 1.823 | 1.792–1.840 | 34.21 / 34.05 / 34.38 | 9.32 |'), ("fixed16", 9.4020, '| 고정 16 | 1.814 | 1.782–1.867 | 33.72 / 34.23 / 35.23 | 9.40 |')]],
+    Check("p3rerun.ragged.tpot_spread", "재측정: 휴리스틱을 뺀 세 정책의 반복 9개 TPOT 최대 / 최소", 1.0448, 0.0005, "x", _rerun_tpot_spread,
+          EVIDENCE, "최대/최소가 1.045배 안이다"),
+    Check("p3rerun.ragged.mismatches", "재측정: 세 정책·세 반복의 휴리스틱 대비 불일치 토큰 수 합", 0, 0, "", _rerun_mismatches, EVIDENCE, "(불일치 0)"),
+    *[Check(f"p3tracetf.{pol}.{col}", f"트레이스 e2e {pol}의 분기 지점, 교사 강제 1,600 호출로 분류: {title}", exp, 0, "", _trace_tf(pol, col), EVIDENCE, row)
+      for pol, row, values in [("table", "| table | 10 | 10 | 0 | 0 | 0 | 0 | 15 |", (10, 10, 0, 0, 0, 0)),
+                               ("hybrid", "| hybrid(δ=0.2) | 10 | 10 | 0 | 0 | 0 | 0 | 15 |", (10, 10, 0, 0, 0, 0)),
+                               ("model", "| model | 8 | 7 | 1 | 0 | 0 | 0 | 17 |", (8, 7, 1, 0, 0, 0))]
+      for (col, title), exp in zip([("distinct_positions", "분기 지점 수"), ("tie_1ulp", "동점 1 ulp"), ("tie_2ulp", "동점 2 ulp"),
+                                    ("clear", "clear"), ("unclassified", "미분류"), ("not_reproduced", "재현 안 됨")], values)],
+    *[Check(f"p3tracetf.{pol}.flips", f"트레이스 e2e 교사 강제 1,600 호출: {pol}의 argmax가 바뀐 행 수", exp, 0, "", _trace_tf_flips(pol), EVIDENCE, row)
+      for pol, exp, row in [("table", 15, "| table | 10 | 10 | 0 | 0 | 0 | 0 | 15 |"), ("hybrid", 15, "| hybrid(δ=0.2) | 10 | 10 | 0 | 0 | 0 | 0 | 15 |"),
+                            ("model", 17, "| model | 8 | 7 | 1 | 0 | 0 | 0 | 17 |")]],
+    *[Check(f"p3tracetf.{pol}.rows", f"트레이스 e2e 교사 강제 1,600 호출: {pol}의 기록 행 수(전체 파일)", 45409, 0, "", _trace_tf_summary("policies", pol, "rows"),
+            EVIDENCE, "정책마다 45,409행을 기록했다") for pol in ("table", "hybrid", "model")],
+    Check("p3tracetf.calls", "트레이스 e2e 교사 강제: 기록한 decode 호출 수", 1600, 0, "", _trace_tf_summary("decode_calls_recorded"), EVIDENCE, "1,600 호출로 늘렸다"),
+    Check("p3tracetf.first400_identical", "처음 400 호출의 10월 24일 행(세 정책 26,052행) 가운데 모든 열이 같은 행 수", 26052, 0, "",
+          _trace_tf_summary("first_400_calls", "identical_rows"), EVIDENCE, "8,684행은 10월 24일 기록과 값이 모두 같다"),
+    Check("p3tracetf.table.flips_first400", "처음 400 호출 안에서 table의 argmax가 바뀐 행(10월 24일과 같은 1행)", 1, 0, "", _trace_tf_flips("table", 400),
+          EVIDENCE, "8,684행은 10월 24일 기록과 값이 모두 같다"),
+    Check("p3tracetf.table.diff_gt4", "argmax는 같지만 로짓 최대 차이가 4를 넘는 table 행 수", 247, 0, "", _trace_tf_summary("policies", "table", "rows_diff_gt_4"),
+          EVIDENCE, "table 247행(최대 18.6"),
+    Check("p3tracetf.table.max_diff", "table 교사 강제 행의 로짓 최대 차이", 18.64, 0.005, "", _trace_tf_summary("policies", "table", "max_abs_logit_diff"),
+          EVIDENCE, "table 247행(최대 18.6"),
+    *[Check(f"vllmsplit.{run}.{what}", f"vLLM 0.31 프로파일 {run}: {title}", exp, tol, unit, _fa2_launch(run, what), EVIDENCE, row)
+      for run, row, values in [
+          ("flash_attn_eager_ragged", "| FA2 eager, 혼합 | 792 | 0 | 0 | 0 | 1,875.8 |", (792, 0, 0, 0, 1875.8)),
+          ("flash_attn_eager_uniform", "| FA2 eager, 균일 | 792 | 0 | 0 | 0 | 81.4 |", (792, 0, 0, 0, 81.4)),
+          ("flash_attn_cudagraph_ragged", "| FA2 CUDA graph, 혼합 | 828 | 828 | 0 | 0 | 1,873.6 |", (828, 828, 0, 0, 1873.6)),
+          ("flash_attn_cudagraph_uniform", "| FA2 CUDA graph, 균일 | 828 | 828 | 0 | 0 | 79.1 |", (828, 828, 0, 0, 79.1))]
+      for (what, title, tol, unit), exp in zip([("decode", "배치 32 decode의 FA2 실행 수(grid (1, 32, 8))", 0, ""),
+                                                 ("graph", "그중 CUDA graph 안에서 실행된 수", 0, ""),
+                                                 ("split", "Split=true인 FA2 실행 수(모든 grid)", 0, ""),
+                                                 ("combine", "flash_fwd_splitkv_combine_kernel 실행 수", 0, ""),
+                                                 ("dur", "decode FA2 커널 시간 중앙값", 0.05, "us")], values)],
 
     Check("consistency.amdahl_ragged", "혼합 길이: attention 시간 변화만으로 예측한 step 시간과 실측의 차이(±3%)",
           0.0, 3.0, "%", _amdahl_error_pct("ragged")),

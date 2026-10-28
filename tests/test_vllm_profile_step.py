@@ -99,3 +99,23 @@ def test_kv_cache_kwargs_fixes_size_only_when_given():
     from scripts.vllm_profile_step import kv_cache_kwargs
     assert kv_cache_kwargs(None) == {}
     assert kv_cache_kwargs(8) == {"kv_cache_memory_bytes": 8 * 2**30}
+
+
+def test_fa2_launches_reads_grid_split_flag_and_combine_kernels(tmp_path):
+    from kernelscope.analysis.vllm_steps import fa2_launches
+    traits = "void flash::flash_fwd_splitkv_kernel<Flash_fwd_kernel_traits<128, 64, 64, 4, false, false, cutlass::bfloat16_t, " \
+             "Flash_kernel_traits<128, 64, 64, 4, cutlass::bfloat16_t> >, "
+    kernel = lambda flags, grid, graph, dur: {"cat": "kernel", "name": traits + flags + ">(flash::Flash_fwd_params)", "dur": dur,
+                                              "args": {"grid": grid, "graph id": graph}}
+    events = [kernel("false, false, false, false, true, false, false, false", [1, 32, 8], 7, 10.0),
+              kernel("false, false, false, false, true, false, false, false", [1, 32, 8], 0, 30.0),
+              kernel("false, false, false, false, true, false, true, false", [1, 16, 256], 0, 5.0),
+              {"cat": "kernel", "name": "void flash::flash_fwd_splitkv_combine_kernel<...>", "dur": 1.0, "args": {}},
+              {"cat": "kernel", "name": "_combine_sampled_and_draft_tokens_kernel", "dur": 1.0, "args": {}}]
+    path = tmp_path / "t.pt.trace.json.gz"
+    with gzip.open(path, "wt") as handle:
+        json.dump({"traceEvents": events}, handle)
+    got = fa2_launches(path)
+    assert got["combine_launches"] == 1
+    assert got["groups"][0] == {"grid": [1, 32, 8], "split": False, "launches": 2, "graph_launches": 1, "dur_us_median": 20.0}
+    assert got["groups"][1]["split"] is True and got["groups"][1]["grid"] == [1, 16, 256]

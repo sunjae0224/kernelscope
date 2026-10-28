@@ -49,6 +49,35 @@ def load(root) -> list:
     return json.loads((Path(root) / "step_breakdown.json").read_text())["runs"]
 
 
+def fa2_launches(trace_path) -> dict:
+    """FA2 attention launches of one torch-profiler trace (``*.pt.trace.json.gz``), grouped by grid and the ``Split`` template flag.
+
+    flash-attn 2.8.3 ``flash_fwd_launch_template.h``: the kernel's seventh bool is ``Split`` (``:41``, set from
+    ``num_splits > 1`` at ``:113``), the grid is ``(m_blocks, num_splits > 1 ? num_splits : b, num_splits > 1 ? b*h : h)``
+    (``:107``) and ``flash_fwd_splitkv_combine_kernel`` runs only when ``num_splits > 1`` (``:136``).
+    """
+    import gzip
+    with gzip.open(trace_path, "rt") as f:
+        events = json.load(f)["traceEvents"]
+    groups, combine = {}, 0
+    for e in events:
+        name = e.get("name", "")
+        if e.get("cat") != "kernel":
+            continue
+        if "flash_fwd_splitkv_combine_kernel" in name:
+            combine += 1
+        elif "flash_fwd_splitkv_kernel" in name:
+            flags = name.split("> >, ", 1)[1].split(">(", 1)[0].split(", ")
+            key = (tuple(e["args"]["grid"]), flags[6] == "true")
+            g = groups.setdefault(key, {"grid": list(key[0]), "split": key[1], "launches": 0, "graph_launches": 0, "dur_us": []})
+            g["launches"] += 1
+            g["graph_launches"] += bool(e["args"].get("graph id"))
+            g["dur_us"].append(e["dur"])
+    rows = [{**{k: v for k, v in g.items() if k != "dur_us"}, "dur_us_median": statistics.median(g["dur_us"])}
+            for g in groups.values()]
+    return {"groups": sorted(rows, key=lambda r: -r["launches"]), "combine_launches": combine}
+
+
 def last_row_after_long_request_leaves(run) -> dict:
     """The decode iteration of 31 requests after the 32K request finished (ragged runs): the same engine, no long request."""
     rows = [x for x in run["iterations"] if x["context_requests"] == 0 and x["generation_requests"] == BATCH - 1 and x["kernels"] > 100]
