@@ -24,7 +24,7 @@
 2. **보고서 1·2장** — PLAN §0 개정 정의 + 문제 범위 노트 요약 + 이번 밤 근거(§1 표 ⑧~⑩)를 옮긴다. 관련 연구 초안의 `[R*]` 번호를 `[23]~`로 재배정해 2장에 넣는다(`content1_v5.js` 23줄 수정 포함).
 3. **발표 자료** — 배경 파트는 `docs/presentation/background/story.md` + 그림 4장. 해결·검증 파트는 아직 없다. 도식(슬라이드 2)과 `fig_b4`(임계 표)는 미작성.
 4. **선택 GPU 작업**(필요하면): 고정 8 혼합 재측정(3분), 트레이스 e2e 분기 9곳의 교사 강제 분류(`check_policy_numerics --logit-steps` 확대), GSM8K 분기 분류, vLLM CUDA graph 모드의 실제 `num_splits` 확인.
-5. **미실행 절**: Mooncake 긴 문맥 트레이스(§3, 공개 데이터 다운로드 필요), 모델×GPU 분할 없음 임계 표(§4, 식 B ≥ 0.8·2·SM/H_kv는 있음), 신뢰구간·δ 민감도(§5). 중단 조건에 따라 생략 가능.
+5. ~~**미실행 절**~~ 2026-10-28 완료: Mooncake 긴 문맥 트레이스(§3), GPU별 분할 없음 임계 표(§4), δ 민감도(§5). 보고서 v2 공란 10칸도 채웠다([근거](docs/experiments/2026-10-28-final-report-v2.md)). 남은 것: 신뢰구간(§5의 나머지), GPU 선택 실험 `남은_실험.md` 2.1 (a) 고정 8 이상치 재측정·(b) 트레이스 e2e 분기 9곳 분류, 로컬 `content_v2.py`에 같은 수정 반영 후 PDF 재생성.
 6. 도구 정리(측정 경로 아님): `scripts/vllm_profile_step.py analyze`의 `summary` 집계가 iteration 종류를 섞음(보정은 `kernelscope/analysis/vllm_steps.py`) + `engine_reported_backend` 정규식이 0.31 로그 문구(`Using AttentionBackendEnum.X backend.`)를 놓침; README의 "531개 검사" → 944. PLAN §2 3(b) Accel-Sim L2 해시 재검증은 그대로.
 7. Demo 페이지 후속(다른 세션): 10월 8일 항목 그대로(실행 버튼 생존, 결과 폴더 새로고침, 장면 2·3에 표 추가, `attention` 열 읽기).
 

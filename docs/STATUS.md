@@ -1,5 +1,17 @@
 # Status log
 
+## 2026-10-28 — 최종보고서 v2 공란 10칸, Mooncake 긴 문맥 트레이스, 분할 없음 임계 표, δ 민감도 (branch `design-1-3`)
+
+`docs/report/final_v2/남은_실험.md`의 필수 공란과 GPU가 필요 없는 선택 실험 (d)·(e)·(f)를 연구실 호스트에서 GPU를 숨기고 실행했다. GPU 실험 (a)·(b)·(c)는 GPU를 다른 사용자의 학습 작업이 쓰고 있어 하지 않았다. 근거 노트 [2026-10-28-final-report-v2.md](experiments/2026-10-28-final-report-v2.md), [final-evidence §3·§4·§5](experiments/2026-10-24-final-evidence.md). `make verify` 1,109/1,109 PASS(+165), `make test` 723 passed, 5 skipped.
+
+- **표 10 성능 시뮬레이터(공란 3~9)**: Accel-Sim 게이트의 6개 조건을 warm 상태로 예측하면 61.0/460.1/61.0/10.8/23.3/37.2 µs, 오차 2.7~15.0%(중앙값 6.1%). cold로 예측하면 15.9~140.2%. 보정 격자 안의 조건은 L=8K 두 칸(FA2, FlashDecoding)이고 L=1K 네 칸은 보간 조건이다. 원본은 `demo_data/accelsim/validation_20260918.csv`.
+- **표 7 GPGPU-Sim(공란 2)**: 혼합 길이 분할 1의 1회 실행은 330 s. 로컬 WSL2의 `sim.log` 값을 사용자가 옮긴 것이고, 이 호스트에서는 원 로그를 다시 확인하지 못했다. `gpgpusim-splitkv-sweep.csv`에 `sim_wall_s` 열을 추가했다.
+- **공란 1·10**: 단위 테스트 723개 통과, verify 1,109개 31 s(연구실 호스트 CPU, GPU 숨김).
+- **Mooncake(§3, 시뮬레이터 예측)**: conversation 트레이스(입력 중앙값 6,909, 32K 이상 6.9%). 10 GiB에서는 평균 배치 5.0, 손실 1.25배 이상 step 9.3%. 436K 토큰 what-if에서는 ×0.5(대기 0.2 s, 배치 17.4) 17.0%, ×1(KV 포화, 배치 30.8) 61.3%. 고정 16은 긴 문맥 조건에서 최선 대비 1.003~1.010이지만, 10 GiB·작은 배치에서는 고정 8이 휴리스틱보다 나쁘다. `load_trace`에 Mooncake JSON lines 로더를 추가했다.
+- **분할 없음 임계(§4, 규칙 계산)**: flash-attn 2.8.3 `flash_api.cpp:317`·`:1278`에서 B* = min B s.t. B·H_kv ≥ 0.8·2·SM. KV 헤드 8에서 8종 GPU의 B*는 12~29(L4 12 … L40 29), KV 헤드 2에서 47~114. RTX 4090 휴리스틱 실행 기록 785건의 launch 수와 모두 일치했다. 새 모듈 `kernelscope/analysis/thresholds.py`.
+- **δ 민감도(§5)**: 0.01 격자에서 cold 세 집합이 모두 15% 이내인 구간은 0.16~0.32(17점)이고, 0.16~0.26에서는 최악값이 δ=0.2와 같다(1.97/7.54/10.90%). 신뢰구간 과제는 하지 않았다.
+- **보고서**: `docs/report/final_v2/연구논문작품_최종보고서_v2.docx`의 공란 10칸을 채웠다. 948을 1,109로 바꾸고, 표 10 각주(warm·보정 격자), 4장 다)(3)의 Mooncake·임계 문단, 4장 라)(3)의 δ 문단, 참고문헌 [20] Mooncake를 추가했다(GSM8K는 [21]). 생성 소스 `content_v2.py`는 로컬에만 있어 docx를 직접 고쳤다. 같은 내용을 소스에 옮길 목록은 `남은_실험.md` 3장에 있다. PDF는 이 호스트의 LibreOffice 6.4로 다시 만들었고, 맑은 고딕이 없어 Noto Sans CJK로 렌더링되었다.
+
 ## 2026-10-24~25 야간 — 최종 보고 근거 보강: 고정 분할 기준선, 부하 스윕, trace replay 실측 검증, 트레이스 e2e, vLLM step 분해, 64K 자연어, GSM8K (branch `design-1-3`, 미커밋)
 
 사용자가 잠든 동안 sonnet 작업자 6단계(P1a·P1b·P2a·P2e·P3·P3b)와 수리 2회, GPU 대기열 6항목(23:46~01:30, 다른 사용자 프로세스 간섭은 04 시도 1에만 있어 결론에서 제외)이 돌았고 P4(fable)가 수치를 독립 재계산해 검토했다. 노트 [2026-10-24-final-evidence.md](experiments/2026-10-24-final-evidence.md), 아침 보고서 [handoff/2026-10-25-overnight-report.md](handoff/2026-10-25-overnight-report.md). `make verify` 944/944 PASS(10월 8일 531 → +413), `make test` 718 passed.
