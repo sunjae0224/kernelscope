@@ -20,11 +20,11 @@
 - 환경: 변화 없음(패키지 설치 없음).
 
 ## 1. 다음에 할 것 (우선순위 순)
-1. **사용자 결정 7건**(아침 보고서 §5): ① 보고서·PLAN §0의 13.5%에 실측 8.9% 병기, ② 고정 분할 대비 동적 선택의 정당화 문구(TPOT는 같고 근거는 출력 보존), ③ vLLM "백엔드 무관 0.997배" 철회 문구(PLAN §2 7번·중간보고서 표 8·2026-10-02 노트 §9), ④ FlashInfer "GQA ≥ 4 tensor-core 권장" → SGLang 규칙으로 고치기(PLAN §0·보고서 2장), ⑤ 트레이스 e2e 보고 규약(첫 반복 분리·"선택된 구간"), ⑥ GSM8K 주 지표 사후 변경 표기, ⑦ 고정 8 혼합 반복 1 이상치 재측정 여부(GPU 약 3분).
+1. **사용자 결정 7건**(아침 보고서 §5): ① 보고서·PLAN §0의 13.5%에 실측 8.9% 병기, ② 고정 분할 대비 동적 선택의 정당화 문구(TPOT는 같고 근거는 출력 보존), ③ vLLM "백엔드 무관 0.997배" 철회 문구(PLAN §2 7번·중간보고서 표 8·2026-10-02 노트 §9), ④ FlashInfer "GQA ≥ 4 tensor-core 권장" → SGLang 규칙으로 고치기(PLAN §0·보고서 2장), ⑤ 트레이스 e2e 보고 규약(첫 반복 분리·"선택된 구간"), ⑥ GSM8K 주 지표 사후 변경 표기, ⑦ ~~고정 8 혼합 반복 1 이상치 재측정 여부(GPU 약 3분)~~ 2026-10-28 재측정: 1.823배, 이상치 재현 안 됨.
 2. **보고서 1·2장** — PLAN §0 개정 정의 + 문제 범위 노트 요약 + 이번 밤 근거(§1 표 ⑧~⑩)를 옮긴다. 관련 연구 초안의 `[R*]` 번호를 `[23]~`로 재배정해 2장에 넣는다(`content1_v5.js` 23줄 수정 포함).
 3. **발표 자료** — 배경 파트는 `docs/presentation/background/story.md` + 그림 4장. 해결·검증 파트는 아직 없다. 도식(슬라이드 2)과 `fig_b4`(임계 표)는 미작성.
-4. **선택 GPU 작업**(필요하면): 고정 8 혼합 재측정(3분), 트레이스 e2e 분기 9곳의 교사 강제 분류(`check_policy_numerics --logit-steps` 확대), GSM8K 분기 분류, vLLM CUDA graph 모드의 실제 `num_splits` 확인.
-5. ~~**미실행 절**~~ 2026-10-28 완료: Mooncake 긴 문맥 트레이스(§3), GPU별 분할 없음 임계 표(§4), δ 민감도(§5). 보고서 v2 공란 10칸도 채웠다([근거](docs/experiments/2026-10-28-final-report-v2.md)). 남은 것: 신뢰구간(§5의 나머지), GPU 선택 실험 `남은_실험.md` 2.1 (a) 고정 8 이상치 재측정·(b) 트레이스 e2e 분기 9곳 분류, 로컬 `content_v2.py`에 같은 수정 반영 후 PDF 재생성.
+4. **선택 GPU 작업**(필요하면): ~~고정 8 혼합 재측정(3분), 트레이스 e2e 분기 9곳의 교사 강제 분류(`check_policy_numerics --logit-steps` 확대), vLLM CUDA graph 모드의 실제 `num_splits` 확인~~ 2026-10-28 저녁 완료(고정 8 1.823배·이상치 재현 안 됨, 분기 28곳 모두 bf16 동점, eager·CUDA graph 모두 분할 수 1; [근거 §4](docs/experiments/2026-10-28-final-report-v2.md)). 남은 것: GSM8K 분기 분류.
+5. ~~**미실행 절**~~ 2026-10-28 완료: Mooncake 긴 문맥 트레이스(§3), GPU별 분할 없음 임계 표(§4), δ 민감도(§5). 보고서 v2 공란 10칸도 채웠다([근거](docs/experiments/2026-10-28-final-report-v2.md)). 남은 것: 신뢰구간(§5의 나머지), 로컬 `content_v2.py`에 같은 수정 반영 후 PDF 재생성. GPU 선택 실험 (a)·(b)·(c)는 같은 날 저녁에 마쳤다(4번).
 6. 도구 정리(측정 경로 아님): `scripts/vllm_profile_step.py analyze`의 `summary` 집계가 iteration 종류를 섞음(보정은 `kernelscope/analysis/vllm_steps.py`) + `engine_reported_backend` 정규식이 0.31 로그 문구(`Using AttentionBackendEnum.X backend.`)를 놓침; README의 "531개 검사" → 944. PLAN §2 3(b) Accel-Sim L2 해시 재검증은 그대로.
 7. Demo 페이지 후속(다른 세션): 10월 8일 항목 그대로(실행 버튼 생존, 결과 폴더 새로고침, 장면 2·3에 표 추가, `attention` 열 읽기).
 

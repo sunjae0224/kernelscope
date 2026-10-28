@@ -1,8 +1,17 @@
 # Status log
 
+## 2026-10-28 저녁 — GPU 선택 실험 (a)·(b)·(c): 고정 8 재측정, 트레이스 e2e 분기 분류, vLLM 실제 분할 수 (branch `design-1-3`)
+
+GPU가 비어(사용률 0%, 다른 프로세스 없음) `남은_실험.md` 2.1절의 세 실험을 했다. 근거 [final-evidence §1·§7·§8](experiments/2026-10-24-final-evidence.md), 요약 [2026-10-28-final-report-v2.md §4](experiments/2026-10-28-final-report-v2.md). verify 항목 72개를 추가했다(`p3rerun.*` 23, `p3tracetf.*` 29, `vllmsplit.*` 20). `make verify` 1,181/1,181 PASS(31.9~32.4 s), `make test` 725 passed, 5 skipped.
+
+- **(a) 고정 8 이상치 재측정**: 혼합 길이 32K만 같은 규약으로 다시 쟀다(`serve_4090/fixedsplit_rerun_20261028`, 커밋 32e936a). 고정 8은 1.823배(구간 1.792–1.840)이고 반복 TPOT는 34.05~34.38 ms다. 10월 24일의 느린 반복(45.17 ms)은 재현되지 않았다. table 1.806배, 고정 16 1.814배이고, 세 정책 모두 토큰이 휴리스틱과 같다.
+- **(b) 트레이스 e2e 분기 분류**: 교사 강제 구간을 400에서 1,600 decode 호출로 늘렸다(`serve_4090/trace_e2e_numerics_20261028`). 분기 지점 28곳(table 10, hybrid 10, model 8)이 모두 bf16 동점(1 ulp 27, 2 ulp 1)이고 clear·미분류는 0이다. 처음 400 호출의 26,052행은 10월 24일과 값이 같다. `campaign_events`에 `numerics` 인자를 추가해, 나중에 돌린 진단으로 기존 캠페인을 분류할 수 있게 했다.
+- **(c) vLLM CUDA graph의 num_splits**: 새 GPU 실행 없이 10월 25일 프로파일 트레이스의 FA2 커널 grid와 `Split` 템플릿 인자를 읽었다(`vllm_steps.fa2_launches`). eager와 CUDA graph 모두 배치 32 decode가 분할 없이(num_splits = 1) 돌았다. combine 커널은 0회다. `flash_attn.py:753`의 `aot_schedule`은 FA3에서만 참이라, 노트 §8의 "CUDA graph 때 32" 해석을 정정했다.
+- **보고서**: 표 14 각주(재측정 1.823배), 4장 바)의 트레이스 분기 동점 문장, vLLM 문단의 분할 수 1 문장, 표 17 출력 동일성 칸, 사) 한계 문단을 고쳤다. 테스트 수, verify 항목 수, 소요 시간도 새 값으로 바꿨다. 같은 수정을 `content_v2.py`에 옮길 목록은 `남은_실험.md` 3.2절에 있다.
+
 ## 2026-10-28 — 최종보고서 v2 공란 10칸, Mooncake 긴 문맥 트레이스, 분할 없음 임계 표, δ 민감도 (branch `design-1-3`)
 
-`docs/report/final_v2/남은_실험.md`의 필수 공란과 GPU가 필요 없는 선택 실험 (d)·(e)·(f)를 연구실 호스트에서 GPU를 숨기고 실행했다. GPU 실험 (a)·(b)·(c)는 GPU를 다른 사용자의 학습 작업이 쓰고 있어 하지 않았다. 근거 노트 [2026-10-28-final-report-v2.md](experiments/2026-10-28-final-report-v2.md), [final-evidence §3·§4·§5](experiments/2026-10-24-final-evidence.md). `make verify` 1,109/1,109 PASS(+165), `make test` 723 passed, 5 skipped.
+`docs/report/final_v2/남은_실험.md`의 필수 공란과 GPU가 필요 없는 선택 실험 (d)·(e)·(f)를 연구실 호스트에서 GPU를 숨기고 실행했다. GPU 실험 (a)·(b)·(c)는 GPU를 다른 사용자의 학습 작업이 쓰고 있어 이때는 하지 않았다(같은 날 저녁에 실행, 위 항목). 근거 노트 [2026-10-28-final-report-v2.md](experiments/2026-10-28-final-report-v2.md), [final-evidence §3·§4·§5](experiments/2026-10-24-final-evidence.md). `make verify` 1,109/1,109 PASS(+165), `make test` 723 passed, 5 skipped.
 
 - **표 10 성능 시뮬레이터(공란 3~9)**: Accel-Sim 게이트의 6개 조건을 warm 상태로 예측하면 61.0/460.1/61.0/10.8/23.3/37.2 µs, 오차 2.7~15.0%(중앙값 6.1%). cold로 예측하면 15.9~140.2%. 보정 격자 안의 조건은 L=8K 두 칸(FA2, FlashDecoding)이고 L=1K 네 칸은 보간 조건이다. 원본은 `demo_data/accelsim/validation_20260918.csv`.
 - **표 7 GPGPU-Sim(공란 2)**: 혼합 길이 분할 1의 1회 실행은 330 s. 로컬 WSL2의 `sim.log` 값을 사용자가 옮긴 것이고, 이 호스트에서는 원 로그를 다시 확인하지 못했다. `gpgpusim-splitkv-sweep.csv`에 `sim_wall_s` 열을 추가했다.
