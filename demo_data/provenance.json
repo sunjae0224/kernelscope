@@ -12829,6 +12829,54 @@
       "bytes": 3507,
       "sha256": "0ad6b3c03a6b5657508b35fd2a20b2b8b67af4b3485f347909124f3fd171e547",
       "source": "docs/presentation/background/prep_length_hist.py over ../kernelscope/results/datasets/traces_20261024 (Azure conv/code 2023, BurstGPT first 7 days); 2026-10-25"
+    },
+    {
+      "path": "accelsim/validation_20260918.csv",
+      "bytes": 2989,
+      "sha256": "f1fc8137218fad00e3f95360001971436c427fe70e742adf7e9c83f8fd977144",
+      "source": "copy of results/sim_4090/20260918-complete/validation.csv (Accel-Sim RTX 4090 gate: profiler kernel time and replayed cycles, docs/setup/accelsim_4090_gate_report.md); 2026-10-28"
+    },
+    {
+      "path": "thresholds/no_split_threshold.json",
+      "bytes": 3025,
+      "sha256": "5436e648b2ced23f8d665779a56da132d298e293cca27dc7d57fe939992a4f4b",
+      "source": "hand-written inputs: GPU SM counts from NVIDIA whitepapers (URLs inside), model head shapes from local HF config.json, flash-attn 2.8.3.post1 rule location; thresholds are computed by kernelscope/analysis/thresholds.py, not measured; 2026-10-28"
+    },
+    {
+      "path": "traffic/mooncake_lengths/conversation.csv",
+      "bytes": 213795,
+      "sha256": "3f91eae2a678d649002ce85b1676fbb0b55134f52ff6b2d19ff3deba718517f7",
+      "source": "timestamp, input_length, output_length columns of kvcache-ai/Mooncake@fe4f297a FAST25-release/traces/conversation_trace.jsonl (datasets/mooncake/SOURCE.md); 2026-10-28"
+    },
+    {
+      "path": "traffic/mooncake_lengths/arxiv.csv",
+      "bytes": 401887,
+      "sha256": "e73c46dee751d83ce76161db0034f2c10bda03f72d2103f6fe207fe24ab9bfb9",
+      "source": "timestamp, input_length, output_length columns of kvcache-ai/Mooncake@fe4f297a FAST25-release/arxiv-trace/mooncake_trace.jsonl (datasets/mooncake/SOURCE.md); 2026-10-28"
+    },
+    {
+      "path": "traffic/mooncake_conv_x1/summary.json",
+      "bytes": 3062,
+      "sha256": "378fcd16e2baca9dafdabd264c54f9e48ab93531ef8f403e788359813352a488",
+      "source": "copy of results/traffic_mooncake_20261028/mooncake_conv_x1/summary.json (scripts/traffic_replay.py over the Mooncake trace; surrogate-model replay, not a measurement); 2026-10-28"
+    },
+    {
+      "path": "traffic/mooncake_conv_x0.5_kv436k/summary.json",
+      "bytes": 3444,
+      "sha256": "91069b55959e2220f97e85cb4c15a3a89ab15ede7502a15fa085338b4efe0375",
+      "source": "copy of results/traffic_mooncake_20261028/mooncake_conv_x0.5_kv436k/summary.json (scripts/traffic_replay.py over the Mooncake trace; surrogate-model replay, not a measurement); 2026-10-28"
+    },
+    {
+      "path": "traffic/mooncake_conv_x1_kv436k/summary.json",
+      "bytes": 3408,
+      "sha256": "4437c5b9128feac00dfe10af7cbb107ce4c930edb89ee094c6bf9e8fb183343d",
+      "source": "copy of results/traffic_mooncake_20261028/mooncake_conv_x1_kv436k/summary.json (scripts/traffic_replay.py over the Mooncake trace; surrogate-model replay, not a measurement); 2026-10-28"
+    },
+    {
+      "path": "traffic/mooncake_arxiv_x1_kv436k/summary.json",
+      "bytes": 3407,
+      "sha256": "9ba15742dbfe6afb08e008c6599c9033ec7dfb0d2463dd44bd823f0f386bb956",
+      "source": "copy of results/traffic_mooncake_20261028/mooncake_arxiv_x1_kv436k/summary.json (scripts/traffic_replay.py over the Mooncake trace; surrogate-model replay, not a measurement); 2026-10-28"
     }
   ],
   "notes": [
@@ -12837,6 +12885,7 @@
     "Null check_ok means correctness was not evaluated for that cell.",
     "Raw CUDA traces and per-launch profiler parquet are omitted from the portable kernel bundle.",
     "traffic/*/summary.json are surrogate-model replays of public request traces (GPU-free), not measurements.",
-    "traffic_sweep/*/summary.json are surrogate-model replays at many arrival scales with fixed-split scoring (GPU-free), not measurements."
+    "traffic_sweep/*/summary.json are surrogate-model replays at many arrival scales with fixed-split scoring (GPU-free), not measurements.",
+    "thresholds/no_split_threshold.json holds inputs to a computed table (library rule per GPU), not measurements."
   ]
 }

@@ -1,0 +1,95 @@
+{
+  "trace": {
+    "source": "../kernelscope/results/datasets/mooncake/conversation_trace.jsonl",
+    "sha256": "b8cbb061a85206d729d91cdc2981f43c9e0d99209dce588d3af5f7934408b9df",
+    "kind": "mooncake",
+    "model": null,
+    "window_s": null,
+    "prompt_scale": 1.0,
+    "rows": 12031,
+    "dropped": 0,
+    "requests": 11841,
+    "too_large": 190,
+    "span_s": 3536.999,
+    "prompt_tokens_p50": 6909.0,
+    "prompt_tokens_max": 126195,
+    "output_tokens_p50": 350.0
+  },
+  "config": {
+    "max_batch": 64,
+    "kv_tokens": 72817,
+    "step_s": 0.03,
+    "rate_scale": 1.0,
+    "page": 256
+  },
+  "heads": {
+    "n_heads": 32,
+    "n_kv_heads": 8
+  },
+  "machine": "machines/rtx4090.json",
+  "params": "models/rtx4090.json",
+  "cache_state": "cold",
+  "inputs_sha256": {
+    "machines/rtx4090.json": "ca91a6a13f8f46a583957a9c70873a30b459807e4c3c76bcb3aa4bdb7e262edd",
+    "models/rtx4090.json": "327ea55d9cab05e2d04230b3aa36dd62a7e645f914882d734f4e1984e5224e3d"
+  },
+  "steps": 814122,
+  "steps_with_long_request": 813776,
+  "batch_mean_all_steps": 4.958304774960018,
+  "losses": {
+    "steps_sampled": 81413,
+    "batch_mean": 4.958876346529424,
+    "batch_p90": 8.0,
+    "len_max_mean": 30004.51220321079,
+    "no_split_frac": 0.0,
+    "loss_median": 1.0088855508615924,
+    "loss_p90": 1.2424704360443615,
+    "loss_max": 1.751628418074169,
+    "attention_time_ratio": 1.068629110499171,
+    "loss_ge_1.1_frac": 0.2798815913920381,
+    "attention_share_loss_ge_1.1": 0.3176398586783193,
+    "loss_ge_1.25_frac": 0.09320378809281073,
+    "attention_share_loss_ge_1.25": 0.11295514344440657,
+    "loss_ge_1.5_frac": 0.0007983982901993539,
+    "attention_share_loss_ge_1.5": 0.0012907488503240048,
+    "loss_ge_2.0_frac": 0.0,
+    "attention_share_loss_ge_2.0": 0.0,
+    "every": 10,
+    "predictions": 22319,
+    "candidates": [
+      "flashdecoding_paged",
+      "fd_s2_paged",
+      "fd_s4_paged",
+      "fd_s8_paged",
+      "fd_s16_paged"
+    ]
+  },
+  "fixed": {
+    "s8.ratio_best": 1.074210745460364,
+    "s8.ratio_heuristic": 1.0052231732285355,
+    "s8.regret_max": 1.3818546051187406,
+    "s8.regret_ge_1.25_frac": 0.07904143072973603,
+    "s8.ratio_best_b_lt_26": 1.074210745460364,
+    "s8.ratio_heuristic_b_lt_26": 1.0052231732285355,
+    "s16.ratio_best": 1.0684208386481246,
+    "s16.ratio_heuristic": 0.9998051037081059,
+    "s16.regret_max": 1.4063844713633462,
+    "s16.regret_ge_1.25_frac": 0.04356798054364782,
+    "s16.ratio_best_b_lt_26": 1.0684208386481246,
+    "s16.ratio_heuristic_b_lt_26": 0.9998051037081059,
+    "heuristic.ratio_best_b_lt_26": 1.068629110499171,
+    "steps_frac_b_lt_26": 1.0
+  },
+  "load": {
+    "active_frac": 1.000000000006383,
+    "span_s": 24423.659999844105,
+    "wait_mean_s": 10725.093429796247,
+    "wait_p50_s": 10916.100500077986,
+    "wait_p99_s": 20713.169999852,
+    "wait_max_s": 20871.450999844696,
+    "wait_gt_1s_frac": 0.999405570652174
+  },
+  "elapsed_s": 11.503113516999292,
+  "what_if": [],
+  "claim": "GPU-free replay with the fitted surrogate; prefill instantaneous, constant step time"
+}

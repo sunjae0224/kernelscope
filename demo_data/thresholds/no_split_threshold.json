@@ -1,0 +1,27 @@
+{
+  "rule": "flash-attn 2.8.3.post1 csrc/flash_attn/flash_api.cpp:317 num_splits_heuristic(batch * num_heads * num_m_blocks, num_sm * 2, ...) returns 1 when its first argument >= 0.8 * (2 * SM); decode with GQA swaps the query groups into seqlen_q (flash_api.cpp:1278), so num_heads = H_kv and num_m_blocks = ceil(H_q / H_kv / 64) = 1 for every model below",
+  "flash_attn_source": "/home/skkai/accelsim/flash-attention at tag v2.8.3.post1 (a8aa52b1ab3e9ca574c8a33b3f35afc017ffa2e2)",
+  "kv_heads_per_gpu": [8, 4, 2, 1],
+  "gpus": [
+    {"name": "L4", "sm": 58, "source": "NVIDIA Ada GPU Architecture whitepaper, Appendix D (L4: 58 SMs), https://images.nvidia.com/aem-dam/Solutions/geforce/ada/nvidia-ada-gpu-architecture.pdf"},
+    {"name": "RTX 4080 16GB", "sm": 76, "source": "NVIDIA Ada GPU Architecture whitepaper, Table 3 (RTX 4080 16 GB: 76 SMs)"},
+    {"name": "RTX 3090", "sm": 82, "source": "NVIDIA Ampere GA102 GPU Architecture whitepaper v2, Table 9 (RTX 3090 FE: 82 SMs), https://www.nvidia.com/content/PDF/nvidia-ampere-ga-102-gpu-architecture-whitepaper-v2.pdf"},
+    {"name": "A100", "sm": 108, "source": "NVIDIA A100 Tensor Core GPU Architecture whitepaper (A100: 108 SMs), https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf"},
+    {"name": "H100 PCIe", "sm": 114, "source": "NVIDIA Hopper Architecture In-Depth (PCIe: 114 SMs), https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/"},
+    {"name": "RTX 4090", "sm": 128, "source": "NVIDIA Ada GPU Architecture whitepaper, Table 1 (RTX 4090: 128 SMs); machines/rtx4090.json"},
+    {"name": "H100 SXM5", "sm": 132, "source": "NVIDIA Hopper Architecture In-Depth (SXM5: 132 SMs); FA2 path only, FlashAttention-3 uses a different decode heuristic"},
+    {"name": "L40", "sm": 142, "source": "NVIDIA Ada GPU Architecture whitepaper, Appendix C (L40: 142 SMs)"}
+  ],
+  "models": [
+    {"name": "Qwen/Qwen3-1.7B", "n_heads": 16, "n_kv_heads": 8, "head_dim": 128},
+    {"name": "Qwen/Qwen3-4B-Instruct-2507", "n_heads": 32, "n_kv_heads": 8, "head_dim": 128},
+    {"name": "Qwen/Qwen3-8B", "n_heads": 32, "n_kv_heads": 8, "head_dim": 128},
+    {"name": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B", "n_heads": 32, "n_kv_heads": 8, "head_dim": 128},
+    {"name": "kakaocorp/kanana-1.5-8b-instruct-2505", "n_heads": 32, "n_kv_heads": 8, "head_dim": 128},
+    {"name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "n_heads": 28, "n_kv_heads": 4, "head_dim": 128},
+    {"name": "skt/A.X-4.0-Light", "n_heads": 28, "n_kv_heads": 4, "head_dim": 128}
+  ],
+  "models_source": "config.json in the local Hugging Face cache (~/.cache/huggingface/hub/models--*/snapshots/*/config.json), read 2026-10-28; head_dim = hidden_size / num_attention_heads when the config omits it; no sliding window in use",
+  "tensor_parallel_note": "Tensor parallelism of degree t gives each GPU H_kv / t KV heads: an H_kv 8 model at TP 4 / TP 8 uses the 2 / 1 rows",
+  "claim": "library rule evaluated per GPU, not a measurement"
+}

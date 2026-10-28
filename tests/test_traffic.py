@@ -31,6 +31,20 @@ def test_load_trace_normalizes_azure_and_burstgpt_columns(tmp_path):
     assert load_trace(burst, model="GPT-4").empty
 
 
+def test_load_trace_reads_mooncake_json_lines_in_milliseconds(tmp_path):
+    mooncake = tmp_path / "conversation_trace.jsonl"
+    mooncake.write_text('{"timestamp": 1500, "input_length": 6758, "output_length": 500, "hash_ids": [0, 1]}\n'
+                        '{"timestamp": 3000, "input_length": 0, "output_length": 7, "hash_ids": []}\n'     # dropped
+                        '{"timestamp": 2000, "input_length": 40160, "output_length": 6, "hash_ids": [2]}\n')
+    m = load_trace(mooncake)
+    assert m.arrival_s.tolist() == pytest.approx([0.0, 0.5]) and m.prompt_tokens.tolist() == [6758, 40160]
+    assert m.output_tokens.tolist() == [500, 6] and m.attrs["dropped"] == 1 and m.attrs["kind"] == "mooncake"
+    bad = tmp_path / "other.jsonl"
+    bad.write_text('{"t": 0, "prompt": 3}\n')
+    with pytest.raises(ValueError, match="Mooncake"):
+        load_trace(bad)
+
+
 def test_replay_batches_by_arrival_and_retires_after_the_output_tokens():
     # r0 arrives first and decodes twice (3 output tokens, the first comes from prefill);
     # r1 arrives 10 ms later, so it joins at the second step, and decodes once.

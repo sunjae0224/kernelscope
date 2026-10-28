@@ -34,25 +34,34 @@ HEURISTIC = "flashdecoding_paged"
 CANDIDATES = (HEURISTIC, "fd_s2_paged", "fd_s4_paged", "fd_s8_paged", "fd_s16_paged")
 _AZURE = {"TIMESTAMP": "arrival_s", "ContextTokens": "prompt_tokens", "GeneratedTokens": "output_tokens"}
 _BURST = {"Timestamp": "arrival_s", "Request tokens": "prompt_tokens", "Response tokens": "output_tokens"}
+_MOONCAKE = {"timestamp": "arrival_s", "input_length": "prompt_tokens", "output_length": "output_tokens"}
 
 
 def load_trace(path, model=None) -> pd.DataFrame:
-    """Azure LLM inference trace or BurstGPT rows as arrival_s (from the first row), prompt and output tokens.
+    """Azure LLM inference trace, BurstGPT or Mooncake rows as arrival_s (from the first row), prompt and output tokens.
 
     Rows without a positive prompt and output length are dropped and counted in ``attrs["dropped"]``;
-    ``model`` keeps one BurstGPT model's rows.
+    ``model`` keeps one BurstGPT model's rows. Mooncake traces (kvcache-ai/Mooncake, JSON lines) stamp
+    arrivals in milliseconds and count tokens with the Kimi tokenizer.
     """
-    raw = pd.read_csv(path)
-    if set(_AZURE) <= set(raw.columns):
-        kind, columns = "azure", _AZURE
-        stamps = pd.to_datetime(raw["TIMESTAMP"])
-        raw["TIMESTAMP"] = (stamps - stamps.min()).dt.total_seconds()
-    elif set(_BURST) <= set(raw.columns):
-        kind, columns = "burstgpt", _BURST
-        if model is not None:
-            raw = raw[raw["Model"] == model]
+    if str(path).endswith(".jsonl"):
+        raw = pd.read_json(path, lines=True)
+        if not set(_MOONCAKE) <= set(raw.columns):
+            raise ValueError(f"{path}: expected Mooncake (timestamp, input_length, output_length) fields")
+        kind, columns = "mooncake", _MOONCAKE
+        raw["timestamp"] = pd.to_numeric(raw["timestamp"], errors="coerce") / 1e3
     else:
-        raise ValueError(f"{path}: expected Azure (TIMESTAMP, ContextTokens, GeneratedTokens) or BurstGPT columns")
+        raw = pd.read_csv(path)
+        if set(_AZURE) <= set(raw.columns):
+            kind, columns = "azure", _AZURE
+            stamps = pd.to_datetime(raw["TIMESTAMP"])
+            raw["TIMESTAMP"] = (stamps - stamps.min()).dt.total_seconds()
+        elif set(_BURST) <= set(raw.columns):
+            kind, columns = "burstgpt", _BURST
+            if model is not None:
+                raw = raw[raw["Model"] == model]
+        else:
+            raise ValueError(f"{path}: expected Azure (TIMESTAMP, ContextTokens, GeneratedTokens) or BurstGPT columns")
     frame = raw.rename(columns=columns)[TRACE_COLUMNS].copy()
     for column in TRACE_COLUMNS:                    # malformed cells become NaN and are dropped below, not raised
         frame[column] = pd.to_numeric(frame[column], errors="coerce")

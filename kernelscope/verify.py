@@ -183,6 +183,122 @@ def _sim_ratio_s1(repo, data):
     return at("ragged") / at("uniform")
 
 
+# ---- final report v2 blanks and follow-ups (2026-10-28): Accel-Sim cells against the surrogate, GPGPU-Sim wall time,
+# ---- hybrid δ sweep, no-split thresholds per GPU, Mooncake long-context trace replays ----------------------------------
+
+FINAL2 = "docs/experiments/2026-10-28-final-report-v2.md"
+EVIDENCE = "docs/experiments/2026-10-24-final-evidence.md"
+ACCELSIM_CELLS = {      # cell id -> (kernel, workload key) in demo_data/accelsim/validation_20260918.csv
+    "fa2_b1_l1k": ("fa2", "decode_B1_Lq1_Lkv1024_Hq32_Hkv8_d128_float16_causal"),
+    "fa2_b1_l8k": ("fa2", "decode_B1_Lq1_Lkv8192_Hq32_Hkv8_d128_float16_causal"),
+    "fa2_b16_l1k": ("fa2", "decode_B16_Lq1_Lkv1024_Hq32_Hkv8_d128_float16_causal"),
+    "fd_b1_l1k": ("flashdecoding", "decode_B1_Lq1_Lkv1024_Hq32_Hkv8_d128_float16_causal"),
+    "fd_b1_l8k": ("flashdecoding", "decode_B1_Lq1_Lkv8192_Hq32_Hkv8_d128_float16_causal"),
+    "fd_b16_l1k": ("flashdecoding", "decode_B16_Lq1_Lkv1024_Hq32_Hkv8_d128_float16_causal"),
+}
+DELTA_GRID = tuple(round(0.01 * i, 2) for i in range(101))
+THRESHOLD_DIRS = ("codex_validation", "ragged_s1_64k_paged", "ragged_s1_dense", "ragged_s1_paged", "ragged_s2_paged",
+                  "uniform_s1_64k_paged", "uniform_s1_dense", "uniform_s1_paged", "uniform_s2_dense", "uniform_s2_paged")
+
+
+def _accelsim(data: Path) -> pd.DataFrame:
+    return pd.read_csv(data / "accelsim" / "validation_20260918.csv").set_index(["kernel", "workload_key"])
+
+
+def _accelsim_value(cell, column):
+    return lambda repo, data: float(_accelsim(data).loc[ACCELSIM_CELLS[cell], column])
+
+
+@lru_cache(maxsize=None)
+def _accelsim_surrogate(repo: Path, data: Path) -> dict:
+    """Warm surrogate time (us) of each Accel-Sim cell and its error against the profiler kernel time (%)."""
+    from kernelscope.model.machine import MachineSpec
+    from kernelscope.model.params import ModelParams
+    from kernelscope.model.predict import predict
+    from kernelscope.workload import Workload
+    machine = MachineSpec.from_json(repo / "machines" / "rtx4090.json")
+    params = ModelParams.from_json(repo / "models" / "rtx4090.json")
+    hw = _accelsim(data)
+    out = {}
+    for cell, (kernel, key) in ACCELSIM_CELLS.items():
+        us = predict(kernel, Workload.from_key(key), machine, params, "warm").time_us
+        out[cell] = {"us": us, "err_pct": 100 * abs(us / float(hw.loc[(kernel, key), "kernel_time_us"]) - 1)}
+    return out
+
+
+def _surrogate_us(cell):
+    return lambda repo, data: _accelsim_surrogate(repo, data)[cell]["us"]
+
+
+def _surrogate_err(agg):
+    def f(repo, data):
+        errs = pd.Series([v["err_pct"] for v in _accelsim_surrogate(repo, data).values()])
+        return float(getattr(errs, agg)())
+    return f
+
+
+def _sim_wall_s(workload, split):
+    def f(repo, data):
+        d = pd.read_csv(repo / "docs" / "experiments" / "gpgpusim-splitkv-sweep.csv")
+        return float(d[(d.workload == workload) & (d.S == split)].sim_wall_s.iloc[0])
+    return f
+
+
+@lru_cache(maxsize=None)
+def _delta_sweep(repo: Path, data: Path) -> dict:
+    """Leave-one-out hybrid regrets on the three cold sets for every δ in DELTA_GRID (scripts/evaluate_hybrid.py)."""
+    from kernelscope.model.fit import prepare_rows
+    from kernelscope.model.hybrid import evaluate
+    from kernelscope.model.machine import MachineSpec
+    from kernelscope.model.params import ModelParams
+    rows = prepare_rows(load_dirs([data / "hw_4090" / d for d in P0_DIRS]),
+                        MachineSpec.from_json(repo / "machines" / "rtx4090.json"))
+    if not rows:
+        raise FileNotFoundError(data / "hw_4090")
+    full = ModelParams.from_json(repo / "models" / "rtx4090.json")
+    uniform = ModelParams.from_json(repo / "models" / "rtx4090_uniform.json")
+    return {s: evaluate(rows, uniform if s == "V6" else full, s, "cold", deltas=DELTA_GRID)["policies"]
+            for s in ("V1", "V5", "V6")}
+
+
+def _delta_worst_pct(set_name, delta):
+    return lambda repo, data: 100 * _delta_sweep(repo, data)[set_name][f"hybrid_{delta:g}"]["max"]
+
+
+def _delta_points(which, edge=None):
+    """δ grid points where all three cold sets stay within 15 % ("pass") or keep δ = 0.2's worst regrets ("flat")."""
+    def f(repo, data):
+        sweep = _delta_sweep(repo, data)
+        worst = lambda d: tuple(sweep[s][f"hybrid_{d:g}"]["max"] for s in sweep)  # noqa: E731
+        keep = (lambda d: max(worst(d)) <= 0.15) if which == "pass" else (lambda d: worst(d) == worst(0.2))
+        points = [d for d in DELTA_GRID if keep(d)]
+        return float({"low": min(points), "high": max(points), None: len(points)}[edge])
+    return f
+
+
+def _threshold(gpu, kv_heads):
+    def f(repo, data):
+        from kernelscope.analysis.thresholds import load_spec, threshold_table
+        return float(threshold_table(load_spec(data / "thresholds" / "no_split_threshold.json"))[gpu][kv_heads])
+    return f
+
+
+@lru_cache(maxsize=None)
+def _launch_agreement(data: Path) -> dict:
+    from kernelscope.analysis.thresholds import launch_agreement
+    return launch_agreement([data / "hw_4090" / d / "summaries.jsonl" for d in THRESHOLD_DIRS])
+
+
+def _mooncake_lengths(trace, stat):
+    def f(repo, data):
+        d = pd.read_csv(data / "traffic" / "mooncake_lengths" / f"{trace}.csv")
+        i = d.input_length
+        return float({"rows": len(d), "p50": i.median(), "p90": i.quantile(0.9), "p99": i.quantile(0.99), "max": i.max(),
+                      "ge_32k_pct": 100 * (i >= 32768).mean(), "ge_64k_pct": 100 * (i >= 65536).mean(),
+                      "out_p50": d.output_length.median()}[stat])
+    return f
+
+
 # ---- op-class step breakdown (demo_data/serve_4090/diagnose_20260927) -----------------------------
 
 DIAG = "diagnose_20260927"
@@ -2017,6 +2133,99 @@ CHECKS = [
           2.25, 0.005, "x", _sim_speedup("uniform", 8), SIM, "2.25배"),
     Check("sim.ragged_vs_uniform_s1", "GPGPU-Sim S=1: 혼합 길이 배치 사이클 / 균일 길이 배치 사이클 (키 총량 비슷)",
           8.53, 0.005, "x", _sim_ratio_s1, SIM, "8.5배"),
+
+    *[Check(f"final2.accelsim.{cell}.{what}", f"최종보고서 v2 표 10 {cell}: {title}", exp, tol, unit, fn(cell), FINAL2, row)
+      for cell, row, values in [
+          ("fa2_b1_l1k", "| FA2 B=1, L=1K | 63.584 | 67.5 | 1.061 | 61.0 | 4.1% | 밖(보간) |", (63.584, 1.061, 60.960, 4.127)),
+          ("fa2_b1_l8k", "| FA2 B=1, L=8K | 494.336 | 515.9 | 1.044 | 460.1 | 6.9% | 안 |", (494.336, 1.0437, 460.061, 6.933)),
+          ("fa2_b16_l1k", "| FA2 B=16, L=1K | 64.303 | 109.7 | 1.707 | 61.0 | 5.2% | 밖(보간) |", (64.303, 1.7065, 60.960, 5.199)),
+          ("fd_b1_l1k", "| FlashDecoding B=1, L=1K | 10.016 | 15.5 | 1.548 | 10.8 | 8.0% | 밖(보간) |", (10.016, 1.5482, 10.821, 8.041)),
+          ("fd_b1_l8k", "| FlashDecoding B=1, L=8K | 27.456 | 73.6 | 2.680 | 23.3 | 15.0% | 안 |", (27.456, 2.6803, 23.335, 15.008)),
+          ("fd_b16_l1k", "| FlashDecoding B=16, L=1K | 38.2235 | 116.8 | 3.056 | 37.2 | 2.7% | 밖(보간) |", (38.2235, 3.0559, 37.207, 2.660))]
+      for (what, title, unit, tol, fn), exp in zip([
+          ("real_us", "실측 커널 시간(torch.profiler)", "us", 0.0005, lambda c: _accelsim_value(c, "kernel_time_us")),
+          ("accelsim_ratio", "Accel-Sim 재생 / 실측", "x", 0.0005, lambda c: _accelsim_value(c, "sim_vs_kernel_time")),
+          ("surrogate_us", "성능 시뮬레이터 warm 예측", "us", 0.0005, _surrogate_us),
+          ("surrogate_err", "성능 시뮬레이터 예측 오차(|예측/실측 - 1|)", "%", 0.0005, lambda c: lambda repo, data: _accelsim_surrogate(repo, data)[c]["err_pct"])],
+          values)],
+    Check("final2.surrogate_err.min", "표 10 6개 조건: 성능 시뮬레이터 예측 오차 최솟값(warm)", 2.66, 0.005, "%", _surrogate_err("min"), FINAL2, "2.7~15.0%"),
+    Check("final2.surrogate_err.max", "표 10 6개 조건: 성능 시뮬레이터 예측 오차 최댓값(warm)", 15.008, 0.0005, "%", _surrogate_err("max"), FINAL2, "2.7~15.0%"),
+    Check("final2.surrogate_err.median", "표 10 6개 조건: 성능 시뮬레이터 예측 오차 중앙값(warm)", 6.07, 0.005, "%", _surrogate_err("median"), FINAL2, "중앙값 6.1%"),
+    *[Check(f"final2.gpgpusim_wall.{w}_s{s}", f"GPGPU-Sim 축소 split-KV 커널 1회 실행 시간(sim.log gpgpu_simulation_time), {w} S={s}",
+            exp, 0, "s", _sim_wall_s(w, s), FINAL2, f"| {w} | {s} | {exp} |")
+      for w, s, exp in [("ragged", 1, 330), ("ragged", 2, 230), ("ragged", 4, 226), ("ragged", 8, 288), ("ragged", 16, 362),
+                        ("uniform", 1, 219), ("uniform", 16, 351)]],
+
+    *[Check(f"delta.{s}.d{int(round(d * 100)):03d}", f"혼합 정책 δ={d:g}, {s} cold: leave-one-out 최악 손실", exp, 0.005, "%",
+            _delta_worst_pct(s, d), EVIDENCE, row)
+      for d, row, values in [
+          (0.0, "| 0.00 | 24.25% (1) | 66.29% (3) | 24.52% (2) |", (24.25, 66.29, 24.52)),
+          (0.05, "| 0.05 | 24.25% (1) | 66.29% (3) | 7.53% (0) |", (24.25, 66.29, 7.53)),
+          (0.1, "| 0.10 | 24.25% (1) | 66.29% (3) | 9.78% (0) |", (24.25, 66.29, 9.78)),
+          (0.15, "| 0.15 | 1.97% (0) | 24.75% (1) | 10.90% (0) |", (1.97, 24.75, 10.90)),
+          (0.16, "| 0.16 | 1.97% (0) | 7.54% (0) | 10.90% (0) |", (1.97, 7.54, 10.90)),
+          (0.26, "| 0.26 | 1.97% (0) | 7.54% (0) | 10.90% (0) |", (1.97, 7.54, 10.90)),
+          (0.3, "| 0.30 | 3.34% (0) | 7.54% (0) | 10.90% (0) |", (3.34, 7.54, 10.90)),
+          (0.32, "| 0.32 | 3.34% (0) | 14.83% (0) | 10.90% (0) |", (3.34, 14.83, 10.90)),
+          (0.33, "| 0.33 | 16.86% (1) | 14.83% (0) | 10.90% (0) |", (16.86, 14.83, 10.90)),
+          (0.5, "| 0.50 | 16.86% (1) | 16.08% (1) | 10.90% (0) |", (16.86, 16.08, 10.90)),
+          (1.0, "| 1.00 | 50.37% (7) | 66.07% (11) | 94.58% (1) |", (50.37, 66.07, 94.58))]
+      for s, exp in zip(("V1", "V5", "V6"), values)],
+    Check("delta.pass.low", "δ 격자(0.01 간격): cold 세 집합의 최악 손실이 모두 15% 이내인 가장 작은 δ", 0.16, 0, "", _delta_points("pass", "low"), EVIDENCE, "δ = 0.16~0.32"),
+    Check("delta.pass.high", "δ 격자: cold 세 집합 모두 15% 이내인 가장 큰 δ", 0.32, 0, "", _delta_points("pass", "high"), EVIDENCE, "δ = 0.16~0.32"),
+    Check("delta.pass.points", "δ 격자: 기준을 통과하는 점의 수(0.16~0.32가 끊김 없이 17점)", 17, 0, "", _delta_points("pass"), EVIDENCE, "17개 점"),
+    Check("delta.flat.low", "δ 격자: 세 집합의 최악 손실이 δ=0.2와 같은 가장 작은 δ", 0.16, 0, "", _delta_points("flat", "low"), EVIDENCE, "0.16~0.26"),
+    Check("delta.flat.high", "δ 격자: 세 집합의 최악 손실이 δ=0.2와 같은 가장 큰 δ", 0.26, 0, "", _delta_points("flat", "high"), EVIDENCE, "0.16~0.26"),
+    Check("delta.flat.points", "δ 격자: δ=0.2와 최악 손실이 같은 점의 수(끊김 없이 11점)", 11, 0, "", _delta_points("flat"), EVIDENCE, "11개 점"),
+
+    *[Check(f"threshold.{gpu.replace(' ', '_')}.hkv{h}", f"FA2 2.8.3 분할 없음 임계 배치: {gpu}, GPU당 KV 헤드 {h}개", exp, 0, "",
+            _threshold(gpu, h), EVIDENCE, row)
+      for gpu, row, values in [
+          ("L4", "| L4 | 58 | 12 | 24 | 47 | 93 |", (12, 24, 47, 93)),
+          ("RTX 4080 16GB", "| RTX 4080 16GB | 76 | 16 | 31 | 61 | 122 |", (16, 31, 61, 122)),
+          ("RTX 3090", "| RTX 3090 | 82 | 17 | 33 | 66 | 132 |", (17, 33, 66, 132)),
+          ("A100", "| A100 | 108 | 22 | 44 | 87 | 173 |", (22, 44, 87, 173)),
+          ("H100 PCIe", "| H100 PCIe | 114 | 23 | 46 | 92 | 183 |", (23, 46, 92, 183)),
+          ("RTX 4090", "| RTX 4090 | 128 | 26 | 52 | 103 | 205 |", (26, 52, 103, 205)),
+          ("H100 SXM5", "| H100 SXM5 | 132 | 27 | 53 | 106 | 212 |", (27, 53, 106, 212)),
+          ("L40", "| L40 | 142 | 29 | 57 | 114 | 228 |", (29, 57, 114, 228))]
+      for h, exp in zip((8, 4, 2, 1), values)],
+    *[Check(f"threshold.launches.{key}", f"RTX 4090 휴리스틱 실측 기록: {title}", exp, 0, "",
+            lambda repo, data, key=key: float(_launch_agreement(data)[key]), EVIDENCE, text)
+      for key, title, exp, text in [("rows", "decode 휴리스틱 실행 기록 수(헤드 구성 2종)", 785, "785건"),
+                                    ("agree", "launch 수(분할 시 2회)가 규칙과 일치한 기록 수", 785, "785건 모두"),
+                                    ("split", "규칙상 분할하는 기록 수", 426, "분할 426건"),
+                                    ("no_split", "규칙상 분할하지 않는 기록 수", 359, "분할 없음 359건")]],
+
+    *[Check(f"mooncake.len.{trace}.{stat}", f"Mooncake {trace} 트레이스(Kimi 토크나이저): {title}", exp, tol, "", _mooncake_lengths(trace, stat), EVIDENCE, row)
+      for trace, row, values in [
+          ("conversation", "| conversation | 12,031 | 6,909 | 27,367 | 85,400 | 126,195 | 6.9% | 2.1% | 350 |",
+           (12031, 6909, 27367, 85400.4, 126195, 6.89, 2.11, 350)),
+          ("arxiv", "| arxiv | 23,608 | 6,345 | 16,789 | 61,616 | 125,546 | 3.1% | 0.9% | 30 |",
+           (23608, 6345, 16789.1, 61615.86, 125546, 3.06, 0.89, 30))]
+      for (stat, title, tol), exp in zip([("rows", "요청 수", 0), ("p50", "입력 길이 중앙값", 0), ("p90", "입력 길이 p90", 0.5),
+                                          ("p99", "입력 길이 p99", 0.5), ("max", "입력 길이 최댓값", 0),
+                                          ("ge_32k_pct", "입력 32K 이상 비율(%)", 0.005), ("ge_64k_pct", "입력 64K 이상 비율(%)", 0.005),
+                                          ("out_p50", "출력 길이 중앙값", 0)], values)],
+    *[Check(f"mooncake.{run}.{key}", f"Mooncake 재생 {run}: {title}", exp, tol, "", _traffic(run, *path), EVIDENCE, row)
+      for run, row, values in [
+          ("mooncake_conv_x1", "| mooncake_conv_x1 | 10 GiB(72,817) | ×1 | 11,841 | 190 | 814,122 | 5.0 | 0.0% | 28.0% | 9.3% | 0.1% | 1.24 | 1.75 | 1.069 | 1.074 | 1.068 | 10,725.1 s |",
+           (11841, 190, 814122, 4.9589, 0.0, 0.0932, 1.0686, 1.0742, 1.0684, 10725.09)),
+          ("mooncake_conv_x0.5_kv436k", "| mooncake_conv_x0.5_kv436k | 436K | ×0.5 | 12,031 | 0 | 236,435 | 17.4 | 8.7% | 44.8% | 17.0% | 7.5% | 1.41 | 3.11 | 1.187 | 1.035 | 1.010 | 0.2 s |",
+           (12031, 0, 236435, 17.3833, 0.0871, 0.1696, 1.1871, 1.0346, 1.0101, 0.18)),
+          ("mooncake_conv_x1_kv436k", "| mooncake_conv_x1_kv436k | 436K | ×1 | 12,031 | 0 | 133,306 | 30.8 | 75.6% | 83.2% | 61.3% | 36.4% | 2.02 | 2.76 | 1.461 | 1.020 | 1.003 | 251.5 s |",
+           (12031, 0, 133306, 30.8314, 0.7559, 0.6133, 1.4609, 1.0197, 1.0034, 251.5)),
+          ("mooncake_arxiv_x1_kv436k", "| mooncake_arxiv_x1_kv436k | 436K | ×1 | 23,608 | 0 | 134,264 | 31.8 | 78.7% | 84.5% | 63.7% | 37.8% | 2.04 | 2.76 | 1.476 | 1.018 | 1.004 | 232.4 s |",
+           (23608, 0, 134264, 31.8493, 0.7867, 0.6369, 1.4759, 1.0185, 1.0035, 232.36))]
+      for (key, title, path, tol), exp in zip([
+          ("requests", "재생한 요청 수", ("trace", "requests"), 0), ("too_large", "KV 예산을 넘어 건너뛴 요청 수", ("trace", "too_large"), 0),
+          ("steps", "decode step 수", ("steps",), 0), ("batch_mean", "평균 배치(채점한 step)", ("losses", "batch_mean"), 0.00005),
+          ("no_split", "휴리스틱이 분할하지 않는 step 비율", ("losses", "no_split_frac"), 0.00005),
+          ("loss_ge_1.25", "예측 손실 1.25배 이상 step 비율", ("losses", "loss_ge_1.25_frac"), 0.00005),
+          ("attention_ratio", "휴리스틱 / 최선 attention 시간 비(예측)", ("losses", "attention_time_ratio"), 0.00005),
+          ("s8_ratio_best", "고정 분할 8 / 최선 attention 시간 비(예측)", ("fixed", "s8.ratio_best"), 0.00005),
+          ("s16_ratio_best", "고정 분할 16 / 최선 attention 시간 비(예측)", ("fixed", "s16.ratio_best"), 0.00005),
+          ("wait_mean_s", "도착부터 배치 진입까지 평균 대기(s)", ("load", "wait_mean_s"), 0.005)], values)],
 
     Check("consistency.amdahl_ragged", "혼합 길이: attention 시간 변화만으로 예측한 step 시간과 실측의 차이(±3%)",
           0.0, 3.0, "%", _amdahl_error_pct("ragged")),

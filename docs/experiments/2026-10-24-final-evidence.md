@@ -200,6 +200,117 @@ for x in 25 50 100 200 400; do ... BurstGPT_without_fails_1.csv --window-s 60480
 make verify
 ```
 
+## §3 긴 문맥 트레이스(Mooncake) 재생 (2026-10-28, 야간 P2b 미실행분)
+
+**질문.** Azure·BurstGPT에는 32K 이상 요청이 없다(발표 배경 `bg.len.all.n_ge_32768` = 0건). 긴 문맥 서비스의 실제 길이 분포에서도 혼합 길이 배치가 생기고, 그때 휴리스틱의 손실이 얼마나 자주 나타나는가.
+
+**데이터.** Mooncake(Kimi, FAST'25) 공개 트레이스 `kvcache-ai/Mooncake` 커밋 `fe4f297a94ba292935b9f68a489d4b99daef2442`의 `FAST25-release/traces/conversation_trace.jsonl`(대화 서비스, 약 1시간)과 `FAST25-release/arxiv-trace/mooncake_trace.jsonl`(논문 arXiv 판 트레이스). 출처·sha256·받은 시각은 `../kernelscope/results/datasets/mooncake/SOURCE.md`. 토큰 수는 Kimi 토크나이저 기준이라 Qwen3 토크나이저의 길이와 같지 않다. 같은 커밋의 `toolagent_trace.jsonl`은 arXiv 판과 행 수(23,608)와 길이 분포가 거의 같아 따로 재생하지 않았다.
+
+**길이 통계.** (번들 `demo_data/traffic/mooncake_lengths/{conversation,arxiv}.csv`에서 재계산: 타임스탬프·입력·출력 길이 열만 옮긴 것)
+
+| 트레이스 | 요청 | 입력 중앙값 | p90 | p99 | 최대 | 32K 이상 | 64K 이상 | 출력 중앙값 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| conversation | 12,031 | 6,909 | 27,367 | 85,400 | 126,195 | 6.9% | 2.1% | 350 |
+| arxiv | 23,608 | 6,345 | 16,789 | 61,616 | 125,546 | 3.1% | 0.9% | 30 |
+
+**재생 설정.** `scripts/traffic_replay.py`에 Mooncake JSON lines 로더를 추가했다(`kernelscope/analysis/traffic.py`의 `load_trace`: `.jsonl`이면 timestamp를 ms → s로 바꿔 읽는다. 기존 CSV 경로의 의미는 그대로다. 테스트 `test_load_trace_reads_mooncake_json_lines_in_milliseconds`). 스케줄러·채점은 §2와 같다(배치 상한 64, step 30 ms, 헤드 32/8, cold, 후보는 휴리스틱과 분할 2·4·8·16). KV 예산은 두 가지다. (1) RTX 4090의 10 GiB(72,817 토큰): 이 예산에서는 KV가 배치 크기를 묶어 도착률을 올려도 평균 배치가 5.0에서 변하지 않았다(×1·×2 모두; 스케줄러만 돌린 확인). 그래서 ×1만 채점했고 step이 81만 개라 `--every 10`으로 10번째 step마다 채점했다. (2) 80 GB급 GPU를 가정한 436K 토큰 what-if: ×0.5에서 평균 배치 17.4, ×1에서 30.8이고 ×1.5·×2도 30.9로 KV 포화 상태다. 목표 구간(평균 배치 26~35)에 드는 ×1과 대기가 거의 없는 ×0.5를 채점했다. 10 GiB에서는 입력+출력이 예산(284쪽 = 72,704 토큰)을 넘는 190건이 거부되고(`too_large`, 잘라 넣지 않는다), 436K에서는 0건이다.
+
+**결과.** (모든 시간은 성능 시뮬레이터 예측, 고정 분할 열은 attention 시간의 최선 대비 비)
+
+| 실행 | KV 예산 | 도착 배율 | 요청 | 거부 | decode step | 평균 배치 | 분할 없음 step | 손실 ≥1.1 | ≥1.25 | ≥1.5 | p90 | 최대 | 휴리스틱/최선 | 고정 8/최선 | 고정 16/최선 | 평균 대기 |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| mooncake_conv_x1 | 10 GiB(72,817) | ×1 | 11,841 | 190 | 814,122 | 5.0 | 0.0% | 28.0% | 9.3% | 0.1% | 1.24 | 1.75 | 1.069 | 1.074 | 1.068 | 10,725.1 s |
+| mooncake_conv_x0.5_kv436k | 436K | ×0.5 | 12,031 | 0 | 236,435 | 17.4 | 8.7% | 44.8% | 17.0% | 7.5% | 1.41 | 3.11 | 1.187 | 1.035 | 1.010 | 0.2 s |
+| mooncake_conv_x1_kv436k | 436K | ×1 | 12,031 | 0 | 133,306 | 30.8 | 75.6% | 83.2% | 61.3% | 36.4% | 2.02 | 2.76 | 1.461 | 1.020 | 1.003 | 251.5 s |
+| mooncake_arxiv_x1_kv436k | 436K | ×1 | 23,608 | 0 | 134,264 | 31.8 | 78.7% | 84.5% | 63.7% | 37.8% | 2.04 | 2.76 | 1.476 | 1.018 | 1.004 | 232.4 s |
+
+**해석.**
+
+- **긴 문맥 서비스에서는 문제가 훨씬 자주 나타난다(예측).** 436K what-if의 conversation ×1에서 손실 1.25배 이상 step이 61.3%로, 같은 436K 예산의 Azure conv ×1(13.7%)이나 그 프롬프트를 4배로 늘린 what-if(39.5%)보다 많다. 대기가 거의 없는 ×0.5(평균 대기 0.2 s, 평균 배치 17.4)에서도 17.0%다. 이때 분할 없음 step은 8.7%뿐인데도 손실이 생기는 것은, 배치가 26보다 작아 휴리스틱이 분할하더라도 최대 길이 기준으로 고른 분할 수가 긴 요청 하나가 섞인 배치에 맞지 않기 때문이다(B < 26 step의 휴리스틱/최선 1.122).
+- **RTX 4090의 KV 예산에서는 배치가 작아 손실도 작다.** 10 GiB에서는 긴 요청 몇 개가 KV를 채워 평균 배치가 5.0에 묶이고, 휴리스틱이 항상 분할한다(분할 없음 0.0%). 손실 1.25배 이상 step은 9.3%, attention 시간 비는 1.069다. 이 예산에서는 요청이 계속 밀려(평균 대기 10,725 s) 한 GPU가 감당하는 부하가 아니므로, 길이 구성의 순서 정보로만 읽는다.
+- **고정 분할은 긴 문맥 쪽에서 강하다.** 436K 조건에서 고정 16은 최선 대비 1.003~1.010, 고정 8은 1.018~1.035로 휴리스틱(1.187~1.476)보다 훨씬 낫다. 반면 10 GiB·작은 배치에서는 고정 8(1.074)이 휴리스틱(1.069)보다 오히려 나쁘다. §2의 BurstGPT 결과와 같이 "하나의 고정값이 모든 부하에서 최선은 아니다"는 결론을 긴 문맥 트레이스에서도 확인한다.
+- **한계.** (1) 성능 시뮬레이터 예측이다. 64K를 넘는 길이(conversation의 2.1%)는 측정 격자(64K까지) 밖의 외삽이다. (2) 436K 토큰은 Qwen3-4B KV 약 60 GiB에 해당하는 what-if이고, 시뮬레이터는 RTX 4090(SM 128, L2 72 MiB)으로 보정된 그대로다. 즉 "큰 메모리를 가진 4090"의 예측이다. (3) Kimi 토크나이저 기준 길이를 그대로 썼다. (4) ×1 이상은 KV 포화(평균 대기 232~252 s)라 평균 배치가 KV 예산으로 정해진다.
+
+재현:
+
+```bash
+D=../kernelscope/results/datasets/mooncake; O=../kernelscope/results/traffic_mooncake_20261028
+CUDA_VISIBLE_DEVICES= nice -n 19 .venv/bin/python -m scripts.traffic_replay --trace $D/conversation_trace.jsonl --rate-scale 1 --kv-tokens 436000 --fixed-splits 8,16 --out $O/mooncake_conv_x1_kv436k
+#   같은 형식으로 --rate-scale 0.5 --kv-tokens 436000 (mooncake_conv_x0.5_kv436k), --rate-scale 1 --every 10 (mooncake_conv_x1, KV 10 GiB 기본값),
+#   $D/mooncake_trace.jsonl --rate-scale 1 --kv-tokens 436000 (mooncake_arxiv_x1_kv436k). 실행당 12~95초.
+# 번들: 각 summary.json → demo_data/traffic/<실행>/summary.json, 길이 열 → demo_data/traffic/mooncake_lengths/*.csv
+make verify     # mooncake.* 항목
+```
+
+## §4 헤드 구성·GPU별 분할 없음 임계 (2026-10-28, 야간 P2c 미실행분)
+
+**질문.** "배치 26 이상이면 분할 없음"은 Qwen3-4B(KV 헤드 8)·RTX 4090(SM 128)의 값이다. 다른 GPU·모델에서는 이 경계가 어디인가.
+
+**규칙(원문 확인).** flash-attn v2.8.3.post1(`/home/skkai/accelsim/flash-attention`, 커밋 `a8aa52b1`)의 `csrc/flash_attn/flash_api.cpp:317`은 `num_splits_heuristic(batch_size * num_heads * num_m_blocks, num_sm * 2, num_n_blocks, 128)`을 호출하고("128 threads per block"이라 SM 수를 2배), 휴리스틱은 첫 인자가 `0.8 * num_SMs` 이상이면 1을 돌려준다(같은 파일 263행, 리포 이식 `kernelscope/model/geometry.py::num_splits_heuristic`). decode에서 GQA이면 `flash_api.cpp:1278`이 질의 그룹을 seqlen 차원으로 옮겨 `num_heads = num_heads_k`가 되고, `num_m_blocks = ceil(그룹 수 / 64)`는 KV 헤드당 질의 헤드가 64개 이하인 모든 모델에서 1이다. 따라서 임계 배치는 B* = (B·H_kv ≥ 0.8·2·SM을 만족하는 가장 작은 B)이고 GPU의 SM 수와 GPU당 KV 헤드 수만으로 정해진다. 텐서 병렬 t를 쓰면 GPU당 KV 헤드가 H_kv/t로 줄어든다. 이 표는 **라이브러리 규칙의 계산이지 실측이 아니다.** Hopper에서 FlashAttention-3를 쓰면 decode 경로와 휴리스틱이 다르므로 H100 행은 FA2 기준이다.
+
+**입력과 출처.** `demo_data/thresholds/no_split_threshold.json`. SM 수: L4 58·L40 142(NVIDIA Ada GPU Architecture 백서 부록 D·C), RTX 4080 16GB 76·RTX 4090 128(같은 백서 표 3·표 1), RTX 3090 82(GA102 백서 v2 표 9), A100 108(A100 백서), H100 PCIe 114·SXM5 132(NVIDIA Hopper Architecture In-Depth). 백서 PDF는 2026-10-28에 내려받아 해당 표의 SM 행을 확인했다. 모델 헤드 구성은 로컬 Hugging Face 캐시의 config.json: KV 헤드 8 — Qwen3-1.7B·4B-Instruct-2507·8B, DeepSeek-R1-Distill-Llama-8B, kanana-1.5-8b-instruct; KV 헤드 4 — DeepSeek-R1-Distill-Qwen-7B, A.X-4.0-Light(이 리포 S2 격자의 28/4와 같다). 모두 헤드 차원 128, sliding window 미사용.
+
+**표: 분할 없음이 시작되는 최소 배치 B\***(`kernelscope/analysis/thresholds.py::threshold_table`)
+
+| GPU | SM | KV 헤드 8 | KV 헤드 4 | KV 헤드 2 | KV 헤드 1 |
+|---|---:|---:|---:|---:|---:|
+| L4 | 58 | 12 | 24 | 47 | 93 |
+| RTX 4080 16GB | 76 | 16 | 31 | 61 | 122 |
+| RTX 3090 | 82 | 17 | 33 | 66 | 132 |
+| A100 | 108 | 22 | 44 | 87 | 173 |
+| H100 PCIe | 114 | 23 | 46 | 92 | 183 |
+| RTX 4090 | 128 | 26 | 52 | 103 | 205 |
+| H100 SXM5 | 132 | 27 | 53 | 106 | 212 |
+| L40 | 142 | 29 | 57 | 114 | 228 |
+
+KV 헤드 2·1 열은 KV 헤드 8 모델을 텐서 병렬 4·8로 나눈 경우다.
+
+**실측 launch와의 대조.** `demo_data/hw_4090/`의 decode 휴리스틱 실행 기록(10개 측정 집합, 헤드 구성 32/8과 28/4, cold·warm)은 785건이다. 분할하면 분할 커널과 결합 커널이 함께 실행되므로 launch 수가 2다. 규칙으로 계산한 분할 여부와 기록된 launch 수는 785건 모두 일치했다(규칙상 분할 426건, 분할 없음 359건). 즉 RTX 4090의 두 헤드 구성에서 경계 B* = 26·52가 실제 커널 실행과 맞는다(`kernelscope/analysis/thresholds.py::launch_agreement`).
+
+**해석.** KV 헤드 8인 단일 GPU 서빙에서는 조사한 8종 GPU 모두 B* = 12~29로, 연속 배치가 흔히 도달하는 크기에서 분할이 꺼진다. 따라서 "긴 요청이 섞이고 배치가 B* 이상"이라는 취약 조건은 RTX 4090만의 현상이 아니다. SM이 적은 GPU일수록 더 작은 배치에서 시작된다. 반대로 KV 헤드가 적은 모델이나 텐서 병렬로 GPU당 KV 헤드가 줄면 B*가 커져(KV 헤드 2: 47~114) 같은 문제가 더 큰 배치에서만 나타난다. 분할 없음 구간 밖(B < B*)에서도 휴리스틱이 최대 길이만 보고 분할 수를 정하는 문제는 남는다(§3의 B < 26 step).
+
+재현:
+
+```bash
+.venv/bin/python -c "from kernelscope.analysis.thresholds import *; print(threshold_table(load_spec('demo_data/thresholds/no_split_threshold.json')))"
+.venv/bin/python -m pytest -q tests/test_thresholds.py
+make verify     # threshold.* 항목
+```
+
+## §5 혼합 정책 δ 민감도 (2026-10-28, 야간 P2d 미실행분 중 δ 부분)
+
+**질문.** 혼합 정책의 δ = 0.2는 임의로 고른 값인가. (같은 단계의 신뢰구간 과제는 이번에도 하지 않았다.)
+
+**방법.** `scripts/evaluate_hybrid.py`와 같은 leave-one-out 평가(`kernelscope/model/hybrid.py::evaluate`)를 δ = 0, 0.01, …, 1.00의 101개 점에서 반복했다. 검증 집합은 서빙에 쓰는 cold 상태의 V1(균일 보간, 66개 조건), V5(미학습 헤드 구성, 98개), V6(혼합 길이, 219개)이다. 기록된 실측(`demo_data/hw_4090`)만 쓰므로 GPU가 필요 없다. δ = 0은 성능 모델 정책, δ가 매우 크면 조회 테이블 정책과 같다.
+
+**결과.** 최악 손실(15%를 넘는 조건 수)
+
+| δ | V1 cold | V5 cold | V6 cold |
+|---|---:|---:|---:|
+| 0.00 | 24.25% (1) | 66.29% (3) | 24.52% (2) |
+| 0.05 | 24.25% (1) | 66.29% (3) | 7.53% (0) |
+| 0.10 | 24.25% (1) | 66.29% (3) | 9.78% (0) |
+| 0.15 | 1.97% (0) | 24.75% (1) | 10.90% (0) |
+| 0.16 | 1.97% (0) | 7.54% (0) | 10.90% (0) |
+| 0.26 | 1.97% (0) | 7.54% (0) | 10.90% (0) |
+| 0.30 | 3.34% (0) | 7.54% (0) | 10.90% (0) |
+| 0.32 | 3.34% (0) | 14.83% (0) | 10.90% (0) |
+| 0.33 | 16.86% (1) | 14.83% (0) | 10.90% (0) |
+| 0.50 | 16.86% (1) | 16.08% (1) | 10.90% (0) |
+| 1.00 | 50.37% (7) | 66.07% (11) | 94.58% (1) |
+
+**해석.** 세 집합의 최악 손실이 모두 15% 이내인 구간은 δ = 0.16~0.32이고, 0.01 간격 격자에서 끊김 없이 17개 점이다. 그 안의 0.16~0.26(11개 점)에서는 세 최악값이 δ = 0.2와 똑같이 1.97% / 7.54% / 10.90%다. 즉 0.2는 평탄한 구간 안에 있다. 구간 양 끝에서 기준을 넘기는 것은 각각 한 조건이다. δ = 0.15에서는 V5의 한 조건(24.75%)이, 0.14 이하에서는 V1의 한 조건(24.25%)도 남아 모델이 고른 후보를 테이블이 바로잡지 못한다. δ ≥ 0.33에서는 V1의 한 조건에서 테이블의 오류(16.86%)가 들어온다. 2026-09-26 노트는 상한 쪽을 "0.35 이상"으로 적었으나, 0.01 격자에서는 0.33부터 V1이 기준을 넘는다(통과 구간 0.16~0.32는 같다). warm 상태 V1은 어떤 δ에서도 기준을 넘는다(2026-09-26 노트와 같은 결론, 이 표에서는 제외).
+
+재현:
+
+```bash
+CUDA_VISIBLE_DEVICES= .venv/bin/python -c "
+from scripts.evaluate_hybrid import run
+from kernelscope.verify import DELTA_GRID
+for r in run(deltas=DELTA_GRID): print(r['set'], r['cache_state'], {k: round(v['max'] * 100, 2) for k, v in r['policies'].items()})"
+make verify     # delta.* 항목
+```
+
 ## §6 trace replay 채점의 실측 검증 (2026-10-24, 항목 02)
 
 **질문.** 문제의 크기 "Azure conv ×1에서 decode step의 13.5%가 attention 시간을 1.25배 이상 잃는다"는 성능 모델(surrogate)이 채점한 값이다. 표본 셀을 같은 하네스로 실측해 그 채점이 얼마나 맞는지 본다. (모델 예측과 실측을 구분해 적는다.)
