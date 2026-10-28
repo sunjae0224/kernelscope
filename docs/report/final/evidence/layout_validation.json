@@ -1,0 +1,21 @@
+{
+  "total_pages": 32,
+  "body_numbering": "1–31 continuous",
+  "blank_pages": 0,
+  "figure_pages": [
+    6,
+    11,
+    19,
+    20,
+    22
+  ],
+  "numbered_tables": 19,
+  "bibliography_entries": 18,
+  "all_references_cited_in_body": true,
+  "unique_external_reference_links": 18,
+  "bounds_outliers": [],
+  "font": "Malgun Gothic embedded",
+  "visual_review": "Cover, simulator/results figures, reference pages and appendix checked visually; no clipping or overlapping text.",
+  "new_gpu_experiments_executed": false,
+  "numeric_checks_passed": 948
+}

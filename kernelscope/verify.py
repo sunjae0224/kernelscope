@@ -3302,6 +3302,73 @@ CHECKS = [
 ]
 
 
+# Final-report derived percentages use the same raw-record recomputation as the
+# existing p3 checks. A speedup of 1.813x is a 44.8% latency reduction, not 81.3%.
+def _final_report_reduction(campaign, scenario, policy="table"):
+    def compute(repo, data):
+        baseline = _p3_serve(campaign, scenario, "heuristic", "tpot_ms_mean")(repo, data)
+        candidate = _p3_serve(campaign, scenario, policy, "tpot_ms_mean")(repo, data)
+        return 100 * (1 - candidate / baseline)
+    return compute
+
+
+def _final_report_throughput(repo, data):
+    baseline = _p3_serve(TRACE_RUN, TRACE_NAME, "heuristic", "throughput_tokens_s")(repo, data)
+    candidate = _p3_serve(TRACE_RUN, TRACE_NAME, "table", "throughput_tokens_s")(repo, data)
+    return 100 * (candidate / baseline - 1)
+
+
+def _kv436k_gib(repo, data):
+    """The 436K-token what-if KV budget in GiB, scaled from the 10 GiB replay's token budget."""
+    tokens = lambda run: json.loads((data / "traffic" / run / "summary.json").read_text())["config"]["kv_tokens"]
+    return 10 * tokens("mooncake_conv_x1_kv436k") / tokens("mooncake_conv_x1")
+
+
+# Restructured final report (content_v2.py): values derived from records already covered above.
+def _final_report_attn_share(run, scenario, policy):
+    def compute(repo, data):
+        return 100 * _p3_serve(run, scenario, policy, "attn_ms_per_step")(repo, data) / _p3_serve(run, scenario, policy, "step_ms_per_step")(repo, data)
+    return compute
+
+
+def _final_report_amdahl_step(repo, data):
+    h = lambda column: _p3_serve(FIXED_RUN, "ragged", "heuristic", column)(repo, data)
+    return h("step_ms_per_step") - h("attn_ms_per_step") + _p3_serve(FIXED_RUN, "ragged", "table", "attn_ms_per_step")(repo, data)
+
+
+FINAL_REPORT_V2_SOURCE = "docs/report/final/src/content_v2.py"
+CHECKS += [
+    Check("finalreport2.ragged.tpot_reduction_pct", "최종보고서 v2: 32K TPOT 감소율", 44.8277, 0.0001, "%",
+          _final_report_reduction(FIXED_RUN, "ragged"), FINAL_REPORT_V2_SOURCE, "TPOT 감소율은 44.8%"),
+    Check("finalreport2.longtext.tpot_reduction_pct", "최종보고서 v2: 64K 자연어 TPOT 감소율", 59.1665, 0.0001, "%",
+          _final_report_reduction(LONGTEXT_RUN, "demo_text_ragged_64k"), FINAL_REPORT_V2_SOURCE, "TPOT을 59.2% 감소"),
+    Check("finalreport2.trace.throughput_pct", "최종보고서 v2: Azure 선택 구간 처리량 증가율", 2.8093, 0.0001, "%",
+          _final_report_throughput, FINAL_REPORT_V2_SOURCE, "처리량을 2.8% 높였다"),
+    Check("finalreport2.mooncake.kv436k_gib", "최종보고서 v2: 436K 토큰 what-if KV 예산(10 GiB 재생의 72,817 토큰 기준 환산)", 59.88, 0.005, "GiB",
+          _kv436k_gib, FINAL_REPORT_V2_SOURCE, "약 60 GiB"),
+    Check("finalreport2.ragged.heuristic_attn_share", "최종보고서 v2: 32K 혼합 휴리스틱의 step 중 attention 비중", 71.19, 0.005, "%",
+          _final_report_attn_share(FIXED_RUN, "ragged", "heuristic"), FINAL_REPORT_V2_SOURCE, "71.2%"),
+    Check("finalreport2.ragged.table_attn_share", "최종보고서 v2: 32K 혼합 table의 step 중 attention 비중", 38.26, 0.005, "%",
+          _final_report_attn_share(FIXED_RUN, "ragged", "table"), FINAL_REPORT_V2_SOURCE, "38.3%"),
+    Check("finalreport2.ragged.amdahl_step", "최종보고서 v2: attention 차이만 반영한 table의 예측 step 시간(ms; 실측 24.17)", 24.142, 0.0005, "ms",
+          _final_report_amdahl_step, FINAL_REPORT_V2_SOURCE, "24.14 ms"),
+    Check("finalreport2.ragged.table_step", "최종보고서 v2: 32K 혼합 table의 실측 step 시간(ms)", 24.166, 0.0005, "ms",
+          _p3_serve(FIXED_RUN, "ragged", "table", "step_ms_per_step"), FINAL_REPORT_V2_SOURCE, "24.17 ms"),
+    Check("finalreport2.longtext.heuristic_attn_share", "최종보고서 v2: 64K 자연어 휴리스틱의 step 중 attention 비중", 82.95, 0.005, "%",
+          _final_report_attn_share(LONGTEXT_RUN, "demo_text_ragged_64k", "heuristic"), FINAL_REPORT_V2_SOURCE, "83.0%"),
+    Check("finalreport2.longtext.heuristic_attn", "최종보고서 v2: 64K 자연어 휴리스틱의 attention ms/step", 70.453, 0.0005, "ms",
+          _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "heuristic", "attn_ms_per_step"), FINAL_REPORT_V2_SOURCE, "70.45 ms"),
+    Check("finalreport2.longtext.table_attn", "최종보고서 v2: 64K 자연어 table의 attention ms/step", 14.335, 0.0005, "ms",
+          _p3_serve(LONGTEXT_RUN, "demo_text_ragged_64k", "table", "attn_ms_per_step"), FINAL_REPORT_V2_SOURCE, "14.33 ms"),
+    Check("finalreport2.fiengine.table_share_of_cudacore", "최종보고서 v2: 10월 8일 캠페인 혼합 길이 table 배율 / FlashInfer CUDA-core 배율", 98.76, 0.005, "%",
+          lambda repo, data: 100 * _anytable_fiengine_serve("ragged", "table", "speedup_vs_heuristic")(repo, data)
+          / _anytable_fiengine_serve("ragged", "flashinfer_cudacore", "speedup_vs_heuristic")(repo, data), FINAL_REPORT_V2_SOURCE, "98.8%"),
+    Check("finalreport2.trace.att_pred_over_meas", "최종보고서 v2: 트레이스 구간 예측 attention 시간 비(1.187) / 실측(1.178) − 1", 0.781, 0.0005, "%",
+          lambda repo, data: 100 * (_trace_e2e("attention_time_ratio")(repo, data) / _p3_step_ratio("table", "total")(repo, data) - 1),
+          FINAL_REPORT_V2_SOURCE, "0.8% 이내"),
+]
+
+
 def run_checks(checks, repo: Path, data: Path) -> pd.DataFrame:
     repo, data = Path(repo), Path(data)
     rows = []

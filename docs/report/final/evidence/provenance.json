@@ -1,0 +1,23 @@
+{
+  "branch": "design-1-3",
+  "commit": "4cdd4fd93e6de7ee5f2379961a7ec4b135943986",
+  "authored_date": "2026-10-28",
+  "validation": {
+    "existing_checks": 944,
+    "report_derived_checks": 4,
+    "passed_total": 948,
+    "new_gpu_experiments_executed": false
+  },
+  "sources": [
+    {
+      "path": "/root/sunjae/gpu_graduation/midterm_report/연구논문작품_중간보고서_이선재_v2.pdf",
+      "sha256": "bb3d44b5f9f3c6636d1ef05cabf30b39b5edffb88cd8673107d2975e26ce2b75",
+      "bytes": 437881
+    },
+    {
+      "path": "/root/sunjae/gpu_graduation/midterm_report/연구논문작품_최종보고서.pdf",
+      "sha256": "d8651310fd8564ec14efe3d26c2c9c24a2bf66a2d89d1fa87527001fa4609bf0",
+      "bytes": 82366
+    }
+  ]
+}

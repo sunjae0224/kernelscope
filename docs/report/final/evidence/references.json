@@ -1,0 +1,92 @@
+[
+  {
+    "n": 1,
+    "text": "김수진·유헌창, 「LLM 추론 성능 최적화를 위한 클러스터링 기반 KV 캐시 재사용 시스템」, ACK 2025 학술발표대회 논문집, 32(2), pp. 592–595, 2025.",
+    "url": "https://www.manuscriptlink.com/society/kips/conference/ack2025/file/downloadSoConfManuscript/abs/KIPS_C2025B0043F"
+  },
+  {
+    "n": 2,
+    "text": "정종현·오윤호·구건재, 「최신 GPU 아키텍처의 데이터 캐시 성능 분석」, 한국소프트웨어종합학술대회 논문집, pp. 1052–1054, 2021.",
+    "url": "https://csarch.korea.ac.kr/publication/gpu_cache_ksc21/"
+  },
+  {
+    "n": 3,
+    "text": "박시형·이제민·김병수·전석훈, 「대규모 언어 모델 가속을 위한 상용 가속기 기술 동향」, 한국정보기술학회논문지, 23(6), pp. 75–89, 2025.",
+    "url": "https://www.ki-it.com/_PR/view/index.php?aidx=45440&bidx=4114"
+  },
+  {
+    "n": 4,
+    "text": "Ashish Vaswani, Noam Shazeer, Niki Parmar et al., “Attention Is All You Need”, Advances in Neural Information Processing Systems, 30, 2017.",
+    "url": "https://proceedings.neurips.cc/paper_files/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html"
+  },
+  {
+    "n": 5,
+    "text": "Gyeong-In Yu, Joo Seong Jeong, Geon-Woo Kim et al., “Orca: A Distributed Serving System for Transformer-Based Generative Models”, 16th USENIX Symposium on Operating Systems Design and Implementation (OSDI), pp. 521–538, 2022.",
+    "url": "https://www.usenix.org/conference/osdi22/presentation/yu"
+  },
+  {
+    "n": 6,
+    "text": "Woosuk Kwon, Zhuohan Li, Siyuan Zhuang et al., “Efficient Memory Management for Large Language Model Serving with PagedAttention”, Proceedings of the 29th Symposium on Operating Systems Principles (SOSP), pp. 611–626, 2023.",
+    "url": "https://doi.org/10.1145/3600006.3613165"
+  },
+  {
+    "n": 7,
+    "text": "Tri Dao, Daniel Y. Fu, Stefano Ermon et al., “FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness”, Advances in Neural Information Processing Systems, 35, 2022.",
+    "url": "https://papers.neurips.cc/paper_files/paper/2022/hash/67d57c32e20fd0a7a302cb81d36e40d5-Abstract-Conference.html"
+  },
+  {
+    "n": 8,
+    "text": "Tri Dao, “FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning”, International Conference on Learning Representations (ICLR), 2024.",
+    "url": "https://proceedings.iclr.cc/paper_files/paper/2024/hash/98ed250b203d1ac6b24bbcf263e3d4a7-Abstract-Conference.html"
+  },
+  {
+    "n": 9,
+    "text": "Tri Dao, Daniel Haziza, Francisco Massa et al., “Flash-Decoding for Long-Context Inference”, PyTorch Blog, 2023. (공식 기술 문서)",
+    "url": "https://pytorch.org/blog/flash-decoding/"
+  },
+  {
+    "n": 10,
+    "text": "Ke Hong, Guohao Dai, Jiaming Xu et al., “FlashDecoding++: Faster Large Language Model Inference with Asynchronization, Flat GEMM Optimization, and Heuristics”, Proceedings of Machine Learning and Systems, 6, 2024.",
+    "url": "https://proceedings.mlsys.org/paper_files/paper/2024/hash/5321b1dabcd2be188d796c21b733e8c7-Abstract-Conference.html"
+  },
+  {
+    "n": 11,
+    "text": "Zihao Ye, Lequn Chen, Ruihang Lai et al., “FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving”, Proceedings of Machine Learning and Systems, 7, 2025.",
+    "url": "https://proceedings.mlsys.org/paper_files/paper/2025/hash/dbf02b21d77409a2db30e56866a8ab3a-Abstract-Conference.html"
+  },
+  {
+    "n": 12,
+    "text": "Ali Bakhoda, George L. Yuan, Wilson W. L. Fung et al., “Analyzing CUDA Workloads Using a Detailed GPU Simulator”, IEEE International Symposium on Performance Analysis of Systems and Software (ISPASS), pp. 163–174, 2009.",
+    "url": "https://people.ece.ubc.ca/aamodt/papers/gpgpusim.ispass09.pdf"
+  },
+  {
+    "n": 13,
+    "text": "Mahmoud Khairy, Zhesheng Shen, Tor M. Aamodt et al., “Accel-Sim: An Extensible Simulation Framework for Validated GPU Modeling”, ACM/IEEE 47th Annual International Symposium on Computer Architecture (ISCA), pp. 473–486, 2020.",
+    "url": "https://doi.org/10.1109/ISCA45697.2020.00047"
+  },
+  {
+    "n": 14,
+    "text": "Samuel Williams, Andrew Waterman, David Patterson, “Roofline: An Insightful Visual Performance Model for Multicore Architectures”, Communications of the ACM, 52(4), pp. 65–76, 2009.",
+    "url": "https://doi.org/10.1145/1498765.1498785"
+  },
+  {
+    "n": 15,
+    "text": "Lianmin Zheng, Liangsheng Yin, Zhiqiang Xie et al., “SGLang: Efficient Execution of Structured Language Model Programs”, Advances in Neural Information Processing Systems, 37, 2024.",
+    "url": "https://proceedings.neurips.cc/paper_files/paper/2024/hash/724be4472168f31ba1c9ac630f15dec8-Abstract-Conference.html"
+  },
+  {
+    "n": 16,
+    "text": "Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian et al., “Training Verifiers to Solve Math Word Problems”, arXiv:2110.14168, 2021.",
+    "url": "https://arxiv.org/abs/2110.14168"
+  },
+  {
+    "n": 17,
+    "text": "Pratyush Patel, Esha Choukse, Chaojie Zhang et al., “Splitwise: Efficient Generative LLM Inference Using Phase Splitting”, ACM/IEEE 51st Annual International Symposium on Computer Architecture (ISCA), pp. 118–132, 2024.",
+    "url": "https://www.microsoft.com/en-us/research/wp-content/uploads/2023/12/Splitwise_ISCA24.pdf"
+  },
+  {
+    "n": 18,
+    "text": "Yuxin Wang, Yuhan Chen, Zeyu Li et al., “BurstGPT: A Real-world Workload Dataset to Optimize LLM Serving Systems”, arXiv:2401.17644, 2024.",
+    "url": "https://arxiv.org/abs/2401.17644"
+  }
+]
