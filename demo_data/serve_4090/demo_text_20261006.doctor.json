@@ -1,0 +1,63 @@
+{
+  "python": "3.11.16",
+  "executable": "/home/skkai/AI_Accelerator/kernelscope-design/.venv/bin/python",
+  "packages": {
+    "torch": "2.8.0+cu128",
+    "flash-attn": "2.8.3.post1",
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "pyarrow": "25.0.1",
+    "safetensors": "0.8.0",
+    "tokenizers": "0.22.2"
+  },
+  "cuda_available": true,
+  "torch_cuda": "12.8",
+  "errors": [],
+  "gpu_processes": [
+    {
+      "pid": 1967322,
+      "name": "/home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun",
+      "used_memory_mib": "396"
+    }
+  ],
+  "nvidia_smi_output": "1967322, /home/skkai/miniforge3/envs/ctrlz/lib/python3.12/site-packages/rerun_sdk/rerun_cli/rerun, 396",
+  "gpu_name": "NVIDIA GeForce RTX 4090",
+  "device_capability": [
+    8,
+    9
+  ],
+  "free_memory_bytes": 23857922048,
+  "total_memory_bytes": 25248530432,
+  "model_path": "/home/skkai/.cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554",
+  "model_config": {
+    "arch": "qwen3",
+    "n_layers": 36,
+    "hidden": 2560,
+    "intermediate": 9728,
+    "n_heads": 32,
+    "n_kv_heads": 8,
+    "head_dim": 128,
+    "vocab": 151936,
+    "rope_theta": 5000000.0,
+    "rope_scaling": null,
+    "rms_eps": 1e-06,
+    "tie_embeddings": true,
+    "qk_norm": true
+  },
+  "model_config_sha256": "5beea1a4a34c62782bfb2f911c606741a3bab8f92d80a118fa053c28af12e8ba",
+  "weight_files": [
+    {
+      "name": "model-00001-of-00003.safetensors",
+      "size": 3957900840
+    },
+    {
+      "name": "model-00002-of-00003.safetensors",
+      "size": 3987450520
+    },
+    {
+      "name": "model-00003-of-00003.safetensors",
+      "size": 99630640
+    }
+  ],
+  "ready": true
+}

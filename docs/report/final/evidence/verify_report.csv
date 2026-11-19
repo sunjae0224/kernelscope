@@ -1,0 +1,5 @@
+id,title,expected,measured,tol,unit,status,doc,note
+finalreport.ragged.tpot_reduction_pct,최종보고서: 32K TPOT 감소율,44.8277,44.82770927267312,0.0001,%,PASS,docs/report/final/src/content.py,
+finalreport.longtext.tpot_reduction_pct,최종보고서: 64K 자연어 TPOT 감소율,59.1665,59.16646452731008,0.0001,%,PASS,docs/report/final/src/content.py,
+finalreport.trace.tpot_reduction_pct,최종보고서: Azure 선택 구간 TPOT 감소율,3.3461,3.346090216687281,0.0001,%,PASS,docs/report/final/src/content.py,
+finalreport.trace.throughput_pct,최종보고서: Azure 선택 구간 처리량 증가율,2.8093,2.8093325504215283,0.0001,%,PASS,docs/report/final/src/content.py,

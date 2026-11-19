@@ -33,6 +33,8 @@ def logit_statistics(reference, candidate):
         maximum = float((left - right).abs().max())
         margin = float(ref_values[0] - ref_values[1])
         rows.append(dict(finite=True, argmax_equal=ref_id == cand_id, reference_top1=ref_id, candidate_top1=cand_id,
+                         # The top logit's magnitude sets the bf16 spacing used to classify a margin as a tie.
+                         reference_top1_logit=float(ref_values[0]), candidate_top1_logit=float(cand_values[0]),
                          reference_top1_margin=margin, candidate_top1_margin=float(cand_values[0] - cand_values[1]),
                          reference_tied_top1=bool(margin == 0), max_abs_logit_diff=maximum,
                          mean_abs_logit_diff=float((left - right).abs().mean()),

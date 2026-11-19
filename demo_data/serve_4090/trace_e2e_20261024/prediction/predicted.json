@@ -1,0 +1,49 @@
+{
+  "scenario": "scenarios/trace_azure_conv_i550_n300.yaml",
+  "claim": "surrogate prediction (GPU-free replay, 30 ms constant step, instantaneous prefill); not a measurement",
+  "cache_state": "cold",
+  "requests": 300,
+  "steps": 1897,
+  "kv_tokens": 72817,
+  "max_batch": 64,
+  "prompt_capped": 0,
+  "output_capped": 129,
+  "window": {
+    "start": 550,
+    "n_requests": 300,
+    "t0_s": 139.363233
+  },
+  "replay": {
+    "steps": 1897,
+    "batch_mean": 26.89826041117554,
+    "batch_p90": 36.0,
+    "steps_long": 1023,
+    "steps_batch_ge": 1289
+  },
+  "losses": {
+    "steps_sampled": 1897,
+    "batch_mean": 26.89826041117554,
+    "batch_p90": 36.0,
+    "len_max_mean": 3114.923036373221,
+    "no_split_frac": 0.6794939377965208,
+    "loss_median": 1.1667493324659275,
+    "loss_p90": 1.3521199286185366,
+    "loss_max": 1.5319160202021818,
+    "attention_time_ratio": 1.1870181636204487,
+    "loss_ge_1.1_frac": 0.5677385345282024,
+    "attention_share_loss_ge_1.1": 0.7183286640873504,
+    "loss_ge_1.25_frac": 0.3104902477596205,
+    "attention_share_loss_ge_1.25": 0.4120015721744777,
+    "loss_ge_1.5_frac": 0.008434370057986295,
+    "attention_share_loss_ge_1.5": 0.010491643207972214,
+    "loss_ge_2.0_frac": 0.0,
+    "attention_share_loss_ge_2.0": 0.0,
+    "criterion_steps": 589
+  },
+  "attention_time_ratio_heuristic_over_best": 1.1870181636204487,
+  "predicted_attention_us_per_step": {
+    "heuristic": 180.8744247402259,
+    "best": 152.3771331253705
+  },
+  "trace_sha256": "2f1e5b666d4e3055fdbba98598ce2ec307767b9064e03e2fa46676dbcc7d0bf8"
+}

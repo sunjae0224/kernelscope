@@ -1,0 +1,97 @@
+{
+  "rows": [
+    {
+      "backend": "FLASH_ATTN",
+      "mode": "eager",
+      "scenario": "ragged",
+      "lens": [
+        32768,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 80.52186664814751,
+      "decode_ms_per_step_min": 78.56151991679023,
+      "samples_ms": [
+        78.56151991679023,
+        80.52186664814751,
+        80.64184494627018
+      ],
+      "tokens_identical": true,
+      "enforce_eager": true,
+      "prefix_caching": false,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASH_ATTN",
+      "mode": "eager",
+      "scenario": "uniform",
+      "lens": [
+        512,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 14.737257830953846,
+      "decode_ms_per_step_min": 13.940082300299158,
+      "samples_ms": [
+        13.940082300299158,
+        14.803769664528469,
+        14.737257830953846
+      ],
+      "tokens_identical": false,
+      "enforce_eager": true,
+      "prefix_caching": false,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASHINFER",
+      "mode": "eager",
+      "scenario": "ragged",
+      "lens": [
+        32768,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 80.27203546759362,
+      "decode_ms_per_step_min": 79.38845535585035,
+      "samples_ms": [
+        79.38845535585035,
+        81.31402298264827,
+        80.27203546759362
+      ],
+      "tokens_identical": false,
+      "enforce_eager": true,
+      "prefix_caching": false,
+      "short": 4,
+      "long": 64
+    },
+    {
+      "backend": "FLASHINFER",
+      "mode": "eager",
+      "scenario": "uniform",
+      "lens": [
+        512,
+        512,
+        "..."
+      ],
+      "batch": 32,
+      "decode_ms_per_step_median": 14.520273349868754,
+      "decode_ms_per_step_min": 14.274427849644175,
+      "samples_ms": [
+        14.274427849644175,
+        14.520273349868754,
+        14.97330388519913
+      ],
+      "tokens_identical": false,
+      "enforce_eager": true,
+      "prefix_caching": false,
+      "short": 4,
+      "long": 64
+    }
+  ],
+  "model": "Qwen/Qwen3-4B-Instruct-2507"
+}

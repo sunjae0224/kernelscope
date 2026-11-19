@@ -1,0 +1,145 @@
+{
+ "runs": {
+  "flash_attn_eager_ragged": {
+   "backend": "FLASH_ATTN",
+   "mode": "eager",
+   "scenario": "ragged",
+   "lens_head": [
+    32768,
+    512
+   ],
+   "batch": 32,
+   "unprofiled_decode_ms_per_step_median": 81.01326920247327,
+   "unprofiled_samples_ms": [
+    79.16447749982278,
+    81.49281474761665,
+    81.01326920247327
+   ],
+   "profile_tokens": 24,
+   "profiled_generate_s": 6.82771103316918,
+   "trace_files": [
+    "flash_attn_eager_ragged_rank0.1792857197888094375.pt.trace.json.gz"
+   ],
+   "engine_reported_backend": null,
+   "child_rc": 0
+  },
+  "flash_attn_eager_uniform": {
+   "backend": "FLASH_ATTN",
+   "mode": "eager",
+   "scenario": "uniform",
+   "lens_head": [
+    512,
+    512
+   ],
+   "batch": 32,
+   "unprofiled_decode_ms_per_step_median": 14.629102932910124,
+   "unprofiled_samples_ms": [
+    14.079789584502578,
+    14.629102932910124,
+    14.648475629898408
+   ],
+   "profile_tokens": 24,
+   "profiled_generate_s": 1.205951179843396,
+   "trace_files": [
+    "flash_attn_eager_ragged_rank0.1792857215529651725.pt.trace.json.gz"
+   ],
+   "engine_reported_backend": null,
+   "child_rc": 0
+  },
+  "flashinfer_eager_ragged": {
+   "backend": "FLASHINFER",
+   "mode": "eager",
+   "scenario": "ragged",
+   "lens_head": [
+    32768,
+    512
+   ],
+   "batch": 32,
+   "unprofiled_decode_ms_per_step_median": 35.955303286512695,
+   "unprofiled_samples_ms": [
+    35.12531720722715,
+    36.149084055796266,
+    35.955303286512695
+   ],
+   "profile_tokens": 24,
+   "profiled_generate_s": 5.617283917032182,
+   "trace_files": [
+    "flashinfer_eager_ragged_rank0.1792857281778586607.pt.trace.json.gz"
+   ],
+   "engine_reported_backend": null,
+   "child_rc": 0
+  },
+  "flashinfer_eager_uniform": {
+   "backend": "FLASHINFER",
+   "mode": "eager",
+   "scenario": "uniform",
+   "lens_head": [
+    512,
+    512
+   ],
+   "batch": 32,
+   "unprofiled_decode_ms_per_step_median": 14.327386696822941,
+   "unprofiled_samples_ms": [
+    13.937048699396351,
+    14.327386696822941,
+    14.597169868648052
+   ],
+   "profile_tokens": 24,
+   "profiled_generate_s": 1.2001162632368505,
+   "trace_files": [
+    "flashinfer_eager_ragged_rank0.1792857300158714632.pt.trace.json.gz"
+   ],
+   "engine_reported_backend": null,
+   "child_rc": 0
+  },
+  "flash_attn_cudagraph_ragged": {
+   "backend": "FLASH_ATTN",
+   "mode": "cudagraph",
+   "scenario": "ragged",
+   "lens_head": [
+    32768,
+    512
+   ],
+   "batch": 32,
+   "unprofiled_decode_ms_per_step_median": 80.5741917497168,
+   "unprofiled_samples_ms": [
+    78.01099004379164,
+    80.5741917497168,
+    80.79745461388181
+   ],
+   "profile_tokens": 24,
+   "profiled_generate_s": 6.795254482887685,
+   "trace_files": [
+    "flash_attn_cudagraph_ragged_rank0.1792857378723148928.pt.trace.json.gz"
+   ],
+   "engine_reported_backend": null,
+   "child_rc": 0
+  },
+  "flash_attn_cudagraph_uniform": {
+   "backend": "FLASH_ATTN",
+   "mode": "cudagraph",
+   "scenario": "uniform",
+   "lens_head": [
+    512,
+    512
+   ],
+   "batch": 32,
+   "unprofiled_decode_ms_per_step_median": 13.691014548142752,
+   "unprofiled_samples_ms": [
+    13.372972646417717,
+    13.691014548142752,
+    14.071130496449769
+   ],
+   "profile_tokens": 24,
+   "profiled_generate_s": 1.2000683629885316,
+   "trace_files": [
+    "flash_attn_cudagraph_ragged_rank0.1792857395738810608.pt.trace.json.gz"
+   ],
+   "engine_reported_backend": null,
+   "child_rc": 0
+  }
+ },
+ "vllm": "0.31.0",
+ "torch": "2.13.0+cu130",
+ "model": "Qwen/Qwen3-4B-Instruct-2507"
+}

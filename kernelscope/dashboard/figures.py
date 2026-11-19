@@ -1,4 +1,5 @@
 """Plotly builders; units and evidence categories stay attached to the data."""
+import math
 import re
 
 import numpy as np
@@ -220,4 +221,35 @@ def campaign_comparison(overview, theme="light"):
     style.layout(fig, theme, "모델·입력·seed별 독립 비교 · TPOT 가속", left=360)
     fig.update_layout(margin={"t": 100}, title={"y": .98, "yanchor": "top"},
                       legend={"y": 1.02, "yanchor": "bottom"})
+    return fig
+
+
+def cta_work_curves(launches, theme="light", title="CTA 작업량 · 블록별 KV keys (바쁜 순)"):
+    """launches: dicts with label, color, keys (demo.cta_work). Zero-work CTAs are dropped."""
+    fig = go.Figure()
+    for item in launches:
+        keys = sorted((int(k) for k in item["keys"] if k > 0), reverse=True)
+        fig.add_trace(go.Scatter(x=list(range(1, len(keys) + 1)), y=keys, mode="lines", name=item["label"],
+                                 line={"color": item["color"], "width": 2},
+                                 hovertemplate="CTA #%{x}<br>%{y:,} keys<extra>" + str(item["label"]) + "</extra>"))
+    style.layout(fig, theme, title)
+    fig.update_xaxes(title_text="CTA 순위 (로그)", type="log")
+    fig.update_yaxes(title_text="KV keys / CTA (로그)", type="log")
+    return fig
+
+
+def backend_bar(row, theme="light", title="같은 셀 · 휴리스틱, 최선 FA2 분할, FlashInfer (µs)"):
+    """One kernel cell across backends (lab.backend_comparison row). Missing backends are left out."""
+    items = [("라이브러리 휴리스틱", row.get("heuristic_us")),
+             (f"최선 FA2 분할 · {row.get('best_fa2_kernel')}", row.get("best_fa2_us")),
+             ("FlashInfer tensor-core", row.get("flashinfer_tensorcore_us")),
+             ("FlashInfer CUDA-core", row.get("flashinfer_cudacore_us"))]
+    items = [(label, float(v)) for label, v in items if v is not None and not (isinstance(v, float) and math.isnan(v))]
+    labels, values = [i[0] for i in items], [i[1] for i in items]
+    fig = go.Figure(go.Bar(x=values, y=labels, orientation="h", marker_color=style.CATEGORICAL[theme][0],
+                           text=[f"{v:,.0f}" for v in values], textposition="auto",
+                           hovertemplate="%{y}<br>%{x:,.1f} µs<extra></extra>"))
+    style.layout(fig, theme, title)
+    fig.update_yaxes(autorange="reversed")
+    fig.update_xaxes(title_text="Kernel time (µs)")
     return fig

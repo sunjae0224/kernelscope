@@ -18,6 +18,13 @@ def test_logit_stats_expose_small_margin_and_argmax_ties():
     assert rows[0]["cosine_similarity"] > .999
 
 
+def test_logit_stats_record_each_side_top1_logit_value():
+    # The bf16 spacing that decides tie_1ulp/tie_2ulp/clear depends on the magnitude of the top logit.
+    rows = logit_statistics(torch.tensor([[20.0, 19.875, 0.0]]), torch.tensor([[19.875, 40.25, 0.0]]))
+    assert rows[0]["reference_top1_logit"] == 20.0
+    assert rows[0]["candidate_top1_logit"] == 40.25
+
+
 def test_logit_stats_do_not_hide_nonfinite_or_bad_shapes():
     assert not logit_statistics(torch.zeros(1, 3), torch.full((1, 3), float("nan")))[0]["finite"]
     with pytest.raises(ValueError):
@@ -40,6 +47,21 @@ def test_teacher_forcing_prevents_candidate_tokens_from_becoming_inputs():
     assert changed.seen == [[t] for t in reference.tokens.token.tolist()[:-1]]
     assert candidate.tokens.token.tolist() != reference.tokens.token.tolist()
     assert len(wrapper.rows) == 3 and not any(row["argmax_equal"] for row in wrapper.rows)
+
+
+def test_teacher_forced_rows_are_keyed_by_the_position_their_logits_decide():
+    # Divergence events are looked up by (rid, first differing position); that is only right if a row's
+    # `position` is the generated-token position its logits decide, for a late arrival as well.
+    requests = [Request(0, 3, 5), Request(1, 4, 4, 2)]                       # request 1 arrives at decode step 2
+    cache = pool()
+    reference = Engine(ArithmeticModel(), cache, FixedPolicy(0)).run(requests, 16, record_logits_steps=16)
+    wrapper = TeacherForcedModel(ArithmeticModel(), reference, requests)
+    Engine(wrapper, cache, FixedPolicy(8)).run(requests, 16)
+    tokens = {(int(r.rid), int(r.position)): int(r.token) for r in reference.tokens.itertuples()}
+    rows = {(row["rid"], row["position"]): row for row in wrapper.rows}
+    assert len(rows) == len(wrapper.rows) == 4 + 3                           # every decode position exactly once
+    assert set(rows) == {key for key in tokens if key[1] >= 1}
+    assert all(row["reference_top1"] == tokens[key] for key, row in rows.items())
 
 
 def test_natural_diagnostic_uses_shared_tokenization_and_dataset_identity(tmp_path, monkeypatch):

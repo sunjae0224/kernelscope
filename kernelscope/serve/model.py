@@ -186,6 +186,21 @@ class DecoderModel:
             except ImportError as exc:
                 raise ImportError("CUDA serving requires a compatible flash-attn installation") from exc
             self._flash_attention = flash_attn_with_kvcache
+        self._backends, self.last_plan_us = {}, 0.0
+
+    def attention_backend(self, name: str):
+        """``fa2`` (flash-attn, the split count applies) or a FlashInfer variant built on first use."""
+        if name == "fa2":
+            return self._flash_attention
+        from kernelscope.serve.attention import BACKENDS, FlashInferDecode
+        if name not in BACKENDS:
+            raise ValueError(f"unknown attention backend {name!r}; use fa2, flashinfer or flashinfer_cudacore")
+        if self._flash_attention is None:
+            raise ValueError("FlashInfer attention backends need the CUDA model")
+        if name not in self._backends:
+            self._backends[name] = FlashInferDecode(self._flash_attention, use_tensor_cores=BACKENDS[name],
+                                                    device=self.device)
+        return self._backends[name]
 
     @classmethod
     def from_pretrained(cls, repo_id: str, device="cuda", dtype=None):
@@ -260,12 +275,13 @@ class DecoderModel:
             outputs.append(attn.squeeze(0).transpose(0, 1))
         return torch.stack(outputs)
 
-    def _forward(self, x, positions, pool, seq_ids, cache_lens, num_splits, timer=None):
+    def _forward(self, x, positions, pool, seq_ids, cache_lens, num_splits, timer=None, attention_fn=None, table=None):
         cfg, weights = self.cfg, self.w
         batch, tokens, _ = x.shape
         reg = timer.region if timer is not None else _null_region
         cos, sin = self._rope(positions)
-        table = pool.block_table(seq_ids)
+        table = pool.block_table(seq_ids) if table is None else table
+        attention_fn = attention_fn or self._flash_attention
         for layer in range(cfg.n_layers):
             prefix = f"model.layers.{layer}."
             with reg("norm", layer):
@@ -282,8 +298,8 @@ class DecoderModel:
                 q = q * cos + _rotate_half(q) * sin
                 k = k * cos + _rotate_half(k) * sin
             with reg("attention", layer):
-                if self._flash_attention is not None:
-                    attn = self._flash_attention(
+                if attention_fn is not None:
+                    attn = attention_fn(
                         q, pool.k[layer], pool.v[layer], k=k, v=v,
                         cache_seqlens=cache_lens, block_table=table,
                         softmax_scale=cfg.head_dim ** -0.5, causal=True, num_splits=num_splits,
@@ -333,8 +349,9 @@ class DecoderModel:
             return self._logits(h[0, -1])
 
     @torch.inference_mode()
-    def decode(self, seq_ids, token_ids: list[int], pool, num_splits=0, timer=None):
+    def decode(self, seq_ids, token_ids: list[int], pool, num_splits=0, timer=None, attention="fa2"):
         self._check_pool(pool)
+        backend = self.attention_backend(attention)
         seq_ids = list(seq_ids)
         if not seq_ids or len(set(seq_ids)) != len(seq_ids):
             raise ValueError("decode requires a nonempty batch of distinct sequence ids")
@@ -349,10 +366,14 @@ class DecoderModel:
         pool.reserve_many({seq_id: length + 1 for seq_id, length in zip(seq_ids, lengths)})
         cache_lens = pool.lengths(seq_ids)
         positions = cache_lens.long().unsqueeze(1)
+        table = pool.block_table(seq_ids)
+        # FlashInfer plans the whole batch once per step, before any layer's timed region.
+        self.last_plan_us = (backend.plan(cache_lens, table, self.cfg.n_heads, self.cfg.n_kv_heads, self.cfg.head_dim,
+                                          self.dtype) if attention != "fa2" else 0.0)
         reg = timer.region if timer is not None else _null_region
         with reg("embed"):
             x = F.embedding(ids, self.w["model.embed_tokens.weight"]).unsqueeze(1)
-        h = self._forward(x, positions, pool, seq_ids, cache_lens, num_splits, timer)
+        h = self._forward(x, positions, pool, seq_ids, cache_lens, num_splits, timer, attention_fn=backend, table=table)
         with reg("lm_head"):
             logits = self._logits(h[:, -1])
         for seq_id, length in zip(seq_ids, lengths):

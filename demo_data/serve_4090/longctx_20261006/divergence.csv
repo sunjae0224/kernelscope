@@ -1,0 +1,10 @@
+scenario,policy,reference,repeat,tokens_compared,token_mismatches,missing_tokens,mismatches_outside_events,events,rid,first_position,tokens,after_first,differing_after_first,cascade,reference_token,candidate_token,teacher_reproduced,reference_top1_logit,reference_margin,margin_ulps,max_abs_logit_diff,tie_class,note
+ragged_64k,hybrid,heuristic,0,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,
+ragged_64k,hybrid,heuristic,1,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,
+ragged_64k,hybrid,heuristic,2,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,
+ragged_64k,model,heuristic,0,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,
+ragged_64k,model,heuristic,1,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,
+ragged_64k,model,heuristic,2,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,
+ragged_64k,table,heuristic,0,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,
+ragged_64k,table,heuristic,1,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,
+ragged_64k,table,heuristic,2,2048,4,0,0,1,0,27,63,37,4,False,220,15,True,12.8125,0.6875,11.0,3.40625,clear,

@@ -69,3 +69,10 @@ def test_load_dirs_prefers_parquet_rows_when_present(tmp_path):
     (tmp_path / "summaries.jsonl").write_text(json.dumps(
         {"status": "ok", "plugin": "fa2", "workload_key": ROWS[0]["workload_key"], "kernel_time_us": 40.0}) + "\n")
     assert len(load_dirs([tmp_path])) == len(ROWS)
+
+
+def test_very_long_tag_still_writes(tmp_path):
+    store = ResultStore(tmp_path)
+    path = store.write(ROWS, tag="flashdecoding_paged_" + "_".join(["1518"] * 200))
+    assert len(path.name) < 255
+    assert len(store.load()) == 2

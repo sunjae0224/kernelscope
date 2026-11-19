@@ -1,0 +1,7 @@
+# Uniform 64K control for grids/ragged_s1_64k.yaml (B=64 x 64K would need a 16 GiB pool; omitted).
+phase: decode
+B: [16, 32]
+L: [65536]
+H_q: 32
+H_kv: 8
+d: 128

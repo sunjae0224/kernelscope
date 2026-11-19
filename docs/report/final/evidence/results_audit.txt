@@ -1,0 +1,164 @@
+# design-1-3 최종보고서 결과 감사
+
+대상: `/root/sunjae/gpu_graduation/kernelscope`, `design-1-3`, 부모 작업에서 확인한 HEAD `4cdd4fd`. JSON 표 데이터는 `/tmp/final_results.json`. 2026-10-28 한국시간에 CSV·JSON·JSONL과 소스 문서를 읽고 표준 라이브러리로 독립 집계했다. GPU 실행·패키지 설치·pytest·`kernelscope verify`는 하지 않았다(메인 에이전트가 검증 실행 담당). 원본 저장소는 변경하지 않았다.
+
+## 보고서 포지셔닝의 증거 범위
+
+현재 브랜치의 실증 성과는 **프로파일링·시뮬레이션 분석 환경과 실측 대리 성능 모델을 보강하고, 혼합 길이 디코드 배치의 정적 설정 손실을 관측해 매 단계의 KV 분할 수/attention 변형 선택으로 TPOT을 줄인 것**이다. 사이클 시뮬레이터 upstream 자체를 개선했다거나, 실제 관측이 없던 현상을 본 작품이 최초 발견했다거나, 새로운 요청 스케줄링 알고리즘을 개발했다고 쓰면 근거보다 강하다. README·`docs/graduation.md`도 새 GPU 시뮬레이터·새 attention 수식이 기여가 아니라고 명시한다.
+
+- 선택에 직접 쓰는 것은 실측 테이블과 실측으로 맞춘 대리 성능 모델이다. Accel-Sim/GPGPU-Sim은 원인 설명·자원 민감도 분석·축소 커널의 정성 검증이다. Accel-Sim 절대 시간 보정은 완료되지 않았다.
+- 요청 admission은 FIFO 연속 배치다. 구현된 최적화는 커널 내부 작업 분배에 영향을 주는 KV 분할 수 및 변형의 외부 선택이다. 새 요청 순서/배칭 스케줄러를 만들었다고 서술하지 않는다.
+- ‘개선된 시뮬레이터’라는 표현이 필요하면 대상이 **시뮬레이션을 포함한 분석 파이프라인과 대리 성능 모델**임을 문장에서 정확히 한정한다.
+- FA2 2.8.x, 실제 환경 2.8.3.post1; 직접 FlashInfer 비교는 0.6.13; vLLM0.31은 별도 환경의 FlashInfer0.7.0.post1; RTX4090 SM89 128SM이다. Hopper/FA3, 다중 GPU, 일반 서비스 전체에 일반화할 수 없다.
+
+## 중간보고서 v2에서 바뀌는 부분
+
+첨부 v2의 추출본 `/tmp/kernelscope_midterm.txt`를 확인했다. 중간보고서는 커널 6,801조건, 32K TPOT61.06→33.80ms(5회), 후속108회, 축소 GPGPU-Sim7.23배, 재계산34개 수치+3개 일관성 검사와 남은 계획을 보고한다. `docs/report/midterm/src/content1.js`, `content2.js`와 내용이 대응된다. 이후 `_v5.js`는 추가 개정 초안으로 첨부 v2와 구별한다.
+
+| 중간 v2 내용 | 최신 최종보고서에 반영할 내용 |
+|---|---|
+| 6,801조건 | 기존8개 격자6,801 + FlashInfer422 +64K220 = 기본 확장 격자7,443조건. 10/24 층화131셀×5후보×2회는 별도 검증 측정이다. 7,443을 모든 최신 측정의 총수라고 부르지 않는다. |
+| 32K61.06→33.80ms,1.81배 | 역사적 결과로 보존하거나 최신 캠페인62.086→34.254ms,1.812504배로 대체한다. 서로 다른 캠페인의 baseline/후보를 혼합하면 안 된다. |
+| 혼합정책·출력분석·FlashInfer비교 예정 | 실제 측정 완료. 단, 혼합정책의 효과는 캐시 규약과 고정분할 기준선을 함께 보고한다. |
+| 실제 트래픽 없음 | 공개 트레이스21부하 모델재생 + 층화131셀실측 + Azure창300요청 실생성 추가. 실입력 텍스트가 아니라 길이·도착 시각 재생임을 명시한다. |
+| 출력 동일성 중심 | 분기 위치·bf16ULP분류·동일KV커널탐침으로 지표 확장. 64K 무작위와 트레이스에는 분기 있으며 ‘모든 출력 보존’ 불가. |
+| 시뮬레이터 보정 예정 | 최신 브랜치에서도 Accel-SimL2해시 재검증 미완료. 축소 GPGPU-Sim 정성재현과 대리 모델 보강을 완료 성과로 쓰고 미완료를 완료로 바꾸지 않는다. |
+| 운영 엔진 재현 미실행 | vLLM0.31에서 증상과 attention 병목 확인. 본 정책 통합이나 분할수 변경의 직접 인과검증은 미실행. |
+| 재계산34개+3개 | 메인 에이전트가 실제 `verify` 실행 결과로 최신 통과 항목 수를 넣어야 한다. 문서의531개는 오래된 기록이다. |
+
+## 최신 고정분할 실생성 표
+
+출처: `demo_data/serve_4090/fixedsplit_20261024/{ragged,uniform,arrivals,ragged_64k}/summary.csv`. Qwen3-4B-Instruct-2507,bf16,RTX4090. 정책캐시keep,반복3회,warm-up1회,seed0,KV10GiB(64K는13GiB). 각 manifest의 git상태가 비어 있지 않아 clean커밋 측정은 아니다.
+
+배율 = 휴리스틱TPOT / 정책TPOT. 감소율 =100×(1−1/배율). ‘1.813배’는 ‘81.3%지연감소’가 아니다.
+
+| 시나리오 | 휴리스틱TPOTms | tableTPOTms | table배율 | TPOT감소율 | 고정8배율 | 고정16배율 |
+|---|---:|---:|---:|---:|---:|---:|
+| 32K혼합 |62.086|34.254|1.813|44.83%|1.644|1.804|
+| 균일 |27.600|27.521|1.003|0.29%|0.998|0.990|
+| 도착 |59.487|50.720|1.173|14.74%|1.178|1.168|
+| 64K혼합 |94.859|38.743|2.448|59.16%|2.443|2.429|
+
+32K고정8은 반복0/2에서34.115/33.976ms였으나 반복1이45.173ms인 **원인불명 이상치**다. 이를 포함한1.644배와 제외한1.811배를 병기한다. 다른GPU프로세스가 없으므로 간섭이라고 단정하지 않는다. 재측정으로 해결한 자료는 없다. 구간은 반복단위bootstrap95%이고 반복3개이므로 이 실행 안의 변동만 나타낸다.
+
+고정8/16은32K·64K혼합과도착에서table과 같은 수준이다. **동적선택의TPOT우위는 이 엔진 실험에서 확인되지 않았다.** 균일조건에서 table은휴리스틱을그대로선택해분기0곳,고정8/16은6곳이다. 정확한 결론은 ‘고정분할이 강한기준선이며 동적선택은 이미적절한기본설정의변경을피한다’이다. warm/다른GPU에서도 안전하다는 실증은 아니다.
+
+대응 검사: `p3fixed.{ragged|uniform|arrivals|ragged_64k}.{table|fixed8|fixed16}.speedup`, `p3fixed.ci.<scenario>.<policy>.{low|high}`, `p3fixed.ragged.fixed8.repeat{0|1|2}_tpot`, `p3fixed.ragged.fixed8.pair02`, `p3fixed.ragged.{heuristic|table|fixed8}.attn`.
+
+## 고정분할 커널격자
+
+`demo_data/hw_4090/*/summaries.jsonl`에서 status=ok·해당캐시상태·kernel_time_us를 직접 읽고 동일셀/후보중앙값으로 독립 계산했다. 기준은 최선FA2분할이다. FlashInfer포함전체최선기준과 혼동하면 수치가 달라진다.
+
+| 격자 | 셀 | 휴리스틱중앙값/최악 | 고정8중앙값/최악 | 고정16최악 |
+|---|---:|---|---|---:|
+|32K혼합cold|162|1.436/3.981|1.010/1.042|1.069|
+|32K균일cold|49|1.012/1.100|1.018/1.127|1.162|
+|합집합cold|211|1.272/3.981|1.010/1.127|1.162|
+|64K혼합cold|18|기록JSON참조|1.000/1.009|1.022|
+|32K균일warm|49|기록JSON참조|최악1.712|1.961|
+
+합집합최악regret를최소화하는단일분할수는8이다. 고정8/16도warm균일에서손실이커지나, **혼합길이warm격자는 측정되지 않았다**. 전체최선(FlashInfer포함)기준32K혼합의FA2휴리스틱중앙값1.457/최악4.106은 위1.436/3.981과분모가다르다. ‘최선FA2분할’행은측정된정책의결과가아닌셀별oracle상한이다.
+
+대응검사: `fixedsplit.s_star`, `fixedsplit.32k.ragged.{fixed8_max|fixed8_median|fixed16_max|heuristic_median|heuristic_over1_25}`, `fixedsplit.32k.uniform.{fixed8_max|fixed16_max}`, `fixedsplit.32k.union.{fixed8_p90|fixed8_max|fixed16_max}`, `fixedsplit.64k.ragged.{fixed8_max|fixed16_max}`, `fixedsplit.32k.uniform_warm.{fixed8_max|fixed8_over1_25}`, `defaults.*`(전체최선기준).
+
+## 실제트레이스 문제빈도: 예측과실측을분리
+
+출처: `demo_data/traffic_sweep/sweep_table.csv`(21실행, 모델예측) 및 `demo_data/hw_4090/trace_validation_20261024/{cells.json,measured_pass1.csv,measured_pass2.csv}`(층화131셀, 커널실측). 후보는휴리스틱/분할2/4/8/16. coldL2,fp16,Hq32,Hkv8,d128,셀당warm-up10/30회중앙값,독립측정2회.
+
+| 트레이스 | 예측regret≥1.25step비율 | 실측층화추정1회차 |2회차| 예측attention비 |실측attention비 |
+|---|---:|---|---:|---:|---:|
+|Azureconv×1|13.49%|8.86%(95%6.28–10.91%)|9.37%|1.11923|1.14386|
+|Azurecode×16|14.05%|23.53%(95%12.54–37.23%)|23.53%|1.13453|1.16063|
+
+가중치는층별step수/층별표본셀수이다. 8.9%는전트레이스모든step실측이아닌표본추정이다. 키step수를가중하면conv10.18%(구간6.49–14.57%)로달라진다. 층화추정의정밀도·문턱민감도를명시한다. conv의예측13.5%를실측사실로쓰지않는다. 전체attention시간비1.144는시간12.6%회수가능성에해당하며TPOT12.6%를뜻하지않는다. 131셀의regret예측-실측순위상관0.9585,상대오차중앙값4.02%,최댓값16.93%.
+
+부하스윕에서conv문제비율은×0.75의11.6%→×1의13.5%→×4의4.2%로봉우리다. 큐대기p99는×0.75약0.03s,×1약3.7s,×1.25약43s. 과부하구간을서비스정상조건이라고일반화하지않는다. BurstGPT7일은×25~400모든조건에서0.3%이하이다. 고정8은짧은프롬프트부하에서휴리스틱보다최대5.7%느리다는것도 **모델예측** 이다.
+
+대응검사: `p3val.conv.{cells|w_pred_frac|w_meas_frac|w_meas_frac_lo|w_meas_frac_hi|w_meas_frac_pass2|att_pred|att_meas|att_meas_lo|att_meas_hi}`, `p3val.code.{cells|w_pred_frac|w_meas_frac|w_meas_frac_lo|w_meas_frac_hi|att_meas}`, `p3val.err.{spearman|rel_median|rel_max}`, `sweep.*`.
+
+## 트레이스구동실생성
+
+출처: `demo_data/serve_4090/trace_e2e_20261024/trace_azure_conv_i550_n300/summary.csv` 및동일campaign의`divergence.csv`. Azureconv요청550..849의연속300개,decode1,897step,51,326토큰,평균배치26.9,최대프롬프트4,119,생성길이상한256. 프롬프트는트레이스길이에맞춘시드고정무작위토큰이다. 382창탐색후조건에맞은17창중예측문제가많은창을선택했다. 대표무작위표본아니다.
+
+| 정책 |attentionms/step|TPOTms|배율|TPOT감소율|처리량tok/s|
+|---|---:|---:|---:|---:|---:|
+|heuristic|6.941|37.585|1|0|776.0|
+|table|5.893|36.327|1.03462|3.35%|797.8|
+|hybrid|5.877|38.779|0.96920|−3.18%|756.7|
+|model|5.800|38.707|0.97102|−2.98%|758.6|
+
+table처리량+2.81%. ‘1.035배’는속도배율약3.5%증가에해당하고TPOT실제감소는3.35%이다. model/hybrid캐시가빈반복0은43.615/43.685ms,model선택비용6.461ms/step이다. 같은트레이스를한번본반복1·2만보면model1.0368/hybrid1.0347배. 이값을첫트래픽의결과처럼보고하지않는다.
+
+attention시간비예측1.187 vs측정table1.178. 특정길이분포가완화되어32K합성극단의1.8배TPOT이득과규모가다르다.
+
+**출력검증에실패했다.** table/hybrid10곳(각921토큰),model8곳(740토큰)분기. 분류된1곳tie_1ulp,나머지9/7곳은교사강제처음400호출범위밖이라미분류다. 원자료`summary.csv`의`performance_claim=False`,`tokens_equivalent=False`,`output_validation_passed=False`를보존한다. ‘출력보존개선’으로보고할수없고속도실측과출력분기를함께보고한다.
+
+대응검사: `p3trace.table.{speedup|attn|p50|p90|throughput|step_ratio|frac125|events|tie|unclassified|mismatches}`, `p3trace.heuristic.{attn|tpot|p50|p90|throughput}`, `p3trace.model.{all_speedup|r0_tpot|steady_tpot|steady_speedup|r0_policy_us|r1_policy_us|r0_hit|events}`, `p3trace.hybrid.{r0_tpot|steady_speedup}`. hybrid평균배율0.969는추가검사에이미포함됐는지메인이확인요망(이감사는literal검색에서직접전용키미발견). 정확TPOT감소율은기존TPOT/배율의파생값이다.
+
+## 출력보존: 범위와반례
+
+- 32K혼합/도착:table·고정8·고정16분기0곳.
+- 균일:table0,고정8·16각6곳(5tie_1ulp+1clear),불일치토큰114개. clear요청8위치41은같은KV의층별커널탐침통과이나누적KV반올림증폭으로해석했다. 이것이전역출력동일성을증명하지는않는다.
+- 64K무작위:table·고정8·고정16각동일한1곳(요청0위치27,clear,여유11ULP),불일치4토큰. 층별attention이1ULP안이지만같은KV한step전체모델에서argmax가바뀌었다. ‘분기는동점에서만’이라고쓰면틀린다.
+- 64K구성자연어:세정책분기0곳. 한구성32요청×64토큰,3회반복이므로무작위특유현상이라고확정할수없다.
+- 트레이스300요청:분류안된위치가있으므로‘clear없음’으로일반화불가.
+- GSM8K200채점문항은table/fixed8토큰동일이나32K필러7개중6개는분기하므로전체캠페인동일은아니다.
+
+대응검사: `p3fixed.uniform.{fixed8.events|fixed8.tie|fixed8.clear|fixed8.mismatches|fixed16.events|table.events}`, `p3fixed.{ragged|arrivals|ragged_64k}.events`, `p3fixed.ragged_64k.clear`, `p3text.{events|mismatches|teacher_rows|teacher_flips|teacher_maxdiff}`, `p3gsm.events.*`.
+
+## vLLM정정및보정집계
+
+10/6실행은`VLLM_ATTENTION_BACKEND`라는vLLM0.31에서지원하지않는환경변수를썼다. 번들`demo_data/vllm_4090/backend_selection.json`에는엔진8회모두FLASH_ATTN,경고8회,FLASHINFER요청4회가기록된다. 따라서‘백엔드무관0.997배’는철회한다. 중간v2의0.997은자체엔진균일조건의배율이므로이와혼동하여철회하지않는다(그수치는별개다).
+
+새프로파일의`manifest.json`도`engine_reported_backend=null`이다(로그regex불일치). 실제backend변경은상위커널이름과서버로그에기반한다. 이작업에서는번들`step_breakdown.json`의커널및iteration자료를확인했다.
+
+원래`summary`열별중앙값은forward/sampling주석iteration을혼합해잘못된step값이다. `analysis/vllm_steps.py`와동일한방식으로배치32decode행커널합을step당커널수로나눈후GPU시간을독립재집계했다. JSON의`vllm.corrected_rows`가정확값이다.
+
+|실행|비프로파일stepms|GPUbusyms|attentionms|GEMMms|GPU밖ms|
+|---|---:|---:|---:|---:|---:|
+|FA2eager혼합|81.0|78.2|67.7|9.6|2.8|
+|FA2eager균일|14.6|13.4|2.95|9.65|1.2|
+|FA2graph혼합|80.6|77.7|67.7|9.4|2.8|
+|FA2graph균일|13.7|13.0|2.9|9.5|0.7|
+|FlashInferTCeager혼합|36.0|34.2|24.0|9.6|1.7|
+|FlashInfereager균일|14.3|13.3|2.96|9.7|1.1|
+
+조건:RTX4090,Qwen3-4Bbf16,vLLM0.31.0,torch2.13+cu130,혼합32768+512×31/균일512×32,KV8GiB,prefixcacheoff,max_model_len33000,비프로파일3회중앙값,프로파일생성24토큰.
+
+혼합−균일step차이의97.6%가attentionGPU시간차이이다. 백엔드효과는있다(FA2혼합81ms,FlashInfer36ms). 그러나vLLM에서분할수를바꾸어재실행한직접인과실험은없다. FA2래퍼는num_splits0/1만허용하여외부분할선택을그대로통합하지못한다. ‘운영엔진에본정책적용완료’또는‘vLLM81→31ms달성’은주장불가다.
+
+FlashInfer의`use_tensor_cores=False`가라이브러리기본값이다. ‘GQAgroup≥4일때TC’는SGLang기준, vLLM0.31은group과무관하게항상True다. FlashInfer라이브러리전체가정적기본값을고집한다고쓰면부정확하다(내부길이적응스케줄러도있음). 근거문서:`docs/report/final/related_work_additions.md`C절.
+
+대응검사: `vllmbackend.*`, `p3vllm.<run>.{unprofiled_ms|attention_ms|...}`, `p3vllmx.*`, `p3vllm.excess_share.{fa2|fi}`, `p3vllm.after_leave.attention`, `p3vllm.logged_median.attention`(오류값보존검사용이며보고서성능수치로사용금지).
+
+## 64K구성자연어와GSM8K
+
+`demo_data/serve_4090/longctx_text_20261024/demo_text_ragged_64k/summary.csv`:6문단CampusGarden코퍼스를반복해65,536토큰으로채운구성자연어문맥이다. 실제64K장문문서가아니다. 긴1개+짧은512토큰31개,요청당생성64,KV13GiB,keep,3회.
+
+|정책|TPOTms|attentionms/step|배율|분기|
+|---|---:|---:|---:|---:|
+|heuristic|94.809|70.453|1|—|
+|table|38.714|14.335|2.449|0|
+|model|38.803|14.34|2.443|0|
+|hybrid|38.853|14.34|2.440|0|
+
+table감소율59.17%. 교사강제정책당2,016행,argmax변화0,최대로짓차0.5. 대응검사`p3text.*`.
+
+GSM8K는앞200문항,31개씩7묶음,묶음당32K자연어필러1개,greedy256고정길이,EOS미정지,chattemplate/fewshot없음,3회다. **정식모델GSM8K점수평가가아니라정책간짝지은비교**이다.
+
+|정책|배율|attentionms|####정확도|사전마지막숫자정확도|생성변경문항|답변경문항|
+|---|---:|---:|---:|---:|---:|---:|
+|heuristic|1|32.905|156/200=.780|79/200=.395|0|0|
+|table|2.101|7.68|.780|.395|0|0|
+|fixed8|2.154|7.40|.780|.395|0|0|
+|FlashInferCC|2.155|7.02|.780|81/200=.405|140|8|
+
+`####`추출을주지표로쓴것은 **사후결정** 이므로원래주지표인마지막숫자도같이보고한다. `####`가256토큰안에나온문항166개,그외는오답. 정확도Wilson95%[.718,.832]. FlashInferCC답변경8문항중맞→틀3,틀→맞3,순변화0(McNemarp1.0). 동일정확도로품질영향이없다고단정할수없다. 반복3회는정책별토큰이같아서독립표본600개가아니다.
+
+대응검사:`p3gsm.{table|fixed8|flashinfer_cudacore}.speedup`, `p3gsm.acc.marker{,.table,.fixed8,.flashinfer_cudacore,_lo,_hi}`, `p3gsm.acc.last.{heuristic|cudacore}`, `p3gsm.pair.cudacore.{r2w|w2r|changed|text|same_answer}`, `p3gsm.pair.{table|fixed8}.text`, `p3gsm.events.*`.
+
+## 추가검사요청여부
+
+보고서가위표의기존수치만사용하면대부분기존검사로커버된다. JSON의`existing_verify_literal_keys`는소스에서정적으로추출한정확키목록이다. comprehension생성키는위패턴에포함한다. JSON행의`verify_speedup_key`는의미상매핑보조이며heuristic기준행에는개별속도검사가없을수있다.
+
+새로운TPOT감소율(44.83%,59.17%,3.35%)이나처리량증가율2.81%를본문대표수치로쓰면기존TPOT/처리량으로부터계산한파생수치이므로,보고서전용검사에서이산식을직접검사하면좋다. 새실험은필요없다. hybrid트레이스평균배율0.9692와baselineTPOT새표의절대값에전용검사가없는경우도같은보고서전용검사로충분하다.

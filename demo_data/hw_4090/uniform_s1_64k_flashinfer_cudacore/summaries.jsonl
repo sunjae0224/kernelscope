@@ -1,0 +1,2 @@
+{"status": "ok", "plugin": "flashinfer_paged_cudacore", "workload_key": "decode_B16_Lq1_Lkv65536_Hq32_Hkv8_d128_float16_causal", "cache_state": "cold", "check_ok": null, "kernel_time_us": 4542.85, "latency_us": 4566.528081893921, "launches": 2, "iterations_dropped": 0, "elapsed_s": 1.058}
+{"status": "ok", "plugin": "flashinfer_paged_cudacore", "workload_key": "decode_B32_Lq1_Lkv65536_Hq32_Hkv8_d128_float16_causal", "cache_state": "cold", "check_ok": null, "kernel_time_us": 9026.8525, "latency_us": 9049.360275268555, "launches": 2, "iterations_dropped": 0, "elapsed_s": 0.998}

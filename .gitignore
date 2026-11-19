@@ -39,3 +39,7 @@ hf_cache/
 .vscode/
 .idea/
 *.swp
+.gstack/
+docs/report/midterm/src/node_modules/
+docs/report/final/src/node_modules/
+!docs/report/final/evidence/*.csv

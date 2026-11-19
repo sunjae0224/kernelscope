@@ -1,0 +1,455 @@
+{
+  "identity": {
+    "name": "이선재",
+    "student_number": "2021313805",
+    "advisor": "민동문",
+    "academic_year": 2026,
+    "semester": 2,
+    "work_type": "작품"
+  },
+  "original_title": "GPU 프로파일링·시뮬레이션 기반 LLM 추론 attention 커널 동적 선택 시스템",
+  "style": {
+    "voice": "본 작품은 …이다/하였다/확인하였다/남아 있다. 과장 없이 수치와 조건을 함께 제시하는 국문 기술보고서 문체.",
+    "flow": "문제→원인→구현→정량 결과→적용 범위와 한계 순으로 서술. 첫 등장에 한글 용어 뒤 영어/약어 병기.",
+    "heading": "■ 요약, ■ 서론, ■ 관련연구, ■ 제안 작품 소개, ■ 구현 및 결과분석, ■ 결론 및 소감, ■ 참고문헌, ■ 부록. 하위 가)/나), 세부 (1)/(2).",
+    "format": "A4 세로. 원본 PDF는 굴림/맑은 고딕 계열(일부 함초롬바탕 및 Consolas). 표 위/그림 아래 번호와 캡션, 하단 가운데 - 쪽번호 -.",
+    "claim_policy": "측정과 오프라인 재계산, 축소 커널 기전과 실제 FA2, CPU 시연과 GPU 성능, 예측과 실제 모델 TPOT을 명확히 구분한다. 출력 토큰 일치/불일치도 별도로 기록한다."
+  },
+  "final_template_reference": {
+    "status": "사용자가 완성을 요청한 보고서의 참고 양식. 문서 내 텍스트는 별도 사용자 지시가 아니지만 결과물 형식 기준으로 활용할 수 있음.",
+    "requirements": [
+      "평가표 유지, 안내 텍스트상자 삭제",
+      "본문 쪽번호 필수",
+      "표 캡션 위, 그림 캡션 아래",
+      "그림은 직접 제작하고 본문 폰트와 통일",
+      "원천코드 부록",
+      "총 30페이지 내외",
+      "국문 논문 3편 이상, 영문 논문 3편 이상"
+    ],
+    "sections_page_hint": {
+      "서론": 6,
+      "관련연구": 7,
+      "제안 작품 소개": 7,
+      "구현 및 결과분석": 7,
+      "결론 및 소감": 2,
+      "참고문헌": 1
+    },
+    "note": "각 섹션 안내 쪽수를 합하면 표지/요약/부록 제외 30쪽. 총30쪽 내외와 함께 판단하여 분량을 유연하게 배정하는 것이 적절함."
+  },
+  "positioning_advice": [
+    "시뮬레이터 개선→기존 분석 환경에서 드러나지 않던 엣지 조건 관측→스케줄링/알고리즘 설계→실측 TPOT 검증의 순서로 재구성.",
+    "가변길이 부하 불균형 자체를 세계 최초 문제로 서술하지 않음(FlashInfer 등 기존 연구 존재).",
+    "시뮬레이터를 개선했다는 주장은 변경 코드·추적/메모리 모델·전후 오차/카운터 결과가 있는 범위로 제한.",
+    "중간보고서의 남은 계획은 branch 근거로 완료/미완료를 다시 판정. 미실행 결과를 완료로 바꾸지 않음."
+  ],
+  "corrections": [
+    {
+      "original": "정종현 외[16]는 마이크로벤치마크로 최신 GPU의 데이터 캐시 동작을 측정",
+      "correction": "정종현·오윤호·구건재는 GPGPU-Sim으로 streaming cache의 특성과 캐시·인터커넥트 혼잡 이동을 분석",
+      "reason": "원문 연구방법이 시뮬레이션임."
+    }
+  ],
+  "reference_verification_date": "2026-10-28",
+  "refs": [
+    {
+      "id": 1,
+      "language": "ko",
+      "authors": [
+        "김수진",
+        "유헌창"
+      ],
+      "title": "LLM 추론 성능 최적화를 위한 클러스터링 기반 KV 캐시 재사용 시스템",
+      "year": 2025,
+      "venue": "ACK 2025 학술발표대회 논문집",
+      "volume": "32",
+      "issue": "2",
+      "pages": "592–595",
+      "doi": null,
+      "url": "https://www.manuscriptlink.com/society/kips/conference/ack2025/file/downloadSoConfManuscript/abs/KIPS_C2025B0043F",
+      "source_type": "공식 학술대회 원문",
+      "verified": "PDF 4쪽의 제목·저자·쪽수 및 내용 확인",
+      "point": "질의의 의미적 유사성을 군집화하여 대표 KV 캐시를 미리 만들고 재사용한다. 요청 사이의 계산 재사용을 다루므로, 이미 주어진 디코드 배치의 CTA 실행 원인을 분석하는 본 작품과 최적화 계층이 다르다."
+    },
+    {
+      "id": 2,
+      "language": "ko",
+      "authors": [
+        "정종현",
+        "오윤호",
+        "구건재"
+      ],
+      "title": "최신 GPU 아키텍처의 데이터 캐시 성능 분석",
+      "year": 2021,
+      "venue": "한국소프트웨어종합학술대회 논문집",
+      "pages": "1052–1054",
+      "doi": null,
+      "url": "https://csarch.korea.ac.kr/publication/gpu_cache_ksc21/",
+      "pdf": "https://filedn.com/luEeJVCCazShDlU4ibloXvu/publication/gpu_cache_ksc21/gpu_cache_ksc21.pdf",
+      "source_type": "저자 연구실 공식 논문 페이지 및 원문",
+      "verified": "연구실 페이지와 PDF 3쪽 확인",
+      "point": "GPGPU-Sim으로 streaming cache를 비교하여 캐시 혼잡 완화 뒤 병목이 인터커넥트로 옮겨갈 수 있음을 분석한다. 중간보고서의 마이크로벤치마크 실측 연구라는 설명은 수정해야 한다."
+    },
+    {
+      "id": 3,
+      "language": "ko",
+      "authors": [
+        "박시형",
+        "이제민",
+        "김병수",
+        "전석훈"
+      ],
+      "title": "대규모 언어 모델 가속을 위한 상용 가속기 기술 동향",
+      "year": 2025,
+      "venue": "한국정보기술학회논문지",
+      "volume": "23",
+      "issue": "6",
+      "pages": "75–89",
+      "doi": "10.14801/jkiit.2025.23.6.75",
+      "url": "https://www.ki-it.com/_PR/view/index.php?aidx=45440&bidx=4114",
+      "source_type": "공식 학회지 원문",
+      "verified": "제목·저자·서지·초록 확인",
+      "point": "상용 LLM 가속기의 메모리 구조, 인터커넥트와 소프트웨어 스택을 정리한다. 하드웨어별 자원 구성이 다르므로 한 GPU의 결과와 시뮬레이션상 자원 변경 결과를 구분하여 해석할 필요가 있다는 배경에 활용한다."
+    },
+    {
+      "id": 4,
+      "language": "en",
+      "authors": [
+        "Ashish Vaswani",
+        "Noam Shazeer",
+        "Niki Parmar",
+        "Jakob Uszkoreit",
+        "Llion Jones",
+        "Aidan N. Gomez",
+        "Łukasz Kaiser",
+        "Illia Polosukhin"
+      ],
+      "title": "Attention Is All You Need",
+      "year": 2017,
+      "venue": "Advances in Neural Information Processing Systems",
+      "volume": "30",
+      "doi": null,
+      "url": "https://proceedings.neurips.cc/paper_files/paper/2017/hash/3f5ee243547dee91fbd053c1c4a845aa-Abstract.html",
+      "source_type": "공식 학회 논문 페이지",
+      "point": "Transformer의 attention 구조를 설명하는 기초 문헌이다. 이후 LLM 디코드와 KV 캐시 설명으로 연결한다."
+    },
+    {
+      "id": 5,
+      "language": "en",
+      "authors": [
+        "Gyeong-In Yu",
+        "Joo Seong Jeong",
+        "Geon-Woo Kim",
+        "Soojeong Kim",
+        "Byung-Gon Chun"
+      ],
+      "title": "Orca: A Distributed Serving System for Transformer-Based Generative Models",
+      "year": 2022,
+      "venue": "16th USENIX Symposium on Operating Systems Design and Implementation (OSDI)",
+      "pages": "521–538",
+      "doi": null,
+      "url": "https://www.usenix.org/conference/osdi22/presentation/yu",
+      "source_type": "공식 학회 논문 페이지",
+      "point": "반복 단위 스케줄링과 selective batching을 제안한다. 요청 길이가 다른 연속 배치가 만들어지는 시스템 배경에 활용한다."
+    },
+    {
+      "id": 6,
+      "language": "en",
+      "authors": [
+        "Woosuk Kwon",
+        "Zhuohan Li",
+        "Siyuan Zhuang",
+        "Ying Sheng",
+        "Lianmin Zheng",
+        "Cody Hao Yu",
+        "Joseph E. Gonzalez",
+        "Hao Zhang",
+        "Ion Stoica"
+      ],
+      "title": "Efficient Memory Management for Large Language Model Serving with PagedAttention",
+      "year": 2023,
+      "venue": "Proceedings of the 29th Symposium on Operating Systems Principles (SOSP)",
+      "pages": "611–626",
+      "doi": "10.1145/3600006.3613165",
+      "url": "https://doi.org/10.1145/3600006.3613165",
+      "preprint": "https://arxiv.org/abs/2309.06180",
+      "source_type": "공식 학회 발행사 페이지 및 저자 논문",
+      "point": "KV 캐시의 가변적인 크기로 생기는 단편화와 중복을 페이지 단위 관리로 줄인다. 페이지 KV 환경의 커널 선택과 메모리 관리 정책을 구분한다."
+    },
+    {
+      "id": 7,
+      "language": "en",
+      "authors": [
+        "Tri Dao",
+        "Daniel Y. Fu",
+        "Stefano Ermon",
+        "Atri Rudra",
+        "Christopher Ré"
+      ],
+      "title": "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness",
+      "year": 2022,
+      "venue": "Advances in Neural Information Processing Systems",
+      "volume": "35",
+      "doi": "10.52202/068431-1189",
+      "url": "https://papers.neurips.cc/paper_files/paper/2022/hash/67d57c32e20fd0a7a302cb81d36e40d5-Abstract-Conference.html",
+      "source_type": "공식 학회 논문 페이지",
+      "point": "타일링으로 GPU 메모리 계층 사이 데이터 이동을 줄이는 정확한 attention 알고리즘이다."
+    },
+    {
+      "id": 8,
+      "language": "en",
+      "authors": [
+        "Tri Dao"
+      ],
+      "title": "FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning",
+      "year": 2024,
+      "venue": "International Conference on Learning Representations (ICLR)",
+      "doi": null,
+      "url": "https://proceedings.iclr.cc/paper_files/paper/2024/hash/98ed250b203d1ac6b24bbcf263e3d4a7-Abstract-Conference.html",
+      "source_type": "공식 학회 논문 페이지",
+      "point": "스레드 블록과 워프 사이 작업 분할, 점유율과 공유 메모리 통신을 개선한다. 논문의 일반 attention 개선과 라이브러리 디코드 경로의 split-KV 선택은 구분한다."
+    },
+    {
+      "id": 9,
+      "language": "en",
+      "authors": [
+        "Tri Dao",
+        "Daniel Haziza",
+        "Francisco Massa",
+        "Grigory Sizov"
+      ],
+      "title": "Flash-Decoding for Long-Context Inference",
+      "year": 2023,
+      "venue": "PyTorch Blog",
+      "date": "2023-10-13",
+      "doi": null,
+      "url": "https://pytorch.org/blog/flash-decoding/",
+      "source_type": "구현 저자 공식 기술 문서",
+      "note": "학술논문 수에는 포함하지 않는다. 영문 논문은 그 밖의 항목으로 이미 충족한다.",
+      "point": "KV 길이 차원을 분할해 병렬 attention을 계산하고 log-sum-exp로 부분 결과를 결합한다. 병렬화 이득과 마지막 결합 비용을 함께 설명한다."
+    },
+    {
+      "id": 10,
+      "language": "en",
+      "authors": [
+        "Ke Hong",
+        "Guohao Dai",
+        "Jiaming Xu",
+        "Qiuli Mao",
+        "Xiuhong Li",
+        "Jun Liu",
+        "Kangdi Chen",
+        "Yuhan Dong",
+        "Yu Wang"
+      ],
+      "title": "FlashDecoding++: Faster Large Language Model Inference with Asynchronization, Flat GEMM Optimization, and Heuristics",
+      "year": 2024,
+      "venue": "Proceedings of Machine Learning and Systems",
+      "volume": "6",
+      "doi": null,
+      "url": "https://proceedings.mlsys.org/paper_files/paper/2024/hash/5321b1dabcd2be188d796c21b733e8c7-Abstract-Conference.html",
+      "source_type": "공식 학회 논문 페이지",
+      "point": "비동기 softmax, flat GEMM과 입력·하드웨어별 휴리스틱을 결합한다. 입력 특징에 따라 실행 방식을 선택한다는 관련성을 설명한다."
+    },
+    {
+      "id": 11,
+      "language": "en",
+      "authors": [
+        "Zihao Ye",
+        "Lequn Chen",
+        "Ruihang Lai",
+        "Wuwei Lin",
+        "Yineng Zhang",
+        "Stephanie Wang",
+        "Tianqi Chen",
+        "Baris Kasikci",
+        "Vinod Grover",
+        "Arvind Krishnamurthy",
+        "Luis Ceze"
+      ],
+      "title": "FlashInfer: Efficient and Customizable Attention Engine for LLM Inference Serving",
+      "year": 2025,
+      "venue": "Proceedings of Machine Learning and Systems",
+      "volume": "7",
+      "doi": null,
+      "url": "https://proceedings.mlsys.org/paper_files/paper/2025/hash/dbf02b21d77409a2db30e56866a8ab3a-Abstract-Conference.html",
+      "source_type": "공식 학회 논문 페이지",
+      "point": "KV 형식의 차이, JIT 템플릿, 요청 변화에 대응하는 부하 분산 스케줄링을 제공한다. 가변길이 불균형 자체가 새 문제라는 주장은 피하고, 개선된 분석 환경과 엣지 조건 관측을 본 작품의 차이로 제시한다."
+    },
+    {
+      "id": 12,
+      "language": "en",
+      "authors": [
+        "Ali Bakhoda",
+        "George L. Yuan",
+        "Wilson W. L. Fung",
+        "Henry Wong",
+        "Tor M. Aamodt"
+      ],
+      "title": "Analyzing CUDA Workloads Using a Detailed GPU Simulator",
+      "year": 2009,
+      "venue": "IEEE International Symposium on Performance Analysis of Systems and Software (ISPASS)",
+      "pages": "163–174",
+      "doi": "10.1109/ISPASS.2009.4919648",
+      "url": "https://people.ece.ubc.ca/aamodt/papers/gpgpusim.ispass09.pdf",
+      "source_type": "저자 대학 원문 및 Microsoft Research 공식 논문 페이지",
+      "secondary_primary": "https://www.microsoft.com/en-us/research/publication/analyzing-cuda-workloads-using-detailed-gpu-simulator/",
+      "point": "PTX 기반 상세 시뮬레이션으로 캐시·인터커넥트·메모리 컨트롤러·작업 분배 등 미세구조 선택의 영향을 분석한다."
+    },
+    {
+      "id": 13,
+      "language": "en",
+      "authors": [
+        "Mahmoud Khairy",
+        "Zhesheng Shen",
+        "Tor M. Aamodt",
+        "Tim Rogers"
+      ],
+      "title": "Accel-Sim: An Extensible Simulation Framework for Validated GPU Modeling",
+      "year": 2020,
+      "venue": "ACM/IEEE 47th Annual International Symposium on Computer Architecture (ISCA)",
+      "pages": "473–486",
+      "doi": "10.1109/ISCA45697.2020.00047",
+      "url": "https://engineering.purdue.edu/tgrogers/publication/khairy-isca-2020/",
+      "pdf": "https://mkhairy.github.io/Docs/Accel-Sim.pdf",
+      "official_repository": "https://github.com/accel-sim/accel-sim-framework",
+      "source_type": "저자 대학 논문 페이지·원문·공식 저장소",
+      "note": "저자 대학 페이지 DOI 버튼은 다른 MICRO 논문을 가리키므로 사용하지 말 것. 위 DOI는 공식 저장소 BibTeX에서 확인.",
+      "point": "SASS 추적 프런트엔드, 상세한 설정 가능 성능 모델, 카운터별 실측 검증을 제공한다. 기준 모델의 잘못된 가정이 새로운 최적화 기회를 가릴 수 있다는 문제의식이 본 작품의 시뮬레이터 개선과 직접 연결된다."
+    },
+    {
+      "id": 14,
+      "language": "en",
+      "authors": [
+        "Samuel Williams",
+        "Andrew Waterman",
+        "David Patterson"
+      ],
+      "title": "Roofline: An Insightful Visual Performance Model for Multicore Architectures",
+      "year": 2009,
+      "venue": "Communications of the ACM",
+      "volume": "52",
+      "issue": "4",
+      "pages": "65–76",
+      "doi": "10.1145/1498765.1498785",
+      "url": "https://aiichironakano.github.io/cs596/Williams-Roofline-CACM09.pdf",
+      "technical_report": "https://www2.eecs.berkeley.edu/Pubs/TechRpts/2008/EECS-2008-134.pdf",
+      "source_type": "원 논문 및 저자 대학 기술보고서",
+      "point": "연산 강도와 연산·메모리 대역폭 상한으로 병목을 해석한다. CTA 꼬리나 파티션 불균형 같은 분포는 별도 관측이 필요하다는 점을 본 작품의 분석 관점으로 덧붙인다."
+    },
+    {
+      "id": 15,
+      "language": "en",
+      "authors": [
+        "Lianmin Zheng",
+        "Liangsheng Yin",
+        "Zhiqiang Xie",
+        "Chuyue Sun",
+        "Jeff Huang",
+        "Cody Hao Yu",
+        "Shiyi Cao",
+        "Christos Kozyrakis",
+        "Ion Stoica",
+        "Joseph E. Gonzalez",
+        "Clark Barrett",
+        "Ying Sheng"
+      ],
+      "title": "SGLang: Efficient Execution of Structured Language Model Programs",
+      "year": 2024,
+      "venue": "Advances in Neural Information Processing Systems",
+      "volume": "37",
+      "doi": "10.52202/079017-2000",
+      "url": "https://proceedings.neurips.cc/paper_files/paper/2024/hash/724be4472168f31ba1c9ac630f15dec8-Abstract-Conference.html",
+      "source_type": "공식 학회 논문 페이지",
+      "point": "RadixAttention을 통한 KV 캐시 재사용과 구조화 출력 실행을 최적화한다. 운영 엔진에서의 재사용 경로와 통제된 커널 실행 설정 비교를 구분하는 데 활용한다."
+    },
+    {
+      "id": 16,
+      "language": "en",
+      "authors": [
+        "Karl Cobbe",
+        "Vineet Kosaraju",
+        "Mohammad Bavarian",
+        "Mark Chen",
+        "Heewoo Jun",
+        "Lukasz Kaiser",
+        "Matthias Plappert",
+        "Jerry Tworek",
+        "Jacob Hilton",
+        "Reiichiro Nakano",
+        "Christopher Hesse",
+        "John Schulman"
+      ],
+      "title": "Training Verifiers to Solve Math Word Problems",
+      "year": 2021,
+      "venue": "arXiv:2110.14168",
+      "doi": "10.48550/arXiv.2110.14168",
+      "url": "https://arxiv.org/abs/2110.14168",
+      "source_type": "저자 논문",
+      "point": "GSM8K 수학 문장제 데이터셋을 제안한다. 본 작품에서는 실제 입력을 구성하는 평가 자료로 인용하되 소규모 부분집합만 썼다면 데이터셋 전체의 정확도 검증으로 일반화하지 않는다."
+    },
+    {
+      "id": 17,
+      "language": "en",
+      "authors": [
+        "Pratyush Patel",
+        "Esha Choukse",
+        "Chaojie Zhang",
+        "Aashaka Shah",
+        "Íñigo Goiri",
+        "Saeed Maleki",
+        "Ricardo Bianchini"
+      ],
+      "title": "Splitwise: Efficient Generative LLM Inference Using Phase Splitting",
+      "year": 2024,
+      "venue": "ACM/IEEE 51st Annual International Symposium on Computer Architecture (ISCA)",
+      "pages": "118–132",
+      "doi": "10.1109/ISCA59077.2024.00019",
+      "url": "https://www.microsoft.com/en-us/research/wp-content/uploads/2023/12/Splitwise_ISCA24.pdf",
+      "preprint": "https://arxiv.org/abs/2311.18677",
+      "dataset": "https://github.com/Azure/AzurePublicDataset",
+      "source_type": "저자 기관 공식 원문",
+      "point": "프리필과 토큰 생성의 자원 특성 차이에 따라 실행 장비를 분리한다. Azure 요청 흔적을 사용했다면 실제 시스템 전체를 재현했다는 주장과 입력 길이·도착 시각만 활용했다는 사실을 구분한다."
+    },
+    {
+      "id": 18,
+      "language": "en",
+      "authors": [
+        "Yuxin Wang",
+        "Yuhan Chen",
+        "Zeyu Li",
+        "Xueze Kang",
+        "Zhenheng Tang",
+        "Xin He",
+        "Rui Guo",
+        "Xin Wang",
+        "Qiang Wang",
+        "Amelie Chi Zhou",
+        "Xiaowen Chu"
+      ],
+      "title": "BurstGPT: A Real-world Workload Dataset to Optimize LLM Serving Systems",
+      "year": 2024,
+      "venue": "arXiv:2401.17644",
+      "doi": "10.48550/arXiv.2401.17644",
+      "url": "https://arxiv.org/abs/2401.17644",
+      "official_repository": "https://github.com/HPMLL/BurstGPT",
+      "source_type": "저자 논문 및 공식 데이터 저장소",
+      "note": "본 목록은 2024년 arXiv 버전으로 표기. KDD2025 출판/이후 자료 규모 업데이트와 혼용하지 않음.",
+      "point": "실서비스 요청의 버스트, 동시성, 응답 길이 차이 등으로 합성 워크로드의 제한을 보여 준다. 본 작품에서 사용하는 부분집합·재생 규칙을 별도로 밝혀야 한다."
+    }
+  ],
+  "legacy_optional_ref": {
+    "authors": [
+      "최우형",
+      "정진우",
+      "안정섭"
+    ],
+    "title": "거대 언어 모델을 서빙하기 위한 GPU 메모리 계층화 사례 연구",
+    "year": 2025,
+    "venue": "정보과학회지",
+    "volume": "43",
+    "issue": "4",
+    "pages": "37–40",
+    "url": "https://www.dbpia.co.kr/journal/articleDetail?nodeId=NODE12134394",
+    "verification": "서지 존재 확인. 초록/원문 미확인. 학회 공식 1차원문 미확보이므로 내용 설명을 확대하지 말고 가능하면 [3]으로 대체."
+  }
+}

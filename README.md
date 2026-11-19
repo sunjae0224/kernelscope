@@ -16,7 +16,7 @@ bash scripts/demo.sh
 # http://localhost:8501
 ```
 
-네 개의 화면에서 병목 진단, 조건별 최적 커널, 가상 하드웨어 예측, 실제 생성 실험을 볼 수 있습니다. 저장된 결과를 탐색할 때 GPU는 필요하지 않습니다. 원본 결과 폴더가 없는 환경에서는 `demo_data/`의 실측 요약을 사용합니다. `KERNELSCOPE_RESULTS=/path/to/results`로 결과 폴더를 지정할 수 있습니다.
+첫 화면 **Demo**는 결론 → 경주(두 정책의 기록을 타임스탬프대로 동시 재생) → 왜 → 어떻게 → 검증의 다섯 장면이고, 사이드바 **Lab**이 병목 진단, 조건별 최적 커널, 가상 하드웨어 예측, 실제 생성 실험, Policy lab의 다섯 탭입니다. 레이스용 자연어 기록은 `./run.sh demo-record`(GPU, 약 2분)로 만듭니다. 발표 순서는 [docs/demo.md](docs/demo.md). 저장된 결과를 탐색할 때 GPU는 필요하지 않습니다. 원본 결과 폴더가 없는 환경에서는 `demo_data/`의 실측 요약을 사용합니다. `KERNELSCOPE_RESULTS=/path/to/results`로 결과 폴더를 지정할 수 있습니다.
 
 ### 실행 환경
 
@@ -53,6 +53,16 @@ bash scripts/campaign.sh
 .venv/bin/python -m kernelscope.cli serve demo --out results/serve/cpu_demo
 ```
 
+```bash
+# 연산 클래스 분해 진단(대조 실행 + 계측 실행, 성능 주장 아님)
+.venv/bin/python -m kernelscope.cli serve diagnose --model Qwen/Qwen3-4B-Instruct-2507 \
+  --scenario scenarios/graduation_ragged.yaml --policy heuristic --policy table:demo_data/dispatch_paged_cold.csv \
+  --kv-gib 10 --out ../kernelscope/results/serve_4090/diagnose_new/ragged
+.venv/bin/python -m kernelscope.cli serve diagnose-report demo_data/serve_4090/diagnose_20260927/ragged   # GPU 없이 재생성
+```
+
+decode step을 8개 연산 클래스로 나누어 CUDA event로 시간을 재고, 각 클래스를 DRAM/텐서코어 상한(측정 기반, θ=0.7)에 대어 memory_bound/compute_bound/launch_bound/parallelism_candidate/below_ceiling_unknown으로 판정합니다. 바이트/FLOP 비용 모델은 필수 트래픽만 세는 하한 추정이라 pct_dram·pct_tc도 하한 추정입니다. 결과와 재현 방법은 [연산 클래스 분해](docs/experiments/2026-09-27-op-breakdown.md)에 있습니다.
+
 성능 실험은 전체 사전학습 모델을 사용합니다. `graduation_*`은 합성 토큰 입력, `heldout_text_*`은 직접 작성한 자연어 문단을 길이에 맞춰 구성한 입력입니다. attention 시간, 전체 decode 시간, CPU 선택 비용, 요청별 TPOT, 반복별 결과와 생성 토큰 일치를 따로 기록합니다. `serve demo`의 작은 랜덤 CPU 모델은 실행 로직 확인용이며 GPU 성능 근거가 아닙니다. 기존 커널 실측으로 만든 선택표는 `demo_data/dispatch_paged_cold.csv`에 있습니다.
 
 모델 선택의 CPU 시뮬레이터는 로컬 C 컴파일러가 있으면 빠른 실행 경로를 사용하고, 없으면 NumPy 구현으로 돌아갑니다. 컴파일·로드 비용과 실행 경로는 별도로 기록하며 `KERNELSCOPE_SIMULATOR=python`으로 기준 구현을 강제할 수 있습니다. `.cache/`의 생성 라이브러리는 배포하지 않고 C 소스를 패키지에 포함합니다.
@@ -68,6 +78,17 @@ bash scripts/campaign.sh
 .venv/bin/python scripts/verify_qwen.py --out docs/experiments/qwen3-4b-validation.json
 .venv/bin/python scripts/summarize_campaign.py <캠페인 폴더> --out docs/experiments/serving-results.md
 .venv/bin/python scripts/plot_campaign.py <캠페인 폴더> --out docs/img/serving_comparison.png
+```
+
+시연은 `./run.sh`로 합니다(인자 없이 실행하면 사용법). GPU 없는 장비에서는 `check`·`dashboard`·`verify`·`traffic`(공개 트레이스 재생)·`defaults`(두 라이브러리 기본값 손실 표), 연구실 4090에서는 `kernel`·`serve`·`diagnose`·`divergence`·`generate`·`gpu-all`이 라이브 측정을 돌리고 결과를 `$KERNELSCOPE_RESULTS/demo_runs/<시각>/`에 남깁니다. 다른 GPU 프로세스가 있으면 기다리지 않고 이유를 출력한 뒤 멈춥니다.
+
+```bash
+./run.sh check            # 환경·번들·GPU 점검
+./run.sh dashboard        # 저장된 실측 대시보드 (GPU 불필요)
+./run.sh gpu-all          # 최악 셀 커널 비교 → 실생성 비교 → 연산 분해 → 분기 사건 분류 (약 4분)
+./run.sh generate "GPU 커널 선택이 중요한 이유는" hybrid
+./run.sh verify --tests   # 문서 수치 재계산 + CPU 테스트
+./run.sh traffic          # Azure 트레이스를 연속 배치로 재생: 분할 휴리스틱이 손해 보는 step 비율 (GPU 불필요, 약 1분)
 ```
 
 ```bash
@@ -88,11 +109,11 @@ python3 -m venv .venv
 .venv/bin/pip install numpy pandas pyarrow pyyaml pytest matplotlib 'streamlit>=1.64' 'plotly>=6' safetensors==0.8.0 tokenizers==0.22.2
 .venv/bin/pip install -e . --no-deps
 make test     # CPU 테스트 (GPU 테스트는 제외, flash-attn/transformers 없는 항목은 skip)
-make verify   # 40개 수치 재현 검사: 커널 실측, 실제 생성, 후속 실험, 선택 비용, 성능 모델·혼합 정책 검증, 일관성, GPGPU-Sim 스윕
+make verify   # 531개 수치 재현 검사: 커널 실측, 실제 생성, 후속 실험, 선택 비용, 성능 모델·혼합 정책 검증, 일관성, GPGPU-Sim 스윕, 연산 분해, 혼합 정책 실생성, 분기 사건 분류, 트레이스 재생, 두 라이브러리 기본값, 64K, 커널 탐침, FlashInfer 엔진 캠페인, 라이브러리 무관 선택표
 make demo     # 저장된 실측 결과로 대시보드 실행
 ```
 
-GPU 없이 기록된 측정으로 돌리는 분석 두 가지도 있습니다. `python -m scripts.evaluate_hybrid`는 성능 모델·측정 테이블·혼합 정책의 선택 손실을 leave-one-out으로 비교하고([결과](docs/experiments/2026-09-26-hybrid-policy.md)), `python -m scripts.analyze_mismatches`는 정책 간 생성 토큰 불일치를 분기 사건과 bf16 동점으로 분류합니다([결과](docs/experiments/2026-09-26-mismatch-analysis.md)). 혼합 정책은 `--policy hybrid:<table.csv>:0.2`로 서빙 실험에 쓸 수 있습니다.
+GPU 없이 기록된 측정으로 돌리는 분석 두 가지도 있습니다. `python -m scripts.evaluate_hybrid`는 성능 모델·측정 테이블·혼합 정책의 선택 손실을 leave-one-out으로 비교하고([결과](docs/experiments/2026-09-26-hybrid-policy.md)), `python -m scripts.classify_divergence --campaign <캠페인 폴더>`는 새 캠페인의 생성 토큰 불일치를 분기 사건으로 세고 교사 강제 진단(`scripts/check_policy_numerics.py`)으로 `tie_1ulp/tie_2ulp/clear`를 분류합니다([결과](docs/experiments/2026-10-02-hybrid-validation.md)); `python -m scripts.analyze_mismatches`는 9월 22일 후속 캠페인의 불일치를 같은 방식으로 정리합니다([결과](docs/experiments/2026-09-26-mismatch-analysis.md)). 혼합 정책은 `--policy hybrid:<table.csv>:0.2`로 서빙 실험에 쓸 수 있고, `--policy flashinfer_cudacore`(또는 `flashinfer`)는 같은 규약에서 FlashInfer 커널을 돌려 비교합니다(`kernelscope/serve/attention.py`; plan() 비용은 `policy_us`에 기록). `--policy table_any:demo_data/dispatch_paged_cold_any.csv[:<plan_us>]`는 FA2 분할과 FlashInfer 두 변형을 모두 후보로 둔 라이브러리 무관 선택표로, step마다 분할 수와 attention 백엔드를 함께 고릅니다(`plan_us`를 주면 FlashInfer 백엔드에 step당 plan() 비용을 더해 비교; 선택한 백엔드는 `steps.parquet`의 `attention` 열에 기록). `python -m scripts.traffic_replay --trace <Azure/BurstGPT CSV> --rate-scale 1 --out <폴더>`는 공개 요청 트레이스를 연속 배치로 재생해 분할 휴리스틱이 손해 보는 decode step의 비율을 성능 모델로 셉니다([결과](docs/experiments/2026-10-06-problem-scope.md)).
 
 `kernelscope verify`는 `demo_data/`와 `docs/experiments/`의 RTX 4090 원본 기록만 읽습니다. 각 수치를 프로젝트의 분석 코드로 다시 계산하고, 해당 문서가 여전히 그 값을 적고 있는지도 확인합니다. 하나라도 어긋나면 종료 코드 1을 반환합니다. `--only kernel,serve`로 일부 묶음만, `--data <결과 폴더>`로 원본 결과 폴더를 지정할 수 있습니다. `serve demo`의 CPU 실행은 스케줄링과 토큰 일치 로직만 확인하며, CPU SDPA는 `num_splits`를 사용하지 않으므로 커널 선택의 성능 효과를 재현하지 않습니다.
 

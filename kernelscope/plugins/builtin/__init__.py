@@ -8,7 +8,7 @@ from kernelscope.plugins.registry import PluginRegistry
 
 REGISTRY = PluginRegistry()
 
-_MODULES = ["sdpa", "flash", "naive_exec", "triton_tutorial"]
+_MODULES = ["sdpa", "flash", "flashinfer", "naive_exec", "triton_tutorial"]
 
 for _m in _MODULES:
     try:

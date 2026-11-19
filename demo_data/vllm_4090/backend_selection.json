@@ -1,0 +1,15 @@
+{
+ "logs": [
+  "vllm_reproduce.log",
+  "vllm_reproduce3.log",
+  "vllm_reproduce4.log"
+ ],
+ "engine_starts_reporting_backend": 8,
+ "using": {
+  "FLASH_ATTN": 8
+ },
+ "unknown_env_var_warnings": 8,
+ "child_runs_with_rc_line": 8,
+ "source": "vllm_4090/logs/vllm_reproduce*.log of the 2026-10-06 reproduction (scripts/vllm_reproduce.py sets VLLM_ATTENTION_BACKEND)",
+ "child_runs_requesting_flashinfer": 4
+}

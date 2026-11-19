@@ -1,0 +1,3 @@
+# Controlled uniform baseline: 32 simultaneous requests, fixed output length.
+requests:
+  - {count: 32, prompt_len: 512, max_new_tokens: 64, arrival_step: 0}

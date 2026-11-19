@@ -1,0 +1,19 @@
+{
+  "total_wall_us": 2829737.278050743,
+  "arrival_mode": "logical_decode_step",
+  "sampling": "greedy_fixed_length_no_eos_stop",
+  "seed": 0,
+  "prompt_kind": "constructed_natural_text",
+  "prompt_resolution": "pre_resolved",
+  "model_dtype": "bfloat16",
+  "logit_step_keys": [],
+  "timing_backend": "cuda_events",
+  "model_backend": "flash_attn_paged",
+  "measurement_scope": "single_process_continuous_batching_replay",
+  "ops_mode": "event",
+  "policy": "model",
+  "run": "event",
+  "evidence_kind": "diagnostic_op_breakdown",
+  "performance_claim": false,
+  "created_at": "2026-09-27T13:37:41.576871+00:00"
+}

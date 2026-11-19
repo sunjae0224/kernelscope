@@ -9,6 +9,7 @@ import pytest
 from kernelscope.diagnose import report
 from kernelscope.diagnose.opmodel import OP_CLASSES
 from kernelscope.model.machine import MachineSpec
+from kernelscope.model.params import ModelParams
 
 ROOT = Path(__file__).resolve().parents[1]
 CFG = dict(arch="qwen3", n_layers=2, hidden=24, intermediate=48, n_heads=4, n_kv_heads=2, head_dim=8, vocab=128,
@@ -211,3 +212,37 @@ def test_diagnose_refuses_a_folder_without_event_runs(tmp_path, machine):
     (tmp_path / "manifest.json").write_text(json.dumps({"model_config": CFG, "model_dtype": "float32"}))
     with pytest.raises(FileNotFoundError, match="event_000"):
         report.diagnose(tmp_path, machine, None, None)
+
+
+def test_decode_table_handles_an_empty_steps_frame(machine):
+    empty_steps = pd.DataFrame(columns=["step", "B", "lens", "step_us"])
+    empty_ops = pd.DataFrame(columns=["phase", "step", "op_class", "gpu_us"])
+    t = report.decode_table(empty_steps, empty_ops, report.config_from(CFG), "float32", machine, 0.7, "heuristic")
+    assert t.empty
+    assert list(t.columns) == report.OPS_CSV_COLUMNS
+
+
+def test_diagnose_raises_file_not_found_when_steps_parquet_is_missing(tmp_path, machine):
+    run = tmp_path / "run"
+    event = run / "heuristic" / "event_000"
+    event.mkdir(parents=True)
+    (run / "manifest.json").write_text(json.dumps({"evidence_kind": "diagnostic_op_breakdown", "performance_claim": False,
+                                                   "model": "tiny", "scenario": "s.yaml", "created_at": "t",
+                                                   "model_config": CFG, "model_dtype": "float32"}))
+    _ops().to_parquet(event / "ops.parquet", index=False)          # ops.parquet present, steps.parquet absent
+    with pytest.raises(FileNotFoundError, match="steps.parquet"):
+        report.diagnose(run, machine, None, None)
+
+
+def test_attention_steps_uses_the_model_fallback_when_the_table_lacks_the_head_shape(tmp_path):
+    machine = MachineSpec.from_json(ROOT / "machines" / "rtx4090.json")
+    params = ModelParams.from_json(ROOT / "models" / "rtx4090.json")
+    cfg = report.config_from(dict(n_heads=16, n_kv_heads=2, head_dim=128))     # model needs d=128 fp16
+    steps = _steps(STEP_US, lens=(512, 512, 512, 512))
+    table = report.load_table(_table(tmp_path, h_q=4, h_kv=2))                # H_q=4 != cfg.n_heads=16: no table cell
+    rows = report.attention_steps(steps, cfg, table, {}, machine=machine, params=params)
+    assert (rows.source == "model").all()
+    assert rows.best_alternative.notna().all()
+    assert rows.best_us.map(math.isfinite).all()
+    assert rows.chosen_us.map(math.isfinite).all()
+    assert rows.regret.map(math.isfinite).all()

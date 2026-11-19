@@ -83,6 +83,8 @@ def _op_table(gpu_us, costs, base_us, n_layers, machine, threshold, policy, phas
 
 
 def decode_table(steps, ops, cfg, dtype, machine, threshold, policy) -> pd.DataFrame:
+    if steps.empty:
+        return pd.DataFrame(columns=OPS_CSV_COLUMNS)
     decode = ops[ops.phase == "decode"]
     per_step = decode.groupby(["step", "op_class"]).gpu_us.sum().unstack(fill_value=0.0)
     gpu_us = per_step.reindex(columns=OP_CLASSES, fill_value=0.0).mean().to_dict() if len(per_step) else {}
@@ -208,7 +210,11 @@ def diagnose(run_dir, machine, table_csv, data_root, params=None, threshold=0.7)
     policies, ops_tables, att_tables = {}, [], []
     for policy_dir in sorted(p for p in run_dir.iterdir() if (p / "event_000" / "ops.parquet").exists()):
         name = policy_dir.name
-        event, control = _frames(policy_dir / "event_000", ops=True), _frames(policy_dir / "control_000")
+        event_dir = policy_dir / "event_000"
+        event = _frames(event_dir, ops=True)
+        if event is None:
+            raise FileNotFoundError(f"missing {event_dir / 'steps.parquet'}")
+        control = _frames(policy_dir / "control_000")
         steps = event["steps"]
         decode = decode_table(steps, event["ops"], cfg, dtype, machine, threshold, name)
         pre = prefill_table(event["prefill"], event["ops"], cfg, dtype, machine, threshold, name)

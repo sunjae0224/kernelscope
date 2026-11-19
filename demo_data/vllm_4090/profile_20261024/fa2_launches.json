@@ -1,0 +1,187 @@
+{
+ "note": "FA2 attention launches per torch-profiler trace of results/vllm_4090/profile_20261024 (kernelscope.analysis.vllm_steps.fa2_launches); decode launches of the batch of 32 have grid (1, 32, 8); Split is the seventh template bool of flash_fwd_splitkv_kernel (flash-attn 2.8.3 flash_fwd_launch_template.h:41,107,113,136).",
+ "runs": {
+  "flash_attn_eager_ragged": {
+   "trace": "vllm_4090/profile_20261024/traces/flash_attn_eager_ragged/flash_attn_eager_ragged_rank0.1792857197888094375.pt.trace.json.gz",
+   "trace_sha256": "09016def9a77cc3b4710814c88e7c0707cfbed90fc8cf56718267633cc8d4ec0",
+   "groups": [
+    {
+     "grid": [
+      1,
+      32,
+      8
+     ],
+     "split": false,
+     "launches": 792,
+     "graph_launches": 0,
+     "dur_us_median": 1875.8155
+    },
+    {
+     "grid": [
+      512,
+      1,
+      32
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 67728.9315
+    },
+    {
+     "grid": [
+      8,
+      32,
+      32
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 2034.118
+    },
+    {
+     "grid": [
+      1,
+      31,
+      8
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 79.583
+    }
+   ],
+   "combine_launches": 0
+  },
+  "flash_attn_eager_uniform": {
+   "trace": "vllm_4090/profile_20261024/traces/flash_attn_eager_uniform/flash_attn_eager_ragged_rank0.1792857215529651725.pt.trace.json.gz",
+   "trace_sha256": "633f97a6fb452966d96623be7286e99943a8dbc24ea8930c3405714c45459c94",
+   "groups": [
+    {
+     "grid": [
+      1,
+      32,
+      8
+     ],
+     "split": false,
+     "launches": 792,
+     "graph_launches": 0,
+     "dur_us_median": 81.44
+    },
+    {
+     "grid": [
+      8,
+      3,
+      32
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 83.28
+    },
+    {
+     "grid": [
+      8,
+      32,
+      32
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 764.8125
+    },
+    {
+     "grid": [
+      1,
+      29,
+      8
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 74.23949999999999
+    }
+   ],
+   "combine_launches": 0
+  },
+  "flash_attn_cudagraph_ragged": {
+   "trace": "vllm_4090/profile_20261024/traces/flash_attn_cudagraph_ragged/flash_attn_cudagraph_ragged_rank0.1792857378723148928.pt.trace.json.gz",
+   "trace_sha256": "39512448a92f483f9e25764a5262a2a935e09a278b3eacdbee5dd67db29cea25",
+   "groups": [
+    {
+     "grid": [
+      1,
+      32,
+      8
+     ],
+     "split": false,
+     "launches": 828,
+     "graph_launches": 828,
+     "dur_us_median": 1873.5749999999998
+    },
+    {
+     "grid": [
+      512,
+      2,
+      32
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 68553.581
+    },
+    {
+     "grid": [
+      8,
+      32,
+      32
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 2079.142
+    }
+   ],
+   "combine_launches": 0
+  },
+  "flash_attn_cudagraph_uniform": {
+   "trace": "vllm_4090/profile_20261024/traces/flash_attn_cudagraph_uniform/flash_attn_cudagraph_ragged_rank0.1792857395738810608.pt.trace.json.gz",
+   "trace_sha256": "c2ff4c50b94bd6b2140ded0e86cb719ee55872ef64633a7149d02b89f9ebcbbe",
+   "groups": [
+    {
+     "grid": [
+      1,
+      32,
+      8
+     ],
+     "split": false,
+     "launches": 828,
+     "graph_launches": 828,
+     "dur_us_median": 79.135
+    },
+    {
+     "grid": [
+      8,
+      1,
+      32
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 37.056
+    },
+    {
+     "grid": [
+      8,
+      32,
+      32
+     ],
+     "split": false,
+     "launches": 36,
+     "graph_launches": 0,
+     "dur_us_median": 819.212
+    }
+   ],
+   "combine_launches": 0
+  }
+ }
+}

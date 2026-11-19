@@ -1,0 +1,10 @@
+policy,repeat,questions,right_to_wrong,wrong_to_right,both_right,same_prediction
+fixed8,repeat_000,200,0,0,79,200
+fixed8,repeat_001,200,0,0,79,200
+fixed8,repeat_002,200,0,0,79,200
+flashinfer_cudacore,repeat_000,200,13,15,66,135
+flashinfer_cudacore,repeat_001,200,13,15,66,135
+flashinfer_cudacore,repeat_002,200,13,15,66,135
+table,repeat_000,200,0,0,79,200
+table,repeat_001,200,0,0,79,200
+table,repeat_002,200,0,0,79,200
