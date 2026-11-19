@@ -65,8 +65,8 @@ for off,pol,label,col in [(-.19,'heuristic','기본 휴리스틱',C[0]),(.19,'ta
  vals=[lookup(g,pol)['tpot_ms_mean'] for g in groups]
  bars=ax.bar(x+off,vals,.36,label=label,color=col)
  for b,v in zip(bars,vals):ax.text(b.get_x()+b.get_width()/2,v+1,f'{v:.1f}',ha='center',va='bottom',fontsize=9)
-ax.set_xticks(x,labels=['균일','32K 혼합','요청 도착','64K 반복 자연어']);ax.set_ylabel('TPOT (ms)');ax.set_ylim(0,115)
-ax.legend(frameon=False,ncol=2,fontsize=10);ax.grid(axis='y',alpha=.2);fig.tight_layout();save(fig,'tpot')
+ax.set_xticks(x,labels=['균일 길이','32K 혼합 길이','요청 도착','64K 혼합 길이']);ax.set_ylabel('TPOT (ms)');ax.set_ylim(0,118)
+ax.legend(frameon=False,ncol=2,fontsize=10,loc='upper left');ax.grid(axis='y',alpha=.2);fig.tight_layout();save(fig,'tpot')
 
 rows=j['traffic_sweep']['rows']
 fig,ax=plt.subplots(figsize=(7.7,2.65))
